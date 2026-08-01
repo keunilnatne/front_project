@@ -1,0 +1,16 @@
+.app {
+  display: grid;
+  min-height: 100vh;
+  place-content: center;
+  padding: 2rem;
+  text-align: center;
+}
+
+.app h1 {
+  margin: 0 0 0.75rem;
+  color: #ff6b00;
+}
+
+.app p {
+  margin: 0;
+}
