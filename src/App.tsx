@@ -3,16 +3,30 @@ import AppLayout from './layouts/AppLayout'
 import CompanyDnaPage from './pages/CompanyDnaPage'
 import DashboardPage from './pages/DashboardPage'
 import HistoryPage from './pages/HistoryPage'
+import Loginpage from './pages/Loginpage'
 import MessagesPage from './pages/MessagesPage'
 import RecipientsPage from './pages/RecipientsPage'
 import SettingsPage from './pages/SettingsPage'
 import TeamMemoryPage from './pages/TeamMemoryPage'
+import Welcome from './pages/onbording/welcome'
+import ProfileSetup from './pages/onbording/profile_setup'
+import Communication from './pages/onbording/communication'
+import AddRecipient from './pages/onbording/Add-recipient'
+import Integrations from './pages/onbording/integrations'
+import Complete from './pages/onbording/complete'
 
 function App() {
   return (
     <Routes>
+      <Route index element={<Navigate to="/login" replace />} />
+      <Route path="/login" element={<Loginpage />} />
+      <Route path="/welcome" element={<Welcome />} />
+      <Route path="/profile-setup" element={<ProfileSetup />} />
+      <Route path="/communication" element={<Communication />} />
+      <Route path="/add-recipient" element={<AddRecipient />} />
+      <Route path="/integrations" element={<Integrations />} />
+      <Route path="/complete" element={<Complete />} />
       <Route element={<AppLayout />}>
-        <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/recipients" element={<RecipientsPage />} />
@@ -22,7 +36,7 @@ function App() {
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   )
 }
