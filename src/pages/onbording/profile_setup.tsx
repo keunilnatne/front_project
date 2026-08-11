@@ -39,8 +39,8 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function ProfileSetup() {
   const navigate = useNavigate()
-  const [selectedRole, setSelectedRole] = useState<Role>('디자이너')
-  const [selectedTools, setSelectedTools] = useState<Tool[]>(['Slack'])
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null)
+  const [selectedTools, setSelectedTools] = useState<Tool[]>([])
 
   const toggleTool = (tool: Tool) => {
     setSelectedTools((current) =>
