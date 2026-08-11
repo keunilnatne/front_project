@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { getUserProfile } from '../users/userProfile'
 
 type NavigationItem = {
   label: string
@@ -166,12 +168,19 @@ function SettingsIcon() {
 }
 
 function AppLayout() {
+  const [profile, setProfile] = useState(getUserProfile)
+  useEffect(() => {
+    const updateProfile = () => setProfile(getUserProfile())
+    window.addEventListener('profile-updated', updateProfile)
+    window.addEventListener('storage', updateProfile)
+    return () => { window.removeEventListener('profile-updated', updateProfile); window.removeEventListener('storage', updateProfile) }
+  }, [])
   return (
     <div className="flex min-h-screen bg-[#f8f9fc]">
       {/* Sidebar */}
-      <aside className="flex w-[240px] shrink-0 flex-col border-r border-[#e5e5e8] bg-white">
+      <aside className="flex w-60 shrink-0 flex-col border-r border-[#e5e5e8] bg-white">
         {/* Logo */}
-        <div className="flex h-[64px] items-center px-6">
+        <div className="flex h-16 items-center px-6">
           <span className="text-[24px] font-bold tracking-tight text-[#4338ca]">
             로고
           </span>
@@ -186,7 +195,7 @@ function AppLayout() {
                 to={item.path}
                 className={({ isActive }) =>
                   [
-                    'flex h-[40px] items-center gap-3 rounded-md px-3',
+                    'flex h-10 items-center gap-3 rounded-md px-3',
                     'text-[14px] font-medium',
                     'transition-colors',
                     isActive
@@ -217,7 +226,7 @@ function AppLayout() {
             to="/settings"
             className={({ isActive }) =>
               [
-                'flex h-[40px] items-center gap-3 rounded-md px-3',
+                'flex h-10 items-center gap-3 rounded-md px-3',
                 'text-[14px] font-medium transition-colors',
                 isActive
                   ? 'bg-[#f0edff] text-[#4338ca]'
@@ -232,7 +241,7 @@ function AppLayout() {
 
         {/* User */}
         <div className="p-4">
-          <div className="flex items-center gap-3 px-2 py-2">
+          <NavLink to="/my-profile" aria-label="내 프로필 보기" className={({ isActive }) => `flex items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-[#f0edff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]/30 ${isActive ? 'bg-[#f0edff]' : ''}`}>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#5546e8]">
               <svg
                 width="22"
@@ -249,13 +258,13 @@ function AppLayout() {
 
             <div>
               <p className="text-[14px] font-semibold text-[#29292d]">
-                정신
+                {profile.name}
               </p>
               <p className="text-[13px] text-[#999aa0]">
-                Administrator
+                {profile.role || 'Administrator'}
               </p>
             </div>
-          </div>
+          </NavLink>
         </div>
       </aside>
 

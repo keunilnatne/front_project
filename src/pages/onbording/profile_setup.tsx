@@ -4,6 +4,7 @@ import gmailLogo from '../../images/gmail.png'
 import notionLogo from '../../images/Notion.png'
 import slackLogo from '../../images/slack.png'
 import teamsLogo from '../../images/teams.png'
+import { getUserProfile, saveUserProfile } from '../../users/userProfile'
 
 const roles = ['PM', '기획자', '디자이너', '개발자', '마케터', '팀 리더', '기타'] as const
 const tools = [
@@ -41,6 +42,7 @@ function ProfileSetup() {
   const navigate = useNavigate()
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [selectedTools, setSelectedTools] = useState<Tool[]>([])
+  const profile = getUserProfile()
 
   const toggleTool = (tool: Tool) => {
     setSelectedTools((current) =>
@@ -50,6 +52,8 @@ function ProfileSetup() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    saveUserProfile({ name: String(form.get('name')), company: String(form.get('company')), position: String(form.get('position')), role: selectedRole || profile.role, tools: selectedTools })
     localStorage.setItem('onboarding.profile', 'true')
     navigate('/communication')
   }
@@ -66,10 +70,10 @@ function ProfileSetup() {
 
           <form onSubmit={handleSubmit} className="mt-8 flex flex-col">
             <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-              <Field label="이름"><input required defaultValue="홍길동" className={inputClass} /></Field>
-              <Field label="소속 회사"><input required placeholder="회사명" className={inputClass} /></Field>
+              <Field label="이름"><input name="name" required defaultValue={profile.name} className={inputClass} /></Field>
+              <Field label="소속 회사"><input name="company" required defaultValue={profile.company} placeholder="회사명" className={inputClass} /></Field>
             </div>
-            <div className="mt-4"><Field label="직급"><input placeholder="예: 책임, 매니저, 팀장" className={inputClass} /></Field></div>
+            <div className="mt-4"><Field label="직급"><input name="position" defaultValue={profile.position} placeholder="예: 책임, 매니저, 팀장" className={inputClass} /></Field></div>
 
             <fieldset className="mt-8 border-y border-[#ececf1] py-4">
               <legend className="sr-only">직무 선택</legend>

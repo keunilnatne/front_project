@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type SVGProps } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getUserProfile, saveUserProfile } from '../../users/userProfile'
 
 const preferences = [
   ['concise', '간결하게'],
@@ -49,7 +50,8 @@ function PreferenceIcon({ name, ...props }: { name: PreferenceId } & SVGProps<SV
 
 function Communication() {
   const navigate = useNavigate()
-  const [selected, setSelected] = useState<PreferenceId[]>([])
+  const profile = getUserProfile()
+  const [selected, setSelected] = useState<PreferenceId[]>(profile.communicationPreferences.filter((id): id is PreferenceId => preferences.some(([preference]) => preference === id)))
 
   const togglePreference = (id: PreferenceId) => {
     setSelected((current) =>
@@ -59,6 +61,8 @@ function Communication() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    saveUserProfile({ communicationPreferences: selected, customStyle: String(form.get('customStyle') || '') })
     localStorage.setItem('onboarding.communication', 'true')
     navigate('/add-recipient')
   }
@@ -92,7 +96,7 @@ function Communication() {
 
           <div className="mt-[23.99px] pt-3.75">
             <label htmlFor="custom-style" className="block h-[17.8px] pb-[0.8px] text-xs leading-[16.8px] tracking-[0.12px]">직접 입력하기 (선택)</label>
-            <textarea id="custom-style" rows={3} placeholder="예: 비즈니스 용어를 많이 사용합니다, 이모지를 자주 씁니다..." className="mt-1 block h-24.25 w-full resize-none overflow-auto rounded-lg border border-[#dadada] bg-white p-4 text-sm leading-5.25 outline-none transition placeholder:text-[#564334] focus:border-[#6a54ee] focus:ring-2 focus:ring-[#6a54ee]/10" />
+            <textarea id="custom-style" name="customStyle" defaultValue={profile.customStyle} rows={3} placeholder="예: 비즈니스 용어를 많이 사용합니다, 이모지를 자주 씁니다..." className="mt-1 block h-24.25 w-full resize-none overflow-auto rounded-lg border border-[#dadada] bg-white p-4 text-sm leading-5.25 outline-none transition placeholder:text-[#564334] focus:border-[#6a54ee] focus:ring-2 focus:ring-[#6a54ee]/10" />
           </div>
 
           <div className="mt-[23.8px] grid h-[99.8px] grid-cols-[178px_1fr] gap-9.75 border-t border-[#ececf1] pt-6 max-sm:grid-cols-[1fr_1.5fr] max-sm:gap-3">
