@@ -5,6 +5,7 @@ import DashboardPage from './pages/DashboardPage'
 import HistoryPage from './pages/HistoryPage'
 import Loginpage from './pages/Loginpage'
 import MessagesPage from './pages/MessagesPage'
+import MyProfilePage from './pages/my-profile'
 import RecipientsPage from './pages/RecipientsPage'
 import SettingsPage from './pages/SettingsPage'
 import TeamMemoryPage from './pages/TeamMemoryPage'
@@ -34,8 +35,8 @@ function App() {
         <Route path="/team-memory" element={<TeamMemoryPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/my-profile" element={<MyProfilePage />} />
       </Route>
-
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   )

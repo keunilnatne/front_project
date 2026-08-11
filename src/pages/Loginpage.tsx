@@ -6,6 +6,7 @@ import googleIcon from '../images/google.png'
 import logo from '../images/ieum-logo.png'
 import kakaoIcon from '../images/kakao.png'
 import naverIcon from '../images/naver.png'
+import { saveUserProfile } from '../users/userProfile'
 
 function EyeIcon({ open }: { open: boolean }) {
   return (
@@ -100,6 +101,8 @@ function Loginpage() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    saveUserProfile({ email: String(form.get('email')) })
     navigate('/welcome')
   }
 
