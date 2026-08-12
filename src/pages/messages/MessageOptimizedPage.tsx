@@ -5,6 +5,7 @@ type Recipient = {
   name: string
   position: string
   company: string
+  country?: string
   language: string
   timezone: string
   relationship: string
@@ -24,7 +25,7 @@ export default function MessageOptimizedPage() {
 
   const state = location.state as OptimizedState | null
 
-  // 직접 URL로 들어왔을 때
+  // 직접 URL로 들어왔거나 state가 없는 경우
   if (!state) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f8f9fc]">
@@ -115,7 +116,7 @@ export default function MessageOptimizedPage() {
                 </div>
 
                 <div className="border-t border-[#e5e1f3] px-5 py-3 text-[11px] text-[#aaa5b2]">
-                  언어: 한국어
+                  언어: Korean
                 </div>
               </div>
 
@@ -156,7 +157,7 @@ export default function MessageOptimizedPage() {
                 </div>
 
                 <div className="border-t border-[#eeeeef] px-5 py-3 text-[11px] text-[#aaa5b2]">
-                  언어: {recipient.language || 'English'} · 시간:{' '}
+                  언어: {recipient.language || 'Korean'} · 시간:{' '}
                   {recipient.timezone || '-'} 기준
                 </div>
               </div>
@@ -193,7 +194,7 @@ export default function MessageOptimizedPage() {
                   <p className="text-[12px] text-[#999]">언어</p>
 
                   <p className="mt-4 text-[13px] font-semibold">
-                    Korean → {recipient.language || 'English'}
+                    Korean → {recipient.language || 'Korean'}
                   </p>
 
                   <p className="mt-2 text-[11px] leading-5 text-[#999]">
@@ -249,19 +250,11 @@ export default function MessageOptimizedPage() {
 
           <div className="mt-5 flex items-center gap-3 border-b border-[#eeeef0] pb-5">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ddd] text-[12px] font-semibold">
-              {recipient.name
-                ? recipient.name
-                    .split(' ')
-                    .map((name) => name[0])
-                    .join('')
-                    .slice(0, 2)
-                : '?'}
+              {recipient.name ? recipient.name.slice(0, 2) : '?'}
             </div>
 
             <div>
-              <p className="font-semibold">
-                {recipient.name || '수신자'}
-              </p>
+              <p className="font-semibold">{recipient.name || '수신자'}</p>
 
               <p className="text-[12px] text-[#999]">
                 {recipient.company || '-'}
@@ -272,7 +265,7 @@ export default function MessageOptimizedPage() {
           <div className="space-y-5 pt-6 text-[13px]">
             <div className="flex justify-between">
               <span className="text-[#999]">국가</span>
-              <span>Indonesia</span>
+              <span>{recipient.country || 'South Korea'}</span>
             </div>
 
             <div className="flex justify-between">
@@ -303,8 +296,8 @@ export default function MessageOptimizedPage() {
 
             <ul className="mt-3 space-y-3 text-[12px] leading-5 text-[#625c6b]">
               <li>
-                • 요청 범위를 조금 더 구체적으로 작성하면 상대방이 더
-                정확하게 이해할 수 있어요.
+                • 요청 범위를 조금 더 구체적으로 작성하면 상대방이 더 정확하게
+                이해할 수 있어요.
               </li>
 
               <li>

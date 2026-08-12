@@ -64,12 +64,9 @@ export default function MessagesPage() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const passedRecipient = location.state?.recipient as
-    | Recipient
-    | undefined
+  const passedRecipient = location.state?.recipient as Recipient | undefined
 
-  const [recipients, setRecipients] =
-    useState<Recipient[]>(mockRecipients)
+  const [recipients, setRecipients] = useState<Recipient[]>(mockRecipients)
 
   const [recipient, setRecipient] = useState<Recipient | null>(
     passedRecipient || null,
@@ -99,10 +96,10 @@ export default function MessagesPage() {
       })
       .catch(() => {
         if (!passedRecipient) {
-          setRecipient(null)
+          setRecipient(mockRecipients[0])
         }
       })
-  }, [])
+  }, [passedRecipient])
 
   function selectRecipient(item: Recipient) {
     setRecipient(item)
@@ -128,20 +125,17 @@ export default function MessagesPage() {
     setLoading(true)
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/messages/optimize`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            recipient,
-            subject,
-            body,
-          }),
+      const response = await fetch(`${API_URL}/api/messages/optimize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      )
+        body: JSON.stringify({
+          recipient,
+          subject,
+          body,
+        }),
+      })
 
       if (!response.ok) {
         throw new Error('AI optimization failed')
@@ -149,16 +143,29 @@ export default function MessagesPage() {
 
       const data = await response.json()
 
+      // 백엔드 연결 성공 시 넘겨받은 optimized 데이터를 사용
       navigate('/messages/optimized', {
         state: {
           recipient,
           subject: data.subject,
           body: data.body,
+          originalSubject: subject,
+          originalBody: body,
         },
       })
     } catch (error) {
       console.error(error)
-      alert('AI 최적화에 실패했습니다.')
+      // 백엔드가 연결되어 있지 않거나 에러 발생 시 테스트용 목업 처리
+      // API 연결 성공 시 alert만 남기거나 아래 fallback 라우팅을 제거하시면 됩니다.
+      navigate('/messages/optimized', {
+        state: {
+          recipient,
+          subject: `[최적화됨] ${subject}`,
+          body: `안녕하세요 ${recipient.name}님,\n\n${body}\n\n감사합니다.`,
+          originalSubject: subject,
+          originalBody: body,
+        },
+      })
     } finally {
       setLoading(false)
     }
@@ -220,8 +227,7 @@ export default function MessagesPage() {
                     {recipient.name.slice(0, 1)}
                   </div>
 
-                  {recipient.name} · {recipient.position} ·{' '}
-                  {recipient.company}
+                  {recipient.name} · {recipient.position} · {recipient.company}
 
                   <button
                     onClick={() => setRecipient(null)}
@@ -238,9 +244,7 @@ export default function MessagesPage() {
 
               {/* + 버튼 */}
               <button
-                onClick={() =>
-                  setShowRecipientList(!showRecipientList)
-                }
+                onClick={() => setShowRecipientList(!showRecipientList)}
                 className="ml-3 text-[25px] leading-none text-[#555]"
               >
                 ⊕
@@ -250,9 +254,7 @@ export default function MessagesPage() {
               {showRecipientList && (
                 <div className="absolute left-[115px] top-[48px] z-50 w-[340px] overflow-hidden rounded-xl border border-[#dedde4] bg-white shadow-lg">
                   <div className="border-b border-[#eeeeef] px-4 py-3">
-                    <p className="text-[12px] font-semibold">
-                      수신자 선택
-                    </p>
+                    <p className="text-[12px] font-semibold">수신자 선택</p>
                   </div>
 
                   {recipients.map((item) => (
@@ -266,9 +268,7 @@ export default function MessagesPage() {
                       </div>
 
                       <div>
-                        <p className="text-[13px] font-semibold">
-                          {item.name}
-                        </p>
+                        <p className="text-[13px] font-semibold">{item.name}</p>
 
                         <p className="text-[11px] text-[#888]">
                           {item.position} · {item.company}
@@ -320,10 +320,7 @@ export default function MessagesPage() {
                   disabled={loading}
                   className="rounded-lg bg-[#4f2ee0] px-6 py-4 text-[14px] font-semibold text-white disabled:opacity-60"
                 >
-                  ✨{' '}
-                  {loading
-                    ? '최적화 중...'
-                    : 'AI로 최적화하기'}
+                  ✨ {loading ? '최적화 중...' : 'AI로 최적화하기'}
                 </button>
               </div>
             </div>
@@ -344,9 +341,7 @@ export default function MessagesPage() {
                 </div>
 
                 <div>
-                  <p className="font-semibold">
-                    {recipient.name}
-                  </p>
+                  <p className="font-semibold">{recipient.name}</p>
 
                   <p className="text-[12px] text-[#999]">
                     {recipient.company}
@@ -377,9 +372,7 @@ export default function MessagesPage() {
               </div>
 
               <div className="mt-8">
-                <p className="text-[12px] text-[#999]">
-                  커뮤니케이션 스타일
-                </p>
+                <p className="text-[12px] text-[#999]">커뮤니케이션 스타일</p>
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   <span className="rounded bg-[#f0ebff] px-2 py-1 text-[11px] text-[#6343dd]">
