@@ -4,7 +4,8 @@ import CompanyDnaPage from './pages/CompanyDnaPage'
 import DashboardPage from './pages/DashboardPage'
 import HistoryPage from './pages/HistoryPage'
 import Loginpage from './pages/Loginpage'
-import MessagesPage from './pages/MessagesPage'
+import MessagesPage from './pages/messages/MessagesPage'
+import MessageOptimizedPage from './pages/messages/MessageOptimizedPage'
 import MyProfilePage from './pages/my-profile'
 import RecipientsPage from './pages/RecipientsPage'
 import SettingsPage from './pages/SettingsPage'
@@ -30,6 +31,7 @@ function App() {
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/messages" element={<MessagesPage />} />
+        <Route path="/messages/optimized" element={<MessageOptimizedPage />} />
         <Route path="/recipients" element={<RecipientsPage />} />
         <Route path="/company-dna" element={<CompanyDnaPage />} />
         <Route path="/team-memory" element={<TeamMemoryPage />} />
