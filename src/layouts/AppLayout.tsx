@@ -34,6 +34,13 @@ const navigationItems: NavigationItem[] = [
     path: '/team-memory',
     icon: 'memory',
   },
+  /*
+  {
+    label: 'Global',
+    path: '/global',
+    icon: 'global',
+  },
+  */
   {
     label: '기록',
     path: '/history',
@@ -135,6 +142,17 @@ function MenuIcon({
       </svg>
     )
   }
+
+  /*
+  if (type === 'global') {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M3.8 9h16.4M3.8 15h16.4M12 3.5c2.2 2.3 3.4 5.1 3.4 8.5S14.2 18.2 12 20.5C9.8 18.2 8.6 15.4 8.6 12S9.8 5.8 12 3.5Z" />
+      </svg>
+    )
+  }
+  */
 
   return (
     <svg
