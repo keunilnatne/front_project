@@ -276,10 +276,10 @@ function AppLayout() {
 
             <div>
               <p className="text-[14px] font-semibold text-[#29292d]">
-                {profile.name}
+                {profile.name || '이름 미설정'}
               </p>
               <p className="text-[13px] text-[#999aa0]">
-                {profile.role || 'Administrator'}
+                {profile.role || '직무 미설정'}
               </p>
             </div>
           </NavLink>

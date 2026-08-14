@@ -44,7 +44,7 @@ function SecurityPrivacySection() {
   }
 
   return (
-    <section id="security" className="min-h-[467px] scroll-mt-8 rounded-xl border border-[#e1e1e1] bg-white p-6 shadow-sm">
+    <section id="security" className="min-h-116.75 scroll-mt-8 rounded-xl border border-[#e1e1e1] bg-white p-6 shadow-sm">
       <h2 className="text-[16px] font-semibold">보안 및 개인정보</h2>
       <p className="mt-1 text-[12px] text-[#777981]">데이터 보안과 계정 및 개인정보 관련 설정을 관리합니다.</p>
 
@@ -94,7 +94,7 @@ function SecurityCard({ icon, title, children, onClick }: {
   onClick: () => void
 }) {
   return (
-    <button type="button" onClick={onClick} className="flex min-h-[92px] flex-col items-start rounded-lg border border-[#e1e1e5] p-4 text-left hover:bg-[#fafaff]">
+    <button type="button" onClick={onClick} className="flex min-h-23 flex-col items-start rounded-lg border border-[#e1e1e5] p-4 text-left hover:bg-[#fafaff]">
       <span aria-hidden="true">{icon}</span>
       <span className="mt-2 text-[12px] font-medium">{title}</span>
       <span className="mt-1 text-[10px] text-[#7a7c84]">{children}</span>
@@ -110,7 +110,7 @@ function DangerRow({ title, description, button, onClick, strong = false }: {
   strong?: boolean
 }) {
   return (
-    <div className={`mt-3 flex min-h-[66px] items-center justify-between gap-4 rounded-lg border px-4 py-3 ${strong ? 'border-[#ee8f8f] bg-[#fff7f7]' : 'border-[#f3b6b6] bg-[#fffafa]'}`}>
+    <div className={`mt-3 flex min-h-16.5 items-center justify-between gap-4 rounded-lg border px-4 py-3 ${strong ? 'border-[#ee8f8f] bg-[#fff7f7]' : 'border-[#f3b6b6] bg-[#fffafa]'}`}>
       <div>
         <p className={`text-[12px] font-medium ${strong ? 'text-[#d34848]' : ''}`}>{title}</p>
         <p className="mt-1 text-[10px] text-[#8a7777]">{description}</p>
@@ -129,7 +129,7 @@ function ConversationDialog({ conversations, onDelete, onClose }: {
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4" onMouseDown={onClose}>
-      <div role="dialog" aria-modal="true" aria-labelledby="conversation-title" onMouseDown={(event) => event.stopPropagation()} className="flex max-h-[75vh] w-full max-w-[560px] flex-col rounded-xl bg-white p-6 shadow-xl">
+      <div role="dialog" aria-modal="true" aria-labelledby="conversation-title" onMouseDown={(event) => event.stopPropagation()} className="flex max-h-[75vh] w-full max-w-140 flex-col rounded-xl bg-white p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 id="conversation-title" className="text-[16px] font-semibold">내 학습 데이터</h3>

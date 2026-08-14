@@ -6,7 +6,7 @@ import googleIcon from '../images/google.png'
 import logo from '../images/ieum-logo.png'
 import kakaoIcon from '../images/kakao.png'
 import naverIcon from '../images/naver.png'
-import { saveUserProfile } from '../users/userProfile'
+import { startOnboarding } from '../users/userProfile'
 
 function EyeIcon({ open }: { open: boolean }) {
   return (
@@ -102,7 +102,7 @@ function Loginpage() {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    saveUserProfile({ email: String(form.get('email')) })
+    startOnboarding(String(form.get('email')))
     navigate('/welcome')
   }
 
@@ -169,7 +169,7 @@ function Loginpage() {
             간편 회원가입하기
           </button>
 
-          <SocialLoginSection onLogin={() => navigate('/welcome')} />
+          <SocialLoginSection onLogin={() => { startOnboarding(); navigate('/welcome') }} />
         </form>
       </div>
     </main>
