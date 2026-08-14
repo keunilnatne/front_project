@@ -9,7 +9,11 @@ type Conversation = {
 }
 
 const CONVERSATIONS_KEY = 'ieum.conversations'
-const ACCOUNT_KEYS = ['ieum.userProfile', 'ieum.accountPassword']
+const ACCOUNT_KEYS = [
+  'ieum.accounts',
+  'ieum.userProfile',
+  'ieum.accountPassword',
+]
 
 function SecurityPrivacySection() {
   const navigate = useNavigate()
@@ -49,10 +53,10 @@ function SecurityPrivacySection() {
       <p className="mt-1 text-[12px] text-[#777981]">데이터 보안과 계정 및 개인정보 관련 설정을 관리합니다.</p>
 
       <div className="mt-6 grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-        <SecurityCard icon="▣" title="내 학습 데이터 관리" onClick={() => setShowConversations(true)}>
+        <SecurityCard icon={<LearningDataIcon />} title="내 학습 데이터 관리" onClick={() => setShowConversations(true)}>
           지금까지 생성된 대화 목록을 확인하고 관리
         </SecurityCard>
-        <SecurityCard icon="⇩" title="개인 데이터 다운로드" onClick={downloadPersonalData}>
+        <SecurityCard icon={<DownloadIcon />} title="개인 데이터 다운로드" onClick={downloadPersonalData}>
           프로필, 설정, 연동 및 대화를 JSON으로 다운로드
         </SecurityCard>
       </div>
@@ -88,17 +92,34 @@ function SecurityPrivacySection() {
 }
 
 function SecurityCard({ icon, title, children, onClick }: {
-  icon: string
+  icon: ReactNode
   title: string
   children: ReactNode
   onClick: () => void
 }) {
   return (
     <button type="button" onClick={onClick} className="flex min-h-23 flex-col items-start rounded-lg border border-[#e1e1e5] p-4 text-left hover:bg-[#fafaff]">
-      <span aria-hidden="true">{icon}</span>
+      <span aria-hidden="true" className="flex h-6 items-start">{icon}</span>
       <span className="mt-2 text-[12px] font-medium">{title}</span>
       <span className="mt-1 text-[10px] text-[#7a7c84]">{children}</span>
     </button>
+  )
+}
+
+function LearningDataIcon() {
+  return (
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" className="shrink-0 text-[#241912]">
+      <path d="M4 2.25h7l3 3v10.5H4V2.25Z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
+      <path d="M11 2.25v3h3M6.5 8h5M6.5 10.75h5M6.5 13.5h3.25" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function DownloadIcon() {
+  return (
+    <svg aria-hidden="true" width="16" height="24" viewBox="0 0 16 24" fill="none" className="shrink-0 text-[#241912]">
+      <path d="M8 1.5v9M4.75 7.5 8 10.75l3.25-3.25M2.25 13.25v2.25h11.5v-2.25" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
 
@@ -178,7 +199,9 @@ function getAppStorageKeys() {
 
 function downloadPersonalData() {
   const data = getAppStorageKeys().reduce<Record<string, unknown>>((result, key) => {
-    if (key === 'ieum.accountPassword') return result
+    if (key === 'ieum.accountPassword' || key === 'ieum.accounts') {
+      return result
+    }
 
     const value = localStorage.getItem(key)
     if (value === null) return result

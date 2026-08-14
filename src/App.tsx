@@ -3,7 +3,8 @@ import AppLayout from './layouts/AppLayout'
 import CompanyDnaPage from './pages/CompanyDnaPage'
 import DashboardPage from './pages/DashboardPage'
 import HistoryPage from './pages/HistoryPage'
-import Loginpage from './pages/Loginpage'
+import SignInPage from './pages/login/sign-in'
+import SignUpPage from './pages/login/sign-up'
 import MessagesPage from './pages/MessagesPage'
 import MyProfilePage from './pages/my-profile'
 import RecipientsPage from './pages/RecipientsPage'
@@ -20,7 +21,8 @@ function App() {
   return (
     <Routes>
       <Route index element={<Navigate to="/login" replace />} />
-      <Route path="/login" element={<Loginpage />} />
+      <Route path="/login" element={<SignInPage />} />
+      <Route path="/sign-up" element={<SignUpPage />} />
       <Route path="/welcome" element={<Welcome />} />
       <Route path="/profile-setup" element={<ProfileSetup />} />
       <Route path="/communication" element={<Communication />} />
