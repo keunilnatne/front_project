@@ -1,11 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import appleIcon from '../../images/apple.png'
-import facebookIcon from '../../images/facebook.png'
 import googleIcon from '../../images/google.png'
 import logo from '../../images/ieum-logo.png'
-import kakaoIcon from '../../images/kakao.png'
-import naverIcon from '../../images/naver.png'
 import { authenticateAccount } from '../../users/auth'
 import { startOnboarding } from '../../users/userProfile'
 
@@ -15,13 +11,9 @@ const INPUT_CLASS = [
   'focus:border-[#4338ca] focus:ring-4 focus:ring-[#4338ca]/10',
 ].join(' ')
 
-const socialLogins = [
-  { name: '네이버', icon: naverIcon },
-  { name: '카카오', icon: kakaoIcon },
-  { name: '구글', icon: googleIcon },
-  { name: '페이스북', icon: facebookIcon },
-  { name: '애플', icon: appleIcon },
-]
+// 백엔드 작업: 실제 Google OAuth 시작 API 경로가 다르면 .env의
+// VITE_GOOGLE_AUTH_URL 값을 백엔드 엔드포인트로 설정해 주세요.
+const GOOGLE_AUTH_URL = import.meta.env.VITE_GOOGLE_AUTH_URL || '/api/auth/google'
 
 function SignInPage() {
   const navigate = useNavigate()
@@ -30,6 +22,7 @@ function SignInPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const registered = searchParams.get('registered') === 'true'
+  const isGooglePopup = window.name === 'google-login' && Boolean(window.opener)
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -39,7 +32,7 @@ function SignInPage() {
     const form = new FormData(event.currentTarget)
     const email = String(form.get('email') || '')
     const password = String(form.get('password') || '')
-    let authenticated = false
+    let authenticated: boolean
 
     try {
       authenticated = await authenticateAccount(email, password)
@@ -132,20 +125,24 @@ function SignInPage() {
             이메일 저장
           </label>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="mt-6 h-14 w-full rounded-lg bg-[#4338ca] text-sm font-bold text-white transition hover:bg-[#3730a3] disabled:cursor-wait disabled:opacity-60"
-          >
-            {isSubmitting ? '로그인 중...' : '로그인하기'}
-          </button>
+          {!isGooglePopup && (
+            <>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="mt-6 h-14 w-full rounded-lg bg-[#4338ca] text-sm font-bold text-white transition hover:bg-[#3730a3] disabled:cursor-wait disabled:opacity-60"
+              >
+                {isSubmitting ? '로그인 중...' : '로그인하기'}
+              </button>
 
-          <Link
-            to="/sign-up"
-            className="mt-4 flex h-14 w-full items-center justify-center rounded-lg border border-[#4338ca] text-sm font-bold text-[#4338ca] transition hover:bg-[#f5f3ff]"
-          >
-            간편 회원가입하기
-          </Link>
+              <Link
+                to="/sign-up"
+                className="mt-4 flex h-14 w-full items-center justify-center rounded-lg border border-[#4338ca] text-sm font-bold text-[#4338ca] transition hover:bg-[#f5f3ff]"
+              >
+                간편 회원가입하기
+              </Link>
+            </>
+          )}
         </form>
 
         <SocialLoginSection />
@@ -154,33 +151,84 @@ function SignInPage() {
   )
 }
 
+type GoogleAuthMessage = {
+  type: 'google-auth-success' | 'google-auth-error'
+  email?: string
+  message?: string
+}
+
 function SocialLoginSection() {
-  const showPreparingMessage = (serviceName: string) => {
-    window.alert(`${serviceName} 로그인은 준비 중입니다.`)
+  const navigate = useNavigate()
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [googleError, setGoogleError] = useState('')
+
+  useEffect(() => {
+    const handleGoogleAuthMessage = (event: MessageEvent<GoogleAuthMessage>) => {
+      if (event.origin !== window.location.origin) return
+
+      if (event.data?.type === 'google-auth-success' && event.data.email) {
+        setIsConnecting(false)
+        startOnboarding(event.data.email)
+        navigate('/welcome')
+        return
+      }
+
+      if (event.data?.type === 'google-auth-error') {
+        setIsConnecting(false)
+        setGoogleError(event.data.message || 'Google 로그인에 실패했습니다.')
+      }
+    }
+
+    window.addEventListener('message', handleGoogleAuthMessage)
+    return () => window.removeEventListener('message', handleGoogleAuthMessage)
+  }, [navigate])
+
+  const openGoogleLogin = () => {
+    setGoogleError('')
+
+    // Google 이메일과 비밀번호는 이 앱에서 입력X
+    // 백엔드 OAuth 시작 API가 Google 공식 로그인 화면으로 리다이렉트해야 합니다.
+    const popup = window.open(
+      GOOGLE_AUTH_URL,
+      'google-login',
+      'popup=yes,width=520,height=680,left=200,top=80',
+    )
+
+    if (!popup) {
+      setGoogleError('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해 주세요.')
+      return
+    }
+
+    setIsConnecting(true)
+    popup.focus()
   }
 
   return (
-    <section className="mt-10 text-center" aria-labelledby="social-login-title">
-      <h2 id="social-login-title" className="text-sm font-medium">
-        SNS 계정으로 로그인하기
-      </h2>
-      <div className="mt-5 flex gap-5">
-        {socialLogins.map(({ name, icon }) => (
-          <button
-            key={name}
-            type="button"
-            onClick={() => showPreparingMessage(name)}
-            aria-label={`${name} 계정으로 로그인`}
-            className="group flex w-12 flex-col items-center gap-2"
-          >
-            <img
-              src={icon}
-              alt=""
-              className="h-12 w-12 rounded-full object-contain shadow-sm transition group-hover:-translate-y-1"
-            />
-          </button>
-        ))}
-      </div>
+    <section className="mt-10 w-full" aria-label="Google 로그인">
+      <button
+        type="button"
+        onClick={openGoogleLogin}
+        disabled={isConnecting}
+        className="relative flex h-14 w-full items-center justify-center rounded-lg border border-[#d9d9de] bg-white px-5 text-sm font-bold text-[#3f4046] transition hover:border-[#b9b6d8] hover:bg-[#fafaff] disabled:cursor-wait disabled:opacity-60"
+      >
+        <img src={googleIcon} alt="" className="absolute left-5 h-6 w-6 object-contain" />
+        {isConnecting ? 'Google 계정 연결 중...' : 'Google 계정으로 로그인하기'}
+      </button>
+
+      {googleError && <p role="alert" className="mt-3 text-sm text-[#c23e3e]">{googleError}</p>}
+
+      {/*
+        백엔드 작업:
+        1. GOOGLE_AUTH_URL에서 Google OAuth 인증을 시작하고 공식 Google 로그인 창으로 이동시켜 주세요.
+        2. 인증 성공 후 팝업의 같은 출처 페이지에서 아래 코드를 실행해 주세요.
+           window.opener?.postMessage(
+             { type: 'google-auth-success', email: '인증된 Google 이메일' },
+             window.location.origin,
+           )
+           window.close()
+        3. 실패 시 { type: 'google-auth-error', message: '오류 내용' }을 같은 방식으로 보내 주세요.
+        4. 실제 로그인 세션은 백엔드에서 HttpOnly/Secure 쿠키로 발급해 주세요.
+      */}
     </section>
   )
 }
