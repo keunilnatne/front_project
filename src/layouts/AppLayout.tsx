@@ -25,14 +25,19 @@ const navigationItems: NavigationItem[] = [
     icon: 'users',
   },
   {
-    label: 'Company DNA',
-    path: '/company-dna',
-    icon: 'dna',
+    label: '기록',
+    path: '/history',
+    icon: 'history',
   },
   {
     label: 'Team Memory',
     path: '/team-memory',
     icon: 'memory',
+  },
+  {
+    label: 'Company DNA',
+    path: '/company-dna',
+    icon: 'dna',
   },
   /*
   {
@@ -41,11 +46,6 @@ const navigationItems: NavigationItem[] = [
     icon: 'global',
   },
   */
-  {
-    label: '기록',
-    path: '/history',
-    icon: 'history',
-  },
 ]
 
 function MenuIcon({

@@ -21,3 +21,24 @@ body {
   min-width: 320px;
   min-height: 100vh;
 }
+
+/* =========================================================
+   Shared page typography
+   Keep page titles visually consistent with the AI optimized
+   result screen (25px / bold).
+   ========================================================= */
+.ieum-page-title {
+  margin: 0;
+  font-size: 25px;
+  line-height: 1.35;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #2d282c;
+}
+
+.ieum-page-subtitle {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 400;
+}
