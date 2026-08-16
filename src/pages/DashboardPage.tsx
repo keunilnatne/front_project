@@ -1,80 +1,326 @@
-import { Link } from 'react-router-dom'
+// src/pages/DashboardPage.tsx
 
-const steps = [
-  { number: '1', label: '메시지 작성', icon: '✎', color: '#7c3aed' },
-  { number: '2', label: '수신자 선택', icon: '○', color: '#16c7a2' },
-  { number: '3', label: 'AI 최적화', icon: '✦', color: '#3b82f6' },
-]
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import PageHeader from '../components/PageHeader'
+import { useConversations } from '../users/useConversations'
+import { useProfileAnalytics } from '../users/useProfileAnalytics'
 
-function DashboardPage() {
+import DocumentIcon from '../images/dashboard/DocumentImg.png'
+import DocumentInBox from '../images/dashboard/DocumentInBox.png'
+
+type DashboardStats = {
+  sentMessages: number
+  aiConversions: number
+  recipients: number
+}
+
+const fallbackStats: DashboardStats = {
+  sentMessages: 0,
+  aiConversions: 0,
+  recipients: 0,
+}
+
+
+export default function DashboardPage() {
+  const navigate = useNavigate()
+
+  const [stats, setStats] = useState<DashboardStats>(fallbackStats)
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const { conversations } = useConversations(true)
+  const analytics = useProfileAnalytics()
+  const [openGuide, setOpenGuide] = useState<number | null>(null)
+
+  useEffect(() => {
+    let active = true
+    void fetch('/api/recipients')
+      .then((response) => response.ok ? response.json() : [])
+      .then((data) => {
+        if (active && Array.isArray(data)) setStats((current) => ({ ...current, recipients: data.length }))
+      })
+      .catch(() => undefined)
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    const sentMessages = conversations.reduce((count, conversation) => (
+      count + conversation.messages.filter((message) => message.role === 'user').length
+    ), 0)
+
+    setStats((current) => ({
+      ...current,
+      sentMessages,
+      aiConversions: analytics.optimizedMessageCount,
+    }))
+    setLoading(false)
+  }, [conversations, analytics.optimizedMessageCount])
+
+  const guideItems = useMemo(
+    () => [
+      {
+        number: 1,
+        title: '메시지 작성',
+        description: '전달할 메시지를 작성해보세요.',
+        icon: '▱',
+        color: '#7c3aed',
+        bg: '#f1ebff',
+        action: () => navigate('/messages'),
+      },
+      {
+        number: 2,
+        title: '수신자 선택',
+        description: '메시지를 받을 수신자를 선택하세요.',
+        icon: '♙',
+        color: '#13b8a6',
+        bg: '#e9fbf7',
+        action: () => navigate('/recipients'),
+      },
+      {
+        number: 3,
+        title: 'AI 최적화',
+        description: '상황에 맞는 메시지로 최적화해보세요.',
+        icon: '✦',
+        color: '#3b82f6',
+        bg: '#edf4ff',
+        action: () => navigate('/messages/optimized'),
+      },
+    ],
+    [navigate],
+  )
+
+  const handleCreateMessage = () => {
+    navigate('/messages')
+  }
+
+  const handleTemplate = () => {
+    navigate('/messages')
+  }
+
   return (
-    <div className="min-h-256 bg-[#f8f9fc] text-[#24242a]">
-      <header className="flex h-16 items-center justify-between border-b border-[#e5e7eb] bg-white px-8">
-        <label className="flex h-10 w-110 items-center gap-3 rounded-md border border-[#dfe1e6] px-4 text-[#91939a] focus-within:border-[#6952e8]">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-            <path d="m16 16 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-          <input type="search" placeholder="메시지 또는 팀 멤버 검색" className="min-w-0 flex-1 bg-transparent text-sm text-[#313238] outline-none placeholder:text-[#a0a1a8]" />
-        </label>
-        <div className="flex items-center gap-4 text-[#666870]">
-          <button type="button" aria-label="알림" className="relative rounded-full p-1 hover:bg-[#f1f2f6]">
-            <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-red-500" />
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6.5 16.5h11l-1.5-2V10a4 4 0 0 0-8 0v4.5l-1.5 2Z" stroke="currentColor" strokeWidth="1.7" /><path d="M10 19a2.2 2.2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.7" /></svg>
-          </button>
-          <button type="button" aria-label="도움말" className="flex h-6 w-6 items-center justify-center rounded-full border border-current text-sm hover:bg-[#f1f2f6]">?</button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#f8f9fc]">
+      {/* 상단 검색 영역 */}
+      <PageHeader searchValue={search} onSearchChange={setSearch} />
 
-      <main className="min-h-213.75 px-8 pb-12 pt-6">
-        <section className="flex h-67 w-161.75 items-center justify-between overflow-hidden rounded-lg border border-[#ded9f4] bg-[#f2efff] px-8">
-          <div className="max-w-92.5">
-            <h1 className="text-[25px] font-extrabold leading-[1.28] tracking-[-0.03em]">AI가 당신의 메시지를<br />상황에 맞게 최적화해드려요</h1>
-            <p className="mt-4 text-[13px] leading-5 text-[#777982]">빠르고, 정확하고, 매너있는 커뮤니케이션을 시작해보세요.</p>
-            <div className="mt-6 flex gap-3">
-              <Link to="/messages" className="inline-flex h-10 items-center gap-2 rounded-md bg-[#5138d9] px-5 text-[13px] font-semibold text-white hover:bg-[#432ac7]">✎ 새 메시지 작성</Link>
-              <Link to="/history" className="inline-flex h-10 items-center gap-2 rounded-md border border-[#ded9ee] bg-white px-5 text-[13px] font-semibold text-[#44454c] hover:bg-[#faf9ff]">▣ 활용팁 둘러보기</Link>
+      <main className="grid grid-cols-[minmax(0,1fr)_302px] gap-6 px-8 pb-12 pt-8">
+        {/* 왼쪽 메인 */}
+        <section className="min-w-0">
+          {/* Hero */}
+          <div className="relative h-[268px] overflow-hidden rounded-xl border border-[#ded9ed] bg-[#f5f2ff]">
+            <div className="absolute left-[36px] top-[44px]">
+              <h1 className="text-[28px] font-bold leading-[1.45] tracking-[-0.02em] text-[#282328]">
+                AI가 당신의 메시지를
+                <br />
+                상황에 맞게{' '}
+                <span className="text-[#6844e2]">최적화</span>해드려요
+              </h1>
+
+              <p className="mt-2 text-[13px] text-[#8a858c]">
+                빠르고, 정확하고, 매너있는 커뮤니케이션을 도와드립니다.
+              </p>
+
+              <div className="mt-8 flex gap-4">
+                <button
+                  type="button"
+                  onClick={handleCreateMessage}
+                  className="flex h-[49px] items-center gap-2 rounded-lg bg-[#4c2fdc] px-5 text-[13px] font-semibold text-white transition hover:bg-[#4327ca]"
+                >
+                  <span className="text-[18px]">♢</span>
+                  새 메시지 작성
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleTemplate}
+                  className="flex h-[49px] items-center gap-2 rounded-lg border border-[#d6d2dc] bg-white px-5 text-[13px] font-semibold text-[#4d4750] transition hover:bg-[#fafafa]"
+                >
+                  <span className="text-[17px] text-[#6040e8]">▱</span>
+                  템플릿 둘러보기
+                </button>
+              </div>
+            </div>
+
+            {/* 업로드한 DocumentIcon.png */}
+            <img
+              src={DocumentIcon}
+              alt=""
+              className="pointer-events-none absolute right-[38px] top-[55px] h-[195px] w-[226px] object-contain"
+            />
+          </div>
+
+          {/* 통계 카드 */}
+          <div className="mt-[17px] grid grid-cols-3 gap-4">
+            <div className="h-[102px] rounded-xl border border-[#dedee4] bg-white px-4 py-3">
+              <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
+                {loading ? '-' : stats.sentMessages}
+              </strong>
+
+              <p className="mt-4 text-[11px] text-[#c1c1c1]">
+                전송한 메시지
+              </p>
+            </div>
+
+            <div className="h-[102px] rounded-xl border border-[#dedee4] bg-white px-4 py-3">
+              <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
+                {loading ? '-' : stats.aiConversions}
+              </strong>
+
+              <p className="mt-4 text-[11px] text-[#c1c1c1]">
+                AI 변환 횟수
+              </p>
+            </div>
+
+            <div className="h-[102px] rounded-xl border border-[#dedee4] bg-white px-4 py-3">
+              <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
+                {loading ? '-' : stats.recipients}
+              </strong>
+
+              <p className="mt-4 text-[11px] text-[#c1c1c1]">
+                등록된 수신자
+              </p>
             </div>
           </div>
-          <svg className="h-45 w-52.5" viewBox="0 0 210 180" fill="none" aria-hidden="true">
-            <defs><linearGradient id="paper" x1="60" y1="25" x2="160" y2="155"><stop stopColor="white" /><stop offset="1" stopColor="#d8d1ff" /></linearGradient></defs>
-            <path d="m174 29 4 10 10 4-10 4-4 10-4-10-10-4 10-4 4-10Z" fill="#6548f5" />
-            <path d="m44 36 3 8 8 3-8 3-3 8-3-8-8-3 8-3 3-8Z" fill="#927cff" />
-            <rect x="65" y="29" width="96" height="122" rx="13" transform="rotate(8 65 29)" fill="url(#paper)" />
-            <path d="m87 59 55 8M84 78l61 9M81 97l50 7M79 116l58 8" stroke="#a999ff" strokeWidth="7" strokeLinecap="round" />
-            <circle cx="43" cy="88" r="24" fill="#6648ef" /><path d="M32 83h22M32 92h15" stroke="white" strokeWidth="4" strokeLinecap="round" />
-            <path d="m158 96 15 7 20-31 10 7-21 31 10 12-43 8 9-34Z" fill="#5639e7" />
-          </svg>
-        </section>
 
-        <section className="mt-6 w-161.75">
-          <h2 className="mb-3 text-[14px] font-bold">이렇게 사용해보세요!</h2>
-          <div className="grid grid-cols-3 gap-3">
-            {steps.map((step) => (
-              <div key={step.number} className="flex h-20 items-center rounded-lg border border-[#e2e3e7] bg-white px-4">
-                <div className="relative mr-3 flex h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: `${step.color}18`, color: step.color }}>
-                  <span className="text-lg font-semibold">{step.icon}</span>
-                  <span className="absolute -left-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ backgroundColor: step.color }}>{step.number}</span>
-                </div>
-                <span className="text-[13px] font-semibold text-[#383940]">{step.label}</span>
-              </div>
-            ))}
+          {/* 빈 메시지 영역 */}
+          <div className="mt-[21px] flex h-[429px] flex-col items-center justify-center rounded-xl border border-[#dedee4] bg-white">
+            <img
+              src={DocumentInBox}
+              alt=""
+              className="h-[115px] w-[113px] object-contain"
+            />
+
+            <h2 className="mt-[13px] text-[17px] font-bold text-[#282328]">
+              아직 작성한 메시지가 없어요
+            </h2>
+
+            <p className="mt-2 text-[13px] text-[#777]">
+              첫 메시지를 작성하고 스마트한 커뮤니케이션을 경험해보세요!
+            </p>
+
+            <button
+              type="button"
+              onClick={handleCreateMessage}
+              className="mt-6 rounded-lg bg-[#f2efff] px-5 py-2.5 text-[12px] font-semibold text-[#6844e2] transition hover:bg-[#e9e4ff]"
+            >
+              첫 메시지 작성하기
+            </button>
           </div>
         </section>
 
-        <section className="mt-6 flex h-73.5 w-161.75 flex-col items-center justify-center rounded-lg border border-[#dfe1e6] bg-white text-center">
-          <div className="relative h-19 w-22.5" aria-hidden="true">
-            <div className="absolute bottom-1 left-3 h-10 w-16 rotate-[-8deg] rounded bg-[#d8d0ff]" />
-            <div className="absolute bottom-1 right-3 h-10 w-16 rotate-[8deg] rounded bg-[#c9beff]" />
-            <div className="absolute left-7.75 top-1 h-12 w-7 rounded border border-[#d5ccff] bg-[#f0edff]" />
+        {/* 오른쪽 */}
+        <aside>
+          {/* 사용 방법 */}
+          <div className="rounded-xl border border-[#dedee4] bg-white p-5">
+            <h2 className="text-[16px] font-bold text-[#282328]">
+              이렇게 사용해보세요!
+            </h2>
+
+            <div className="mt-6 space-y-[10px]">
+              {guideItems.map((item) => {
+                const isOpen = openGuide === item.number
+
+                return (
+                  <div key={item.number}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isOpen) {
+                          setOpenGuide(null)
+                        } else {
+                          setOpenGuide(item.number)
+                        }
+                      }}
+                      className="flex h-[80px] w-full items-center rounded-lg border border-[#d9d9df] px-4 text-left transition hover:bg-[#fafafa]"
+                    >
+                      <div
+                        className="relative flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full"
+                        style={{ backgroundColor: item.bg }}
+                      >
+                        <span
+                          className="absolute left-[-4px] top-[-5px] flex h-[22px] w-[22px] items-center justify-center rounded-full text-[11px] font-semibold text-white"
+                          style={{ backgroundColor: item.color }}
+                        >
+                          {item.number}
+                        </span>
+
+                        <span
+                          className="text-[23px]"
+                          style={{ color: item.color }}
+                        >
+                          {item.icon}
+                        </span>
+                      </div>
+
+                      <div className="ml-5 min-w-0 flex-1">
+                        <p className="text-[13px] font-semibold text-[#4a454a]">
+                          {item.title}
+                        </p>
+
+                        {isOpen && (
+                          <p className="mt-1 text-[10px] text-[#999]">
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <span
+                        className={`text-[14px] text-[#aaa] transition-transform ${
+                          isOpen ? 'rotate-180' : ''
+                        }`}
+                      >
+                        ⌄
+                      </span>
+                    </button>
+
+                    {isOpen && (
+                      <button
+                        type="button"
+                        onClick={item.action}
+                        className="mt-1 w-full rounded-lg bg-[#f7f5ff] py-2 text-[11px] font-semibold text-[#6844e2]"
+                      >
+                        바로 시작하기 →
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
-          <h2 className="mt-3 text-[16px] font-bold">아직 작성한 메시지가 없어요</h2>
-          <p className="mt-2 text-[13px] text-[#8a8c93]">첫 메시지를 작성하고 스마트한 커뮤니케이션을 경험해보세요!</p>
-          <Link to="/messages" className="mt-5 inline-flex h-9 items-center rounded-md border border-[#6952e8] px-5 text-[12px] font-semibold text-[#5138d9] hover:bg-[#f5f2ff]">새 메시지 작성하기</Link>
-        </section>
+
+          {/* 새로운 소식 */}
+          <div className="mt-[16px] rounded-xl border border-[#dedee4] bg-white p-5">
+            <div className="flex items-center gap-2">
+              <h2 className="text-[16px] font-bold text-[#282328]">
+                새로운 소식
+              </h2>
+
+              <span className="rounded-full bg-[#eee9ff] px-2 py-0.5 text-[10px] font-semibold text-[#6844e2]">
+                new
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                window.alert(
+                  '성능 개선과 새로운 기능으로 더 나은 커뮤니케이션 경험을 제공합니다.',
+                )
+              }}
+              className="mt-3 w-full rounded-lg bg-[#f0edff] p-5 text-left transition hover:bg-[#e9e5ff]"
+            >
+              <p className="text-[13px] font-semibold text-[#4b4650]">
+                더 편리해진 이음이를 만나보세요
+              </p>
+
+              <p className="mt-2 text-[12px] leading-5 text-[#999]">
+                성능 개선과 새로운 기능으로
+                <br />
+                더 나은 경험을 제공합니다.
+              </p>
+            </button>
+          </div>
+        </aside>
       </main>
     </div>
   )
 }
-
-export default DashboardPage

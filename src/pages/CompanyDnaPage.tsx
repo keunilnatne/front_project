@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import PageHeader from '../components/PageHeader'
+import { getUserProfile } from '../users/userProfile'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -322,6 +324,8 @@ function Toggle({
 
 export default function CompanyDnaPage() {
   const [dna, setDNA] = useState<CompanyDNA>(defaultDNA)
+  const [search, setSearch] = useState('')
+  const profile = getUserProfile()
   const [aiEnabled, setAIEnabled] = useState(true)
 
   const [loading, setLoading] = useState(true)
@@ -432,6 +436,7 @@ export default function CompanyDnaPage() {
 
     setDNA(defaultDNA)
     setAIEnabled(true)
+    void saveDNA(defaultDNA)
     setSaved(false)
   }
 
@@ -450,7 +455,7 @@ export default function CompanyDnaPage() {
       id: `custom-${Date.now()}`,
       title: newRuleTitle.trim(),
       description: newRuleDescription.trim(),
-      icon: 'rules',
+      icon: 'notice',
     }
 
     setDNA((previous) => ({
@@ -461,6 +466,7 @@ export default function CompanyDnaPage() {
     setNewRuleTitle('')
     setNewRuleDescription('')
     setShowRuleModal(false)
+    void saveDNA({ ...dna, rules: [...dna.rules, nextRule] })
   }
 
   function openRuleEditor() {
@@ -499,30 +505,13 @@ export default function CompanyDnaPage() {
 
     setDNA(nextDNA)
     setShowEditRulesModal(false)
+    void saveDNA(nextDNA)
   }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f8f9fc]">
-        <header className="flex h-[68px] items-center justify-between border-b border-[#e5e5e8] bg-white px-10">
-          <div className="relative w-[445px]">
-            <Icon
-              name="search"
-              size={17}
-              stroke="#8b8580"
-            />
-
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 pl-3">
-              <Icon
-                name="search"
-                size={17}
-                stroke="#8b8580"
-              />
-            </div>
-
-            <div className="h-11 w-full rounded-lg border border-[#dedee3] bg-white" />
-          </div>
-        </header>
+        <PageHeader searchValue={search} onSearchChange={setSearch} />
 
         <main className="px-8 py-10">
           <div className="text-[14px] text-[#777]">
@@ -538,63 +527,19 @@ export default function CompanyDnaPage() {
       {/* =========================================================
           TOP HEADER
       ========================================================= */}
-      <header className="flex h-[68px] shrink-0 items-center justify-between border-b border-[#e5e5e8] bg-white px-10">
-        <div className="relative w-[445px] shrink-0">
-          <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#887f79]">
-            <Icon
-              name="search"
-              size={17}
-            />
-          </div>
+      <PageHeader searchValue={search} onSearchChange={setSearch} />
 
-          <input
-            type="search"
-            className="h-11 w-full rounded-lg border border-[#dedee3] bg-white pl-10 pr-4 text-[14px] text-[#383238] outline-none placeholder:text-[#aaa4a4] focus:border-[#7560df] focus:ring-2 focus:ring-[#7560df]/10"
-            placeholder="메시지 또는 팀 멤버 검색"
-          />
-        </div>
-
-        <div className="flex items-center gap-6 text-[#514b47]">
-          <button
-            type="button"
-            aria-label="알림"
-            className="relative transition hover:text-[#5035dc]"
-          >
-            <Icon
-              name="bell"
-              size={19}
-            />
-
-            <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-[#d9234f]" />
-          </button>
-
-          <button
-            type="button"
-            aria-label="도움말"
-            className="transition hover:text-[#5035dc]"
-          >
-            <Icon
-              name="help"
-              size={19}
-            />
-          </button>
-        </div>
-      </header>
-
-      {/* =========================================================
-          PAGE CONTENT
-      ========================================================= */}
-      <main className="px-5 py-8 lg:px-5 xl:px-5">
-        <div className="mx-auto max-w-[1160px]">
+      <main className="px-8 pb-12 pt-8">
+        <div className="w-full">
           {/* PAGE TITLE */}
           <div className="mb-7 flex items-end justify-between gap-6">
             <div>
-              <h1 className="text-[27px] font-bold tracking-[-0.7px] text-[#292527]">
+              <h1 className="ieum-page-title text-[#292527]">
                 기업 커뮤니케이션 정보
               </h1>
 
               <p className="mt-2 text-[13px] leading-5 text-[#777079]">
-                ABC 컴퍼니의 조직 문화와 언어 습관을 AI가 학습하여,
+                {profile.company || '우리 회사'}의 조직 문화와 언어 습관을 AI가 학습하여,
                 모든 메시지 생성 시 일관된 목소리를 유지하도록 돕습니다.
               </p>
             </div>

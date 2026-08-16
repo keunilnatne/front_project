@@ -1,3 +1,4 @@
+import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import gmailLogo from '../../images/gmail.png'
 
@@ -17,8 +18,17 @@ function ProgressIndicator() {
 
 function Integrations() {
   const navigate = useNavigate()
+  const [showGmailLogin, setShowGmailLogin] = useState(false)
   const finishIntegration = (connected: boolean) => {
     localStorage.setItem('onboarding.gmail', String(connected))
+    navigate('/complete')
+  }
+
+  const completeGmailConnection = (email: string) => {
+    localStorage.setItem('onboarding.gmailEmail', email)
+    localStorage.setItem('onboarding.gmail', 'true')
+    setShowGmailLogin(false)
+    window.alert('Gmail이 연동되었습니다.')
     navigate('/complete')
   }
 
@@ -45,7 +55,7 @@ function Integrations() {
         </section>
 
         <div className="flex h-37 flex-col gap-2 px-6 pb-6">
-          <button type="button" onClick={() => finishIntegration(true)} className={`${BUTTON_CLASS} gap-1 bg-[linear-gradient(90deg,#5b3df5_0%,#35248f_100%)] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:brightness-110`}>
+          <button type="button" onClick={() => setShowGmailLogin(true)} className={`${BUTTON_CLASS} gap-1 bg-[linear-gradient(90deg,#5b3df5_0%,#35248f_100%)] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:brightness-110`}>
             <span aria-hidden="true" className="text-base leading-none">↪</span> Gmail 연결하기
           </button>
           <button type="button" onClick={() => finishIntegration(false)} className={`${BUTTON_CLASS} border border-[#cecece] bg-white font-normal hover:bg-[#fafafa]`}>
@@ -58,7 +68,65 @@ function Integrations() {
           연결된 데이터는 AI 개인화 및 서비스 제공에 필요한 범위에서만 사용됩니다.
         </p>
       </div>
+
+      {showGmailLogin && (
+        <GmailConnectionDialog
+          onClose={() => setShowGmailLogin(false)}
+          onConnect={completeGmailConnection}
+        />
+      )}
     </main>
+  )
+}
+
+function GmailConnectionDialog({ onClose, onConnect }: {
+  onClose: () => void
+  onConnect: (email: string) => void
+}) {
+  const [showPassword, setShowPassword] = useState(false)
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    const email = String(form.get('email') || '').trim()
+
+    // 백엔드 연동: 실제 서비스에서는 비밀번호를 직접 전송하지 말고 Google OAuth 인증으로 교체해 주세요.
+    // OAuth 인증 성공 콜백에서 onConnect(연동된이메일)를 호출하면 다음 단계로 이동합니다.
+    
+    onConnect(email)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onMouseDown={onClose}>
+      <section role="dialog" aria-modal="true" aria-labelledby="gmail-login-title" onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-105 rounded-2xl bg-white p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)]">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[#e1e1e5] bg-white"><img src={gmailLogo} alt="" className="h-6 w-6 object-contain" /></span>
+            <div><h2 id="gmail-login-title" className="text-lg font-semibold">Gmail 계정 연결</h2><p className="mt-1 text-xs text-[#686868]">사용할 Gmail 계정 정보를 입력해 주세요.</p></div>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Gmail 연결 창 닫기" className="flex h-8 w-8 items-center justify-center rounded-md text-xl text-[#777981] hover:bg-[#f2f2f4]">×</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-6">
+          <label className="block text-xs font-medium text-[#34343a]">이메일 주소
+            <input name="email" type="email" autoComplete="username" required autoFocus placeholder="example@gmail.com" className="mt-2 h-11 w-full rounded-lg border border-[#d9d9df] px-3 text-sm outline-none focus:border-[#5b3df5] focus:ring-2 focus:ring-[#5b3df5]/10" />
+          </label>
+          <label className="mt-4 block text-xs font-medium text-[#34343a]">비밀번호
+            <span className="relative mt-2 block">
+              <input name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required minLength={8} placeholder="비밀번호를 입력해 주세요" className="h-11 w-full rounded-lg border border-[#d9d9df] px-3 pr-14 text-sm outline-none focus:border-[#5b3df5] focus:ring-2 focus:ring-[#5b3df5]/10" />
+              <button type="button" onClick={() => setShowPassword((current) => !current)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[10px] text-[#686870] hover:bg-[#f2f2f4]" aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? '숨기기' : '보기'}</button>
+            </span>
+          </label>
+
+          <p className="mt-4 rounded-lg bg-[#f5f3ff] px-3 py-2 text-[10px] leading-4 text-[#5e56a0]">입력한 비밀번호는 저장되지 않으며 Gmail 연결 확인에만 사용됩니다.</p>
+
+          <div className="mt-6 flex gap-3">
+            <button type="button" onClick={onClose} className="h-11 flex-1 rounded-lg border border-[#d9d9df] text-sm font-medium hover:bg-[#fafafa]">취소</button>
+            <button type="submit" className="h-11 flex-1 rounded-lg bg-[#4338ca] text-sm font-semibold text-white hover:bg-[#352ca8]">연결하기</button>
+          </div>
+        </form>
+      </section>
+    </div>
   )
 }
 

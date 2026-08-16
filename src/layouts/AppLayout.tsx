@@ -25,14 +25,19 @@ const navigationItems: NavigationItem[] = [
     icon: 'users',
   },
   {
-    label: 'Company DNA',
-    path: '/company-dna',
-    icon: 'dna',
+    label: '기록',
+    path: '/history',
+    icon: 'history',
   },
   {
     label: 'Team Memory',
     path: '/team-memory',
     icon: 'memory',
+  },
+  {
+    label: 'Company DNA',
+    path: '/company-dna',
+    icon: 'dna',
   },
   /*
   {
@@ -41,11 +46,6 @@ const navigationItems: NavigationItem[] = [
     icon: 'global',
   },
   */
-  {
-    label: '기록',
-    path: '/history',
-    icon: 'history',
-  },
 ]
 
 function MenuIcon({
@@ -276,10 +276,10 @@ function AppLayout() {
 
             <div>
               <p className="text-[14px] font-semibold text-[#29292d]">
-                {profile.name}
+                {profile.name || '이름 미설정'}
               </p>
               <p className="text-[13px] text-[#999aa0]">
-                {profile.role || 'Administrator'}
+                {profile.role || '직무 미설정'}
               </p>
             </div>
           </NavLink>

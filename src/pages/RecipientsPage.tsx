@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import PageHeader from '../components/PageHeader'
 import { useNavigate } from 'react-router-dom'
 
 type Recipient = {
@@ -298,22 +299,6 @@ function saveRecipients(recipients: Recipient[]) {
   } catch {
     // localStorage 사용 불가 시 현재 상태만 유지
   }
-}
-
-function SearchIcon() {
-  return (
-    <svg
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="m16 16 4 4" />
-    </svg>
-  )
 }
 
 function StarIcon({
@@ -1214,6 +1199,22 @@ function RecipientsPage() {
     setCollaborationTarget,
   ] = useState<Recipient | null>(null)
 
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch(`${import.meta.env.VITE_API_URL || ''}/api/recipients`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('수신자 조회 실패')))
+      .then((data: unknown) => {
+        if (Array.isArray(data) && data.length) {
+          const next = data as Recipient[]
+          setRecipientList(next)
+          if (!next.some((item) => item.id === selectedId)) setSelectedId(next[0].id)
+          saveRecipients(next)
+        }
+      })
+      .catch(() => {})
+    return () => controller.abort()
+  }, [])
+
   const selectedRecipient =
     recipientList.find(
       (recipient) => recipient.id === selectedId,
@@ -1231,6 +1232,14 @@ function RecipientsPage() {
       )
 
       saveRecipients(updated)
+      const changed = updated.find((recipient) => recipient.id === id)
+      if (changed) {
+        void fetch(`${import.meta.env.VITE_API_URL || ''}/api/recipients/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isFavorite: changed.isFavorite }),
+        }).catch(() => {})
+      }
 
       return updated
     })
@@ -1304,60 +1313,12 @@ function RecipientsPage() {
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
       {/* Top Search */}
-      <header className="h-16 border-b border-[#e5e5e8] bg-white">
-        <div className="flex h-full items-center px-9">
-          <div className="flex h-10 w-[420px] items-center gap-3 rounded-lg border border-[#dedee3] bg-white px-3 text-[#999aa1]">
-            <SearchIcon />
-
-            <input
-              type="text"
-              value={search}
-              onChange={(event) =>
-                setSearch(event.target.value)
-              }
-              placeholder="메시지 또는 팀 멤버 검색"
-              className="min-w-0 flex-1 bg-transparent text-[13px] text-[#33343a] outline-none placeholder:text-[#9b9ca3]"
-            />
-          </div>
-
-          <div className="ml-auto flex items-center gap-5 text-[#575860]">
-            <button
-              type="button"
-              className="relative flex h-8 w-8 items-center justify-center rounded-full hover:bg-[#f5f5f7]"
-              aria-label="알림"
-            >
-              <svg
-                width="19"
-                height="19"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              >
-                <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-                <path d="M10 21h4" />
-              </svg>
-
-              <span className="absolute right-1 top-0 h-2 w-2 rounded-full bg-[#c4144d]" />
-            </button>
-
-            <button
-              type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-[#f5f5f7]"
-              aria-label="도움말"
-            >
-              <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full border border-current text-[11px] font-semibold">
-                ?
-              </span>
-            </button>
-          </div>
-        </div>
-      </header>
+      <PageHeader searchValue={search} onSearchChange={setSearch} />
 
       {/* Page */}
-      <section className="px-9 pb-12 pt-8">
-        <div className="mb-8">
-          <h1 className="text-[24px] font-semibold tracking-[-0.02em] text-[#27272d]">
+      <section className="px-8 pb-12 pt-8">
+        <div className="mb-7">
+          <h1 className="ieum-page-title text-[#27272d]">
             수신자
           </h1>
 

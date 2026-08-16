@@ -1,5 +1,23 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import welcomeIllustration from '../../images/welcome-illustration.png'
+import { skipOnboarding } from '../../users/userProfile'
+
+const START_BUTTON_CLASS = [
+  'mt-12 flex h-12 w-full max-w-80 items-center justify-center rounded-lg',
+  'bg-[linear-gradient(98.53deg,#6236FF_0%,#35208F_100%)]',
+  'text-[15px] font-semibold text-white',
+  'shadow-[0_2px_5px_rgba(67,56,202,0.24)] transition duration-200',
+  'hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(67,56,202,0.28)]',
+  'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#4338ca]/20',
+  'active:translate-y-0',
+].join(' ')
+
+const SKIP_BUTTON_CLASS = [
+  'mt-4 flex h-8.25 items-center rounded-md px-4 py-2',
+  'text-[12px] leading-4.25 text-[#77716d] transition',
+  'hover:bg-[#f7f5f3] hover:text-[#3e3935]',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]/20',
+].join(' ')
 
 function ProgressIndicator() {
   return (
@@ -16,6 +34,13 @@ function ProgressIndicator() {
 }
 
 function Welcome() {
+  const navigate = useNavigate()
+
+  const handleSkip = () => {
+    skipOnboarding()
+    navigate('/dashboard', { replace: true })
+  }
+
   return (
     <main
       className="min-h-screen bg-white px-5 text-[#17171c] sm:px-8"
@@ -44,17 +69,18 @@ function Welcome() {
 
               <Link
                 to="/profile-setup"
-                className="mt-12 flex h-12 w-full max-w-80 items-center justify-center rounded-lg bg-[linear-gradient(98.53deg,#6236FF_0%,#35208F_100%)] text-[15px] font-semibold text-white shadow-[0_2px_5px_rgba(67,56,202,0.24)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(67,56,202,0.28)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#4338ca]/20 active:translate-y-0"
+                className={START_BUTTON_CLASS}
               >
                 시작하기
               </Link>
 
-              <Link
-                to="/profile-setup"
-                className="mt-4 flex h-8.25 items-center rounded-md px-4 py-2 text-[12px] leading-4.25 text-[#77716d] transition hover:bg-[#f7f5f3] hover:text-[#3e3935] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]/20"
+              <button
+                type="button"
+                onClick={handleSkip}
+                className={SKIP_BUTTON_CLASS}
               >
                 건너뛰기
-              </Link>
+              </button>
 
               <div className="mt-10 inline-flex h-5.75 w-[197.833px] items-center justify-center gap-1 rounded-full bg-[#4338ca]/10 px-3 py-1 text-[10px] font-medium leading-3.75 text-[#4338ca]">
                 <span aria-hidden="true" className="text-[11px] leading-none">

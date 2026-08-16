@@ -1,6 +1,7 @@
 // src/pages/HistoryPage.tsx
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import PageHeader from '../components/PageHeader'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -139,13 +140,11 @@ export default function HistoryPage() {
   const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null)
 
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
 
   const loadHistory = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) {
-        setRefreshing(true)
       } else {
         setLoading(true)
       }
@@ -168,7 +167,6 @@ export default function HistoryPage() {
       setError('서버 기록을 불러오지 못했습니다. 기본 기록을 표시합니다.')
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
   }, [])
 
@@ -311,45 +309,12 @@ export default function HistoryPage() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
-      <header className="flex h-[68px] items-center justify-between border-b border-[#e5e5e8] bg-white px-6">
-        <div className="flex items-center gap-7">
-          <h1 className="text-[24px] font-bold">기록</h1>
+      <PageHeader searchValue={search} onSearchChange={setSearch} searchPlaceholder="기록 검색..." />
 
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-10 w-[260px] rounded-lg border border-[#dedde3] px-4 text-[13px] outline-none"
-            placeholder="기록 검색..."
-          />
+      <main className="grid grid-cols-[1fr_320px] gap-6 px-8 pb-12 pt-8">
+        <div className="col-span-full mb-0">
+          <h1 className="ieum-page-title">기록</h1>
         </div>
-
-        <div className="flex items-center gap-6 text-[#555]">
-          <button
-            type="button"
-            title="새로고침"
-            onClick={() => loadHistory(true)}
-            className="transition-opacity hover:opacity-60"
-            disabled={refreshing}
-          >
-            {refreshing ? '↻' : '♧'}
-          </button>
-
-          <button
-            type="button"
-            title="도움말"
-            onClick={() =>
-              window.alert(
-                '검색어를 입력하거나 기록 유형 탭을 선택해 기록을 필터링할 수 있습니다.',
-              )
-            }
-            className="transition-opacity hover:opacity-60"
-          >
-            ?
-          </button>
-        </div>
-      </header>
-
-      <main className="grid grid-cols-[1fr_320px] gap-6 p-6">
         <section>
           <div className="grid grid-cols-4 gap-3">
             {[

@@ -381,6 +381,7 @@ export default function MessageOptimizedPage() {
   const state = location.state as OptimizedState | null
 
   const [copied, setCopied] = useState(false)
+  const [sending, setSending] = useState(false)
 
   if (!state) {
     return (
@@ -460,6 +461,31 @@ export default function MessageOptimizedPage() {
       }, 1500)
     } catch (error) {
       console.error(error)
+    }
+  }
+
+  async function sendMessage() {
+    if (sending || recipients.length === 0) return
+    setSending(true)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/messages/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipients,
+          subject,
+          body,
+          originalSubject,
+          originalBody,
+        }),
+      })
+      if (!response.ok) throw new Error('메시지 전송에 실패했습니다.')
+      window.alert('메시지가 전송되었습니다.')
+    } catch (error) {
+      console.error(error)
+      window.alert('메시지 전송에 실패했습니다. 백엔드 서버 연결을 확인해주세요.')
+    } finally {
+      setSending(false)
     }
   }
 
@@ -648,7 +674,9 @@ export default function MessageOptimizedPage() {
 
               <button
                 type="button"
-                className="flex items-center gap-2 rounded-lg bg-[#5531e8] px-6 py-3 text-[13px] font-semibold text-white transition hover:bg-[#4926d6]"
+                onClick={sendMessage}
+                disabled={sending}
+                className="flex items-center gap-2 rounded-lg bg-[#5531e8] px-6 py-3 text-[13px] font-semibold text-white transition hover:bg-[#4926d6] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <svg
                   width="16"
@@ -662,7 +690,7 @@ export default function MessageOptimizedPage() {
                   <path d="m4 5 8 7 8-7" />
                 </svg>
 
-                Gmail로 전송
+                {sending ? '전송 중...' : 'Gmail로 전송'}
               </button>
             </div>
 

@@ -31,7 +31,10 @@ function AiPersonalizationSection() {
   return (
     <section id="ai-personalization" className="min-h-163.75 scroll-mt-8 overflow-hidden rounded-xl border border-[#e1e1e1] bg-white shadow-sm">
       <header className="border-b border-[#ececf0] p-6">
-        <h2 className="text-[16px] font-semibold text-[#26262b]">✣ AI 개인화 (AI Personalization)</h2>
+        <h2 className="flex items-center gap-2 text-[16px] font-semibold text-[#26262b]">
+          <AiPersonalizationIcon />
+          AI 개인화 (AI Personalization)
+        </h2>
         <p className="mt-1 text-[12px] leading-5 text-[#777981]">AI가 사용자의 커뮤니케이션 스타일을 학습하고 최적화하는 방식을 설정할 수 있습니다.</p>
       </header>
 
@@ -81,6 +84,23 @@ function AiPersonalizationSection() {
         </div>
       </div>
     </section>
+  )
+}
+
+function AiPersonalizationIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="16.5"
+      height="16.5"
+      viewBox="0 0 16.5 16.5"
+      fill="none"
+      className="shrink-0 text-[#4338CA]"
+    >
+      <path d="M6.25 1.25c.35 2.68 1.82 4.15 4.5 4.5-2.68.35-4.15 1.82-4.5 4.5-.35-2.68-1.82-4.15-4.5-4.5 2.68-.35 4.15-1.82 4.5-4.5Z" fill="currentColor" />
+      <path d="M12.35 9.15c.22 1.65 1.13 2.56 2.78 2.78-1.65.22-2.56 1.13-2.78 2.78-.22-1.65-1.13-2.56-2.78-2.78 1.65-.22 2.56-1.13 2.78-2.78Z" fill="currentColor" />
+      <circle cx="13.7" cy="3.05" r="1.05" fill="currentColor" />
+    </svg>
   )
 }
 

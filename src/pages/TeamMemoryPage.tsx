@@ -1,6 +1,7 @@
 // src/pages/TeamMemoryPage.tsx
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import PageHeader from '../components/PageHeader'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -131,22 +132,6 @@ function PlusIcon() {
       strokeLinecap="round"
     >
       <path d="M12 5v14M5 12h14" />
-    </svg>
-  )
-}
-
-function SearchIcon() {
-  return (
-    <svg
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="m16 16 4.5 4.5" />
     </svg>
   )
 }
@@ -576,6 +561,7 @@ export default function TeamMemoryPage() {
       updatedAt: '방금 전',
     }
 
+    setLoading(true)
     setPatterns((current) =>
       current.map((item) =>
         item.id === updated.id ? updated : item,
@@ -596,6 +582,7 @@ export default function TeamMemoryPage() {
       },
       body: JSON.stringify(updated),
     }).catch(() => {})
+    setLoading(false)
   }
 
   /* =========================================================
@@ -738,60 +725,17 @@ export default function TeamMemoryPage() {
           Header
       ===================================================== */}
 
-      <header className="h-[78px] border-b border-[#e5e3e8] bg-white">
-        <div className="flex h-full items-center justify-between px-10">
-          <div className="relative w-[445px]">
-            <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8a858b]">
-              <SearchIcon />
-            </div>
-
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="h-[42px] w-full rounded-lg border border-[#dedce1] bg-white pl-10 pr-4 text-[14px] text-[#3b383c] outline-none transition placeholder:text-[#9b969d] focus:border-[#7561dc]"
-              placeholder="메시지 또는 팀 멤버 검색"
-            />
-          </div>
-
-          <div className="flex items-center gap-5 text-[#4b464b]">
-            <button
-              type="button"
-              className="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#f6f5f8]"
-              aria-label="알림"
-            >
-              <svg
-                width="21"
-                height="21"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              >
-                <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-                <path d="M10 21h4" />
-              </svg>
-
-              <span className="absolute right-[4px] top-[4px] h-[7px] w-[7px] rounded-full bg-[#b61943]" />
-            </button>
-
-            <button
-              type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#f6f5f8]"
-              aria-label="도움말"
-            >
-              <span className="flex h-[19px] w-[19px] items-center justify-center rounded-full border-[1.7px] border-current text-[12px] font-semibold">
-                ?
-              </span>
-            </button>
-          </div>
-        </div>
-      </header>
+      <PageHeader searchValue={search} onSearchChange={setSearch} />
 
       {/* =====================================================
           Main
       ===================================================== */}
 
       <main className="px-8 pb-12 pt-8">
+        <div className="mb-7">
+          <h1 className="ieum-page-title text-[#292527]">팀 메모리</h1>
+          <p className="ieum-page-subtitle text-[#777079]">팀의 커뮤니케이션 패턴과 학습된 업무 방식을 관리하세요.</p>
+        </div>
         {/* ===================================================
             Tabs
         =================================================== */}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import PageHeader from '../../components/PageHeader'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
@@ -80,55 +81,6 @@ const mockRecipients: Recipient[] = [
 /* -------------------------------------------------------
  * 공통 아이콘
  * ----------------------------------------------------- */
-
-function SearchIcon() {
-  return (
-    <svg
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-4-4" />
-    </svg>
-  )
-}
-
-function BellIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-      <path d="M10 21h4" />
-    </svg>
-  )
-}
-
-function HelpIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9.7 9a2.4 2.4 0 1 1 4.2 1.6c-.9.9-1.9 1.3-1.9 2.8" />
-      <path d="M12 17h.01" />
-    </svg>
-  )
-}
 
 function ClockIcon() {
   return (
@@ -278,6 +230,7 @@ function RecipientContextCard({
  * ----------------------------------------------------- */
 
 export default function MessagesPage() {
+  const [search, setSearch] = useState('')
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -461,47 +414,17 @@ export default function MessagesPage() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
-      {/* HEADER */}
-      <header className="flex h-[68px] shrink-0 items-center justify-between border-b border-[#e5e5e8] bg-white px-10">
-        <div className="relative w-[445px]">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]">
-            <SearchIcon />
-          </div>
-
-          <input
-            className="h-11 w-full rounded-lg border border-[#dedee3] bg-white pl-10 text-[14px] outline-none"
-            placeholder="메시지 또는 팀 멤버 검색"
-          />
-        </div>
-
-        <div className="flex items-center gap-6 text-[#555]">
-          <button
-            type="button"
-            aria-label="알림"
-            className="transition hover:text-[#4338ca]"
-          >
-            <BellIcon />
-          </button>
-
-          <button
-            type="button"
-            aria-label="도움말"
-            className="transition hover:text-[#4338ca]"
-          >
-            <HelpIcon />
-          </button>
-        </div>
-      </header>
+      <PageHeader searchValue={search} onSearchChange={setSearch} />
 
       {/* PAGE */}
       <div className="min-h-[calc(100vh-68px)]">
         <div className="grid min-h-[calc(100vh-68px)] grid-cols-[minmax(0,1fr)_375px]">
           {/* MAIN */}
-          <main className="min-w-0 px-8 py-10">
+          <main className="min-w-0 px-8 pb-12 pt-8">
             <div className="mx-auto w-full max-w-[900px]">
               {/* TITLE */}
               <div className="mb-10 flex items-center justify-between">
-                <h1 className="text-[25px] font-bold text-[#2d282c]">
+                <h1 className="ieum-page-title text-[#2d282c]">
                   새 메시지 작성
                 </h1>
 
