@@ -49,15 +49,32 @@ export function resetUserProfile() {
   window.dispatchEvent(new Event('profile-updated'))
 }
 
+export function isOnboardingCompleted(email = ''): boolean {
+  if (email) {
+    const key = `onboarding.completed_${email.trim().toLowerCase()}`
+    if (localStorage.getItem(key) === 'true') return true
+  }
+  return localStorage.getItem('onboarding.completed') === 'true'
+}
+
+export function completeOnboarding(email = '') {
+  if (email) {
+    localStorage.setItem(`onboarding.completed_${email.trim().toLowerCase()}`, 'true')
+  }
+  localStorage.setItem('onboarding.completed', 'true')
+}
+
 export function startOnboarding(email = '') {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...defaultUserProfile, email }))
   ONBOARDING_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key))
   window.dispatchEvent(new Event('profile-updated'))
 }
 
-export function skipOnboarding() {
+export function skipOnboarding(email = '') {
   localStorage.removeItem(STORAGE_KEY)
   ONBOARDING_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key))
   localStorage.setItem('onboarding.skipped', 'true')
+  completeOnboarding(email)
   window.dispatchEvent(new Event('profile-updated'))
 }
+

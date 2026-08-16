@@ -187,7 +187,7 @@ function RecipientContextCard({
         <div className="flex items-center justify-between gap-3">
           <span className="text-[#999]">직무</span>
 
-          <span className="max-w-[180px] text-right font-medium text-[#29292d]">
+          <span className="max-w-45 text-right font-medium text-[#29292d]">
             {recipient.position || '-'}
           </span>
         </div>
@@ -195,7 +195,7 @@ function RecipientContextCard({
         <div className="flex items-center justify-between gap-3">
           <span className="text-[#999]">조직 관계</span>
 
-          <span className="max-w-[180px] text-right font-medium text-[#29292d]">
+          <span className="max-w-45 text-right font-medium text-[#29292d]">
             {recipient.relationship || '-'}
           </span>
         </div>
@@ -421,7 +421,7 @@ export default function MessagesPage() {
         <div className="grid min-h-[calc(100vh-68px)] grid-cols-[minmax(0,1fr)_375px]">
           {/* MAIN */}
           <main className="min-w-0 px-8 pb-12 pt-8">
-            <div className="mx-auto w-full max-w-[900px]">
+            <div className="mx-auto w-full max-w-225">
               {/* TITLE */}
               <div className="mb-10 flex items-center justify-between">
                 <h1 className="ieum-page-title text-[#2d282c]">
@@ -475,7 +475,7 @@ export default function MessagesPage() {
 
               {/* RECIPIENT */}
               <div className="relative mb-5 flex items-center">
-                <span className="w-[115px] shrink-0 text-[13px] text-[#5e5960]">
+                <span className="w-28.75 shrink-0 text-[13px] text-[#5e5960]">
                   받는 사람
                 </span>
 
@@ -529,7 +529,7 @@ export default function MessagesPage() {
 
                 {/* RECIPIENT LIST */}
                 {showRecipientList && (
-                  <div className="absolute left-[115px] top-[48px] z-50 w-[360px] overflow-hidden rounded-xl border border-[#dedde4] bg-white shadow-lg">
+                  <div className="absolute left-28.75 top-12 z-50 w-90 overflow-hidden rounded-xl border border-[#dedde4] bg-white shadow-lg">
                     <div className="border-b border-[#eeeeef] px-4 py-3">
                       <p className="text-[12px] font-semibold">
                         수신자 선택
@@ -610,7 +610,7 @@ export default function MessagesPage() {
               <div className="overflow-hidden rounded-xl border border-[#e1e0e5] bg-white">
                 {/* SUBJECT */}
                 <div className="flex border-b border-[#eeeeef]">
-                  <span className="w-[90px] shrink-0 px-6 py-5 text-[13px] text-[#777]">
+                  <span className="w-22.5 shrink-0 px-6 py-5 text-[13px] text-[#777]">
                     제목
                   </span>
 
@@ -626,7 +626,7 @@ export default function MessagesPage() {
                 <textarea
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
-                  className="h-[280px] w-full resize-none px-6 py-6 text-[15px] leading-10 text-[#454049] outline-none"
+                  className="h-70 w-full resize-none px-6 py-6 text-[15px] leading-10 text-[#454049] outline-none"
                   placeholder="메시지를 입력하세요"
                 />
 

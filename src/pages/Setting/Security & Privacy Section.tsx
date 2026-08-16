@@ -1,5 +1,8 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+
 const ACCOUNT_KEYS = [
   'ieum.accounts',
   'ieum.userProfile',
@@ -8,23 +11,52 @@ const ACCOUNT_KEYS = [
 
 function SecurityPrivacySection() {
   const navigate = useNavigate()
+  const [isProcessing, setIsProcessing] = useState(false)
 
-  const resetData = () => {
+  const resetData = async () => {
     if (!window.confirm('모든 활동 및 학습 데이터를 정말 삭제하시겠습니까?')) return
 
-    getAppStorageKeys()
-      .filter((key) => !ACCOUNT_KEYS.includes(key))
-      .forEach((key) => localStorage.removeItem(key))
+    setIsProcessing(true)
+    const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken') || ''
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
 
-    window.alert('활동 및 학습 데이터가 초기화되었습니다.')
+    try {
+      await fetch(`${API_URL}/api/users/me/reset-personalization`, {
+        method: 'POST',
+        headers,
+      }).catch(() => null)
+
+      getAppStorageKeys()
+        .filter((key) => !ACCOUNT_KEYS.includes(key))
+        .forEach((key) => localStorage.removeItem(key))
+
+      window.alert('활동 및 학습 데이터가 초기화되었습니다.')
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
-  const deleteAccount = () => {
+  const deleteAccount = async () => {
     if (!window.confirm('계정을 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return
 
-    localStorage.clear()
-    sessionStorage.clear()
-    navigate('/login', { replace: true })
+    setIsProcessing(true)
+    const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken') || ''
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+
+    try {
+      await fetch(`${API_URL}/api/users/me`, {
+        method: 'DELETE',
+        headers,
+      }).catch(() => null)
+
+      localStorage.clear()
+      sessionStorage.clear()
+      navigate('/login', { replace: true })
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   return (
@@ -45,13 +77,13 @@ function SecurityPrivacySection() {
         <DangerRow
           title="모든 데이터 삭제"
           description="계정은 유지하고 메시지, 학습 데이터와 서비스 설정을 초기화합니다."
-          button="데이터 삭제"
+          button={isProcessing ? '처리 중...' : '데이터 삭제'}
           onClick={resetData}
         />
         <DangerRow
           title="계정 영구 삭제"
           description="계정과 모든 관련 데이터를 영구적으로 삭제합니다."
-          button="계정 삭제"
+          button={isProcessing ? '삭제 중...' : '계정 삭제'}
           onClick={deleteAccount}
           strong
         />
@@ -59,6 +91,7 @@ function SecurityPrivacySection() {
     </section>
   )
 }
+
 
 function SecurityCard({ icon, title, children, onClick }: {
   icon: ReactNode
