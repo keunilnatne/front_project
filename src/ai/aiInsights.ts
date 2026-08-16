@@ -46,6 +46,8 @@ export async function analyzeMessageMetadata(payload: unknown): Promise<{
   tags?: string[]
   terms?: string[]
   rules?: string[]
+  sourceLanguage?: string
+  targetLanguage?: string
 } | null> {
   return postAI('/api/ai/messages/metadata', payload)
 }

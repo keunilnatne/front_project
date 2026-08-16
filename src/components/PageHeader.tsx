@@ -2,6 +2,9 @@ import type { CSSProperties } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getNotifications, markNotificationsRead, type NotificationItem } from '../users/notifications'
+import { fetchRecipients, type Recipient } from '../users/recipients'
+import { fetchHistory, type HistoryItem } from '../users/history'
+import { fetchConversations, type Conversation } from '../users/conversationArchive'
 
 type PageHeaderProps = {
   searchValue?: string
@@ -128,6 +131,9 @@ export default function PageHeader({
   const navigate = useNavigate()
   const [notifications, setNotifications] = useState<NotificationItem[]>(getNotifications())
   const [openNotifications, setOpenNotifications] = useState(false)
+  const [searchResults, setSearchResults] = useState<Array<{ type: 'member' | 'history' | 'conversation'; id: string; title: string; subtitle: string }>>([])
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchData, setSearchData] = useState<{ recipients: Recipient[]; history: HistoryItem[]; conversations: Conversation[] }>({ recipients: [], history: [], conversations: [] })
 
   useEffect(() => {
     const update = () => setNotifications(getNotifications())
@@ -160,6 +166,33 @@ export default function PageHeader({
     return () => { active = false; window.clearInterval(timer) }
   }, [])
 
+  useEffect(() => {
+    let active = true
+    void Promise.all([fetchRecipients(), fetchHistory(), fetchConversations()]).then(([recipients, history, conversations]) => {
+      if (active) setSearchData({ recipients, history, conversations })
+    }).catch(() => {})
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    const keyword = searchValue.trim().toLowerCase()
+    if (!keyword) { setSearchResults([]); setSearchOpen(false); return }
+    const members = searchData.recipients
+      .filter((item) => `${item.name} ${item.role} ${item.company} ${item.country} ${item.language}`.toLowerCase().includes(keyword))
+      .slice(0, 5)
+      .map((item) => ({ type: 'member' as const, id: String(item.id), title: item.name, subtitle: `${item.role} · ${item.company}` }))
+    const histories = searchData.history
+      .filter((item) => `${item.recipient} ${item.purpose} ${item.content || ''} ${item.status}`.toLowerCase().includes(keyword))
+      .slice(0, 5)
+      .map((item) => ({ type: 'history' as const, id: item.id, title: item.purpose || '(제목 없음)', subtitle: `${item.recipient} · ${item.status}` }))
+    const conversations = searchData.conversations
+      .filter((item) => `${item.title} ${item.messages.map((message) => message.content).join(' ')}`.toLowerCase().includes(keyword))
+      .slice(0, 5)
+      .map((item) => ({ type: 'conversation' as const, id: item.id, title: item.title, subtitle: `대화 · ${item.messages.length}개 메시지` }))
+    setSearchResults([...members, ...histories, ...conversations].slice(0, 10))
+    setSearchOpen(true)
+  }, [searchValue, searchData])
+
   const unreadCount = useMemo(() => notifications.filter((item) => !item.read).length, [notifications])
 
   const submitSearch = (value: string) => {
@@ -173,11 +206,18 @@ export default function PageHeader({
     }
   }
 
+  const openSearchResult = (result: typeof searchResults[number]) => {
+    setSearchOpen(false)
+    if (result.type === 'member') navigate(`/recipients?member=${encodeURIComponent(result.id)}`)
+    else if (result.type === 'history') navigate(`/history?message=${encodeURIComponent(result.id)}`)
+    else navigate(`/messages?conversation=${encodeURIComponent(result.id)}`)
+  }
+
   return (
     <header style={headerStyle}>
       {/* 검색 */}
       <div
-        style={searchStyle}
+        style={{ ...searchStyle, position: 'relative' }}
         onFocus={(event) => {
           event.currentTarget.style.borderColor = '#7560df'
           event.currentTarget.style.boxShadow =
@@ -202,7 +242,23 @@ export default function PageHeader({
           placeholder={searchPlaceholder}
           aria-label="페이지 검색"
           style={inputStyle}
+          onFocus={() => { if (searchValue.trim()) setSearchOpen(true) }}
         />
+        {searchOpen && searchValue.trim() && (
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 43, background: '#fff', border: '1px solid #e2e0e8', borderRadius: 10, boxShadow: '0 12px 28px rgba(0,0,0,.12)', zIndex: 200, overflow: 'hidden' }}>
+            {searchResults.length === 0 ? (
+              <div style={{ padding: '14px 16px', fontSize: 12, color: '#999' }}>검색 결과가 없습니다.</div>
+            ) : searchResults.map((result) => (
+              <button key={`${result.type}-${result.id}`} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => openSearchResult(result)} style={{ width: '100%', padding: '11px 14px', textAlign: 'left', border: 0, borderBottom: '1px solid #f0eff3', background: '#fff', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: result.type === 'member' ? '#5a42d7' : '#777' }}>{result.type === 'member' ? '멤버' : '메시지'}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#333' }}>{result.title}</span>
+                </div>
+                <div style={{ marginTop: 3, fontSize: 10, color: '#888' }}>{result.subtitle}</div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 오른쪽 아이콘 */}

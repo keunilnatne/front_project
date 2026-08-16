@@ -30,10 +30,12 @@ type OptimizedState = {
 
   originalSubject: string
   originalBody: string
-  aiContext?: { tags?: string[]; terms?: string[]; rules?: string[]; priority?: string }
+  aiContext?: { tags?: string[]; terms?: string[]; rules?: string[]; priority?: string; sourceLanguage?: string; targetLanguage?: string }
   fallbackMode?: boolean
   fallbackMessage?: string
   spellCorrections?: Array<{ message: string; replacement: string }>
+  detectedSourceLanguage?: string
+  targetLanguage?: string
 }
 
 function getRecipients(state: OptimizedState): Recipient[] {
@@ -447,6 +449,8 @@ export default function MessageOptimizedPage() {
     fallbackMode,
     fallbackMessage,
     spellCorrections,
+    detectedSourceLanguage,
+    targetLanguage,
   } = state
 
   const primaryRecipient = recipients[0]
@@ -649,7 +653,7 @@ export default function MessageOptimizedPage() {
 
                 {/* FOOTER */}
                 <div className="border-t border-[#e5e1f3] px-5 py-3 text-[11px] text-[#aaa5b2]">
-                  언어: Korean
+                  언어: {detectedSourceLanguage || aiContext?.sourceLanguage || '감지 중'}
                 </div>
               </div>
 
@@ -694,7 +698,7 @@ export default function MessageOptimizedPage() {
 
                 {/* FOOTER */}
                 <div className="border-t border-[#eeeeef] px-5 py-3 text-[11px] text-[#aaa5b2]">
-                  언어: {primaryRecipient?.language || 'Korean'} · 시간:{' '}
+                  언어: {aiContext?.sourceLanguage || detectedSourceLanguage || '감지 중'} → {aiContext?.targetLanguage || targetLanguage || primaryRecipient?.language || '-'} · 시간:{' '}
                   {primaryRecipient?.timezone || '-'} 기준
                 </div>
               </div>
@@ -761,7 +765,7 @@ export default function MessageOptimizedPage() {
                   </div>
 
                   <p className="mt-4 text-[13px] font-semibold">
-                    Korean → {primaryRecipient?.language || 'Korean'}
+                    {aiContext?.sourceLanguage || detectedSourceLanguage || '감지 중'} → {aiContext?.targetLanguage || targetLanguage || primaryRecipient?.language || '-'}
                   </p>
 
                   <p className="mt-2 text-[11px] leading-5 text-[#999]">

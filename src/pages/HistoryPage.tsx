@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
+import { useSearchParams } from 'react-router-dom'
 import { fetchHistory, type HistoryItem } from '../users/history'
 import { analyzeHistory, type HistoryAIInsight } from '../ai/aiInsights'
 
@@ -43,6 +44,7 @@ function getStatusClass(status: string) {
 }
 
 export default function HistoryPage() {
+  const [searchParams] = useSearchParams()
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<TabType>('전체')
@@ -61,17 +63,22 @@ export default function HistoryPage() {
       setError('')
       const data = await fetchHistory()
       setHistory(data)
+      const requestedId = searchParams.get('message')
+      if (requestedId) {
+        const requested = data.find((item) => item.id === requestedId)
+        if (requested) setSelectedItem(requested)
+      }
     } catch (error) {
       console.error(error)
       setError('기록을 불러오지 못했습니다.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [searchParams])
 
   useEffect(() => {
     loadHistory()
-  }, [loadHistory])
+  }, [loadHistory, searchParams])
 
   useEffect(() => {
     if (!history.length) { setAiInsight(null); return }

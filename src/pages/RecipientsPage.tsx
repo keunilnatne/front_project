@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fetchRecipients, persistRecipients, type Recipient } from '../users/recipients'
 import { analyzeRecipient, type RecipientAIProfile } from '../ai/aiInsights'
 
@@ -900,6 +900,7 @@ function CollaborationModal({
 
 function RecipientsPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [recipientList, setRecipientList] = useState<Recipient[]>([])
 
@@ -908,7 +909,7 @@ function RecipientsPage() {
 
   const [search, setSearch] = useState('')
 
-  const [selectedId, setSelectedId] = useState(1)
+  const [selectedId, setSelectedId] = useState(0)
 
   const [
     collaborationTarget,
@@ -928,13 +929,13 @@ function RecipientsPage() {
     void fetchRecipients(controller.signal)
       .then((data) => {
         setRecipientList(data)
-        if (data.length && !data.some((item) => item.id === selectedId)) {
-          setSelectedId(data[0].id)
-        }
+        const requestedId = Number(searchParams.get('member'))
+        if (requestedId && data.some((item) => item.id === requestedId)) setSelectedId(requestedId)
+        else if (data.length && !data.some((item) => item.id === selectedId)) setSelectedId(data[0].id)
       })
       .catch(() => {})
     return () => controller.abort()
-  }, [])
+  }, [searchParams])
 
   const selectedRecipient =
     recipientList.find(
@@ -1522,7 +1523,10 @@ function RecipientsPage() {
               {googleLookupMessage && <p className="mt-2 text-[10px] text-[#756e79]">{googleLookupMessage}</p>}
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
-              {([['name','이름'],['role','직무'],['company','회사'],['country','국가'],['language','언어'],['timezone','시간대']] as const).map(([key,label]) => <label key={key} className="text-[11px] text-[#777]"><span className="mb-1 block">{label}</span><input value={newRecipient[key]} onChange={(e) => setNewRecipient((v) => ({...v,[key]:e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]" /></label>)}
+              {([['name','이름'],['role','직무'],['company','회사']] as const).map(([key,label]) => <label key={key} className="text-[11px] text-[#777]"><span className="mb-1 block">{label}</span><input value={newRecipient[key]} onChange={(e) => setNewRecipient((v) => ({...v,[key]:e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]" /></label>)}
+              <label className="text-[11px] text-[#777]"><span className="mb-1 block">국가</span><select value={newRecipient.country} onChange={(e) => setNewRecipient((v) => ({...v, country: e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"><option>South Korea</option><option>Indonesia</option><option>United States</option><option>Japan</option><option>China</option><option>Germany</option><option>Spain</option><option>United Kingdom</option><option>Singapore</option></select></label>
+              <label className="text-[11px] text-[#777]"><span className="mb-1 block">언어</span><select value={newRecipient.language} onChange={(e) => setNewRecipient((v) => ({...v, language: e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"><option>Korean</option><option>English</option><option>Indonesian</option><option>Japanese</option><option>Chinese</option><option>German</option><option>Spanish</option></select></label>
+              <label className="text-[11px] text-[#777]"><span className="mb-1 block">시간대</span><select value={newRecipient.timezone} onChange={(e) => setNewRecipient((v) => ({...v, timezone: e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"><option value="Asia/Seoul">KST · Asia/Seoul</option><option value="Asia/Jakarta">WIB · Asia/Jakarta</option><option value="Asia/Makassar">WITA · Asia/Makassar</option><option value="Asia/Jayapura">WIT · Asia/Jayapura</option><option value="Asia/Tokyo">JST · Asia/Tokyo</option><option value="America/New_York">ET · America/New_York</option><option value="America/Los_Angeles">PT · America/Los_Angeles</option><option value="Europe/London">GMT · Europe/London</option><option value="Europe/Berlin">CET · Europe/Berlin</option></select></label>
             </div>
             <label className="mt-3 block text-[11px] text-[#777]"><span className="mb-1 block">조직 관계</span><input value={newRecipient.organizationRelation} onChange={(e) => setNewRecipient((v) => ({...v,organizationRelation:e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px]" /></label>
             <button type="button" onClick={addRecipient} className="mt-5 w-full rounded-lg bg-[#4d3bd5] py-3 text-[12px] font-semibold text-white">추가하기</button>

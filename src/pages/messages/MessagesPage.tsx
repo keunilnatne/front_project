@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import PageHeader from '../../components/PageHeader'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { fetchRecipients, type Recipient as UserRecipient } from '../../users/recipients'
 import { optimizeMessage } from '../../users/messageService'
 import { createHistoryItem } from '../../users/history'
 import { analyzeMessageMetadata } from '../../ai/aiInsights'
 import { addNotification } from '../../users/notifications'
-import { translateAndSpellCheck } from '../../ai/freeLanguageTools'
+import { detectMessageLanguage, translateAndSpellCheck } from '../../ai/freeLanguageTools'
 
 type Recipient = {
   id: string
@@ -188,8 +188,20 @@ export default function MessagesPage() {
   const [search, setSearch] = useState('')
   const location = useLocation()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [openedConversation, setOpenedConversation] = useState<Conversation | null>(null)
 
   const pageState = location.state as MessagePageState | null
+
+  useEffect(() => {
+    const id = searchParams.get('conversation')
+    if (!id) { setOpenedConversation(null); return }
+    void fetchConversations().then((items) => {
+      const found = items.find((item) => item.id === id)
+      if (found) setOpenedConversation(found)
+    })
+  }, [searchParams])
+
 
   const [recipients, setRecipients] =
     useState<Recipient[]>([])
@@ -210,7 +222,7 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(false)
 
   const [draftSaved, setDraftSaved] = useState(false)
-  const [aiMetadata, setAiMetadata] = useState<{ priority?: string; tags?: string[]; terms?: string[]; rules?: string[] } | null>(null)
+  const [aiMetadata, setAiMetadata] = useState<{ priority?: string; tags?: string[]; terms?: string[]; rules?: string[]; sourceLanguage?: string; targetLanguage?: string } | null>(null)
   const [aiMetadataLoading, setAiMetadataLoading] = useState(false)
 
   /* 수정하기로 돌아온 경우 기존 데이터 유지 */
@@ -293,7 +305,16 @@ export default function MessagesPage() {
     if (!subject.trim() && !body.trim()) { setAiMetadata(null); return }
     const timer = window.setTimeout(() => {
       setAiMetadataLoading(true)
-      void analyzeMessageMetadata({ recipients: selectedRecipients, subject, body }).then(setAiMetadata).finally(() => setAiMetadataLoading(false))
+      void analyzeMessageMetadata({
+        recipients: selectedRecipients,
+        subject,
+        body,
+        sourceLanguage: detectMessageLanguage(`${subject} ${body}`),
+        targetLanguages: selectedRecipients.map((recipient) => recipient.language),
+      }).then((metadata) => {
+        if (!metadata) { setAiMetadata(null); return }
+        setAiMetadata(metadata)
+      }).finally(() => setAiMetadataLoading(false))
     }, 450)
     return () => window.clearTimeout(timer)
   }, [selectedRecipients, subject, body])
@@ -377,7 +398,14 @@ export default function MessagesPage() {
         content: optimized.body,
       })
 
-      const optimizedMetadata = await analyzeMessageMetadata({ recipients: selectedRecipients, subject: optimized.subject, body: optimized.body, optimized: true })
+      const optimizedMetadata = await analyzeMessageMetadata({
+        recipients: selectedRecipients,
+        subject: optimized.subject,
+        body: optimized.body,
+        optimized: true,
+        sourceLanguage: detectMessageLanguage(`${optimized.subject} ${optimized.body}`),
+        targetLanguages: selectedRecipients.map((recipient) => recipient.language),
+      })
       navigate('/messages/optimized', {
         state: {
           recipients: selectedRecipients,
@@ -393,7 +421,8 @@ export default function MessagesPage() {
     } catch (error) {
       console.error(error)
       try {
-        const fallback = await translateAndSpellCheck(body, selectedRecipients[0]?.language || 'en')
+        const detectedSource = aiMetadata?.sourceLanguage || detectMessageLanguage(`${subject} ${body}`)
+        const fallback = await translateAndSpellCheck(body, selectedRecipients[0]?.language || 'en', detectedSource)
         navigate('/messages/optimized', {
           state: {
             recipients: selectedRecipients,
@@ -404,6 +433,8 @@ export default function MessagesPage() {
             fallbackMode: true,
             fallbackMessage: 'AI 연결에 실패해서 맞춤법 검사만 진행했습니다.',
             spellCorrections: fallback.corrections,
+            detectedSourceLanguage: fallback.sourceLanguage,
+            targetLanguage: fallback.targetLanguage,
             aiContext: { tags: [], terms: [], rules: [] },
           },
         })
@@ -425,6 +456,19 @@ export default function MessagesPage() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
+      {openedConversation && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/30 p-6" onMouseDown={() => { setOpenedConversation(null); setSearchParams((current) => { current.delete('conversation'); return current }) }}>
+          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[#eeeef1] px-6 py-5">
+              <div><h2 className="text-[15px] font-semibold">{openedConversation.title}</h2><p className="mt-1 text-[11px] text-[#999]">메시지 {openedConversation.messages.length}개</p></div>
+              <button type="button" onClick={() => { setOpenedConversation(null); setSearchParams((current) => { current.delete('conversation'); return current }) }} className="text-xl text-[#888]">×</button>
+            </div>
+            <div className="space-y-3 overflow-y-auto p-6">
+              {openedConversation.messages.map((message, index) => <div key={`${openedConversation.id}-${index}`} className={`max-w-[80%] rounded-xl px-4 py-3 text-[12px] leading-5 ${message.role === 'user' ? 'ml-auto bg-[#f1edff]' : 'bg-[#f5f5f7]'}`}><p>{message.content}</p>{message.createdAt && <p className="mt-1 text-[9px] text-[#999]">{new Date(message.createdAt).toLocaleString('ko-KR')}</p>}</div>)}
+            </div>
+          </div>
+        </div>
+      )}
       <PageHeader searchValue={search} onSearchChange={setSearch} onSearchSubmit={setSearch} />
 
       {/* PAGE */}
