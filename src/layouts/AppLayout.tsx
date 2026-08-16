@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { getUserProfile } from '../users/userProfile'
+import logo from '../images/logo.png'
 
 type NavigationItem = {
   label: string
@@ -196,12 +197,10 @@ function AppLayout() {
   return (
     <div className="flex min-h-screen bg-[#f8f9fc]">
       {/* Sidebar */}
-      <aside className="flex w-60 shrink-0 flex-col border-r border-[#e5e5e8] bg-white">
+      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-[#e5e5e8] bg-white">
         {/* Logo */}
         <div className="flex h-16 items-center px-6">
-          <span className="text-[24px] font-bold tracking-tight text-[#4338ca]">
-            로고
-          </span>
+          <img src={logo} alt="이음" className="h-8 w-auto object-contain" />
         </div>
 
         {/* Navigation */}

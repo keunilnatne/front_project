@@ -2,99 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
-
-const API_URL = import.meta.env.VITE_API_URL || ''
-
-type HistoryItem = {
-  id: string
-  date: string
-  recipient: string
-  purpose: string
-  score: number
-  status: string
-
-  // API에서 내려오면 사용하고, 기존 API에는 없어도 동작하도록 optional 처리
-  type?: '변환' | '전송' | string
-  createdAt?: string
-  content?: string
-}
+import { fetchHistory, type HistoryItem } from '../users/history'
+import { analyzeHistory, type HistoryAIInsight } from '../ai/aiInsights'
 
 type TabType = '전체' | '변환 기록' | '전송 기록'
-
-const fallbackHistory: HistoryItem[] = [
-  {
-    id: '1',
-    date: '2026.08.22',
-    recipient: '김민수',
-    purpose: '디자인 피드백',
-    score: 92,
-    status: '전송 완료',
-    type: '전송',
-  },
-  {
-    id: '2',
-    date: '2026.08.21',
-    recipient: '이서윤',
-    purpose: '주간 보고',
-    score: 88,
-    status: '대기 중',
-    type: '변환',
-  },
-  {
-    id: '3',
-    date: '2026.08.21',
-    recipient: '박현우',
-    purpose: '신규 프로젝트 제안서 검토 요청',
-    score: 95,
-    status: '전송 완료',
-    type: '전송',
-  },
-  {
-    id: '4',
-    date: '2026.08.20',
-    recipient: '최지우',
-    purpose: '인사고과 면담 일정 조율',
-    score: 72,
-    status: '전송 완료',
-    type: '전송',
-  },
-  {
-    id: '5',
-    date: '2026.08.20',
-    recipient: '정재훈',
-    purpose: '기술 스택 선정 회의록 공유',
-    score: 91,
-    status: '전송 완료',
-    type: '전송',
-  },
-  {
-    id: '6',
-    date: '2026.08.19',
-    recipient: '강윤지',
-    purpose: '클라이언트 미팅 피드백',
-    score: 85,
-    status: '전송 완료',
-    type: '전송',
-  },
-  {
-    id: '7',
-    date: '2026.08.19',
-    recipient: '송도윤',
-    purpose: '인프라 점검 리포트',
-    score: 94,
-    status: '전송 완료',
-    type: '전송',
-  },
-  {
-    id: '8',
-    date: '2026.08.18',
-    recipient: '한유리',
-    purpose: '복지 혜택 안내',
-    score: 99,
-    status: '전송 완료',
-    type: '변환',
-  },
-]
 
 const PAGE_SIZE = 8
 
@@ -132,7 +43,7 @@ function getStatusClass(status: string) {
 }
 
 export default function HistoryPage() {
-  const [history, setHistory] = useState<HistoryItem[]>(fallbackHistory)
+  const [history, setHistory] = useState<HistoryItem[]>([])
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<TabType>('전체')
   const [currentPage, setCurrentPage] = useState(1)
@@ -141,30 +52,18 @@ export default function HistoryPage() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [aiInsight, setAiInsight] = useState<HistoryAIInsight | null>(null)
+  const [aiInsightLoading, setAiInsightLoading] = useState(false)
 
-  const loadHistory = useCallback(async (isRefresh = false) => {
+  const loadHistory = useCallback(async () => {
     try {
-      if (isRefresh) {
-      } else {
-        setLoading(true)
-      }
-
+      setLoading(true)
       setError('')
-
-      const res = await fetch(`${API_URL}/api/history`)
-
-      if (!res.ok) {
-        throw new Error('기록을 불러오지 못했습니다.')
-      }
-
-      const data = await res.json()
-
-      if (Array.isArray(data)) {
-        setHistory(data)
-      }
-    } catch {
-      // API가 없어도 기존 fallback 데이터로 화면은 정상 동작
-      setError('서버 기록을 불러오지 못했습니다. 기본 기록을 표시합니다.')
+      const data = await fetchHistory()
+      setHistory(data)
+    } catch (error) {
+      console.error(error)
+      setError('기록을 불러오지 못했습니다.')
     } finally {
       setLoading(false)
     }
@@ -173,6 +72,12 @@ export default function HistoryPage() {
   useEffect(() => {
     loadHistory()
   }, [loadHistory])
+
+  useEffect(() => {
+    if (!history.length) { setAiInsight(null); return }
+    setAiInsightLoading(true)
+    void analyzeHistory(history).then(setAiInsight).finally(() => setAiInsightLoading(false))
+  }, [history])
 
   const filtered = useMemo(() => {
     const keyword = search.trim().toLowerCase()
@@ -231,33 +136,6 @@ export default function HistoryPage() {
     item.status.includes('전송 완료'),
   ).length
 
-  const highScoreCount = history.filter(
-    (item) => Number(item.score) >= 90,
-  ).length
-
-  const middleScoreCount = history.filter(
-    (item) => Number(item.score) >= 80 && Number(item.score) < 90,
-  ).length
-
-  const lowScoreCount = history.filter(
-    (item) => Number(item.score) < 80,
-  ).length
-
-  const highScorePercent =
-    history.length > 0
-      ? Math.round((highScoreCount / history.length) * 100)
-      : 0
-
-  const middleScorePercent =
-    history.length > 0
-      ? Math.round((middleScoreCount / history.length) * 100)
-      : 0
-
-  const lowScorePercent =
-    history.length > 0
-      ? Math.round((lowScoreCount / history.length) * 100)
-      : 0
-
   const pageStart =
     filtered.length === 0
       ? 0
@@ -309,7 +187,7 @@ export default function HistoryPage() {
 
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
-      <PageHeader searchValue={search} onSearchChange={setSearch} searchPlaceholder="기록 검색..." />
+      <PageHeader searchValue={search} onSearchChange={setSearch} onSearchSubmit={setSearch} searchPlaceholder="기록 검색..." />
 
       <main className="grid grid-cols-[1fr_320px] gap-6 px-8 pb-12 pt-8">
         <div className="col-span-full mb-0">
@@ -349,7 +227,7 @@ export default function HistoryPage() {
               {error}
               <button
                 type="button"
-                onClick={() => loadHistory(true)}
+                onClick={() => loadHistory()}
                 className="ml-3 font-semibold text-[#5033df]"
               >
                 다시 시도
@@ -486,115 +364,18 @@ export default function HistoryPage() {
 
         <aside>
           <div className="rounded-xl border border-[#dedee5] bg-white p-6">
-            <h2 className="text-[16px] font-bold">
-              ✦ AI Insight Panel
-            </h2>
-
-            <div className="mt-5 rounded-xl border border-[#dedee5] p-5">
-              <p className="text-[12px] text-[#6043d9]">
-                주간 분석
-              </p>
-
-              <h3 className="mt-2 text-[17px] font-bold">
-                {average >= 90
-                  ? '높은 소통 효율성'
-                  : average >= 80
-                    ? '안정적인 소통 효율성'
-                    : '소통 효율성 개선 필요'}
-              </h3>
-
-              <p className="mt-3 text-[12px] leading-5 text-[#777]">
-                현재 평균 적합도 점수가 {average}%입니다.
-                {average >= 90
-                  ? ' 높은 수준의 소통 효율을 유지하고 있습니다.'
-                  : average >= 80
-                    ? ' 전반적으로 안정적인 수준입니다.'
-                    : ' 메시지 목적과 수신자에 맞춘 표현을 조금 더 다듬어 보세요.'}
-              </p>
-            </div>
-
-            <div className="mt-5 rounded-xl border border-[#dedee5] p-5">
-              <h3 className="text-[13px] font-semibold">
-                점수 분포
-              </h3>
-
-              <div className="mt-5">
-                <div className="flex justify-between text-[11px]">
-                  <span>90% 이상</span>
-                  <span>{highScorePercent}%</span>
-                </div>
-
-                <div className="mt-2 h-2 rounded-full bg-[#e7e7e8]">
-                  <div
-                    className="h-full rounded-full bg-[#5335dd]"
-                    style={{ width: `${highScorePercent}%` }}
-                  />
-                </div>
+            <h2 className="text-[16px] font-bold">✦ AI Insight Panel</h2>
+            {aiInsightLoading ? (
+              <div className="mt-5 rounded-xl border border-[#dedee5] p-5 text-[12px] text-[#888]">AI가 최근 기록을 분석하고 있습니다.</div>
+            ) : aiInsight ? (
+              <div className="mt-5 space-y-4">
+                <div className="rounded-xl border border-[#dedee5] p-5"><p className="text-[12px] text-[#6043d9]">주간 분석</p><h3 className="mt-2 text-[17px] font-bold">{aiInsight.summary}</h3><p className="mt-3 text-[12px] leading-5 text-[#777]">{aiInsight.efficiency}</p></div>
+                <div className="rounded-xl border border-[#dedee5] p-5"><p className="text-[12px] text-[#6043d9]">AI 추천</p><p className="mt-2 text-[12px] leading-5 text-[#555]">{aiInsight.recommendation}</p></div>
+                <div className="rounded-xl border border-[#dedee5] p-5"><p className="text-[12px] text-[#6043d9]">다음 집중 영역</p><p className="mt-2 text-[12px] leading-5 text-[#555]">{aiInsight.focus}</p></div>
               </div>
-
-              <div className="mt-5">
-                <div className="flex justify-between text-[11px]">
-                  <span>80% - 90%</span>
-                  <span>{middleScorePercent}%</span>
-                </div>
-
-                <div className="mt-2 h-2 rounded-full bg-[#e7e7e8]">
-                  <div
-                    className="h-full rounded-full bg-[#9b8ce8]"
-                    style={{ width: `${middleScorePercent}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-5">
-                <div className="flex justify-between text-[11px]">
-                  <span>80% 미만</span>
-                  <span>{lowScorePercent}%</span>
-                </div>
-
-                <div className="mt-2 h-2 rounded-full bg-[#e7e7e8]">
-                  <div
-                    className="h-full rounded-full bg-[#df3340]"
-                    style={{ width: `${lowScorePercent}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8">
-              <h3 className="text-[13px]">
-                추천 액션
-              </h3>
-
-              <div className="mt-5 space-y-5 text-[12px] text-[#666]">
-                {history.some(
-                  (item) => item.recipient === '이서윤' && item.status === '대기 중',
-                ) && (
-                  <p>
-                    ✓ 이서윤 님의 '주간 보고' 검토 대기 중인 항목을 확인하세요.
-                  </p>
-                )}
-
-                {history.some(
-                  (item) => item.score < 80,
-                ) && (
-                  <p>
-                    ♧ 적합도 80% 미만의 기록을 확인하고 메시지 표현을 개선해보세요.
-                  </p>
-                )}
-
-                {!history.some(
-                  (item) => item.score < 80,
-                ) &&
-                  !history.some(
-                    (item) => item.status === '대기 중',
-                  ) && (
-                    <p>
-                      ✓ 현재 검토가 필요한 기록이 없습니다.
-                    </p>
-                  )}
-              </div>
-            </div>
+            ) : (
+              <div className="mt-5 rounded-xl border border-dashed border-[#dedee5] p-5 text-[12px] leading-5 text-[#888]">기록이 AI 분석 서버에 전달되면 주간 분석과 추천이 표시됩니다.</div>
+            )}
           </div>
         </aside>
       </main>

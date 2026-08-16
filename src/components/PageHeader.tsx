@@ -1,5 +1,7 @@
 import type { CSSProperties } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getNotifications, markNotificationsRead, type NotificationItem } from '../users/notifications'
 
 type PageHeaderProps = {
   searchValue?: string
@@ -124,6 +126,41 @@ export default function PageHeader({
   onSearchSubmit,
 }: PageHeaderProps) {
   const navigate = useNavigate()
+  const [notifications, setNotifications] = useState<NotificationItem[]>(getNotifications())
+  const [openNotifications, setOpenNotifications] = useState(false)
+
+  useEffect(() => {
+    const update = () => setNotifications(getNotifications())
+    window.addEventListener('notifications-updated', update)
+    window.addEventListener('storage', update)
+    return () => { window.removeEventListener('notifications-updated', update); window.removeEventListener('storage', update) }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const syncServerNotifications = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/notifications`)
+        if (!response.ok) return
+        const data: unknown = await response.json()
+        if (!active || !Array.isArray(data)) return
+        const current = getNotifications()
+        for (const item of data as Array<Record<string, unknown>>) {
+          const id = String(item.id ?? '')
+          if (!id || current.some((notification) => notification.id === id)) continue
+          const type = item.type === 'learning' ? 'learning' : item.type === 'mail' ? 'mail' : 'system'
+          const created = String(item.createdAt ?? new Date().toISOString())
+          localStorage.setItem('ieum-notifications', JSON.stringify([{ id, type, title: String(item.title ?? (type === 'mail' ? '새 메일이 도착했습니다.' : '새 알림')), description: String(item.description ?? ''), createdAt: created, read: false }, ...current].slice(0, 50)))
+        }
+        window.dispatchEvent(new Event('notifications-updated'))
+      } catch { /* 서버 알림 API가 없으면 로컬 알림만 사용 */ }
+    }
+    void syncServerNotifications()
+    const timer = window.setInterval(syncServerNotifications, 30000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [])
+
+  const unreadCount = useMemo(() => notifications.filter((item) => !item.read).length, [notifications])
 
   const submitSearch = (value: string) => {
     if (onSearchSubmit) {
@@ -170,27 +207,24 @@ export default function PageHeader({
 
       {/* 오른쪽 아이콘 */}
       <div style={actionsStyle}>
-        <button
-          type="button"
-          aria-label="알림"
-          title="알림"
-          style={iconButtonStyle}
-        >
-          <BellIcon />
-
-          <span
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              top: 3,
-              right: 2,
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: '#c4144d',
-            }}
-          />
-        </button>
+        <div style={{ position: 'relative' }}>
+          <button
+            type="button"
+            aria-label="알림"
+            title="알림"
+            style={iconButtonStyle}
+            onClick={() => { setOpenNotifications((value) => !value); if (!openNotifications) markNotificationsRead() }}
+          >
+            <BellIcon />
+            {unreadCount > 0 && <span style={{ position: 'absolute', top: 1, right: 0, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 999, background: '#c4144d', color: 'white', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+          </button>
+          {openNotifications && (
+            <div style={{ position: 'absolute', right: 0, top: 38, width: 330, maxHeight: 360, overflowY: 'auto', background: 'white', border: '1px solid #e5e5e8', borderRadius: 12, boxShadow: '0 12px 30px rgba(0,0,0,.12)', zIndex: 100 }}>
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid #eeeef1', fontWeight: 700, fontSize: 13 }}>알림</div>
+              {notifications.length === 0 ? <div style={{ padding: 24, color: '#999', fontSize: 12, textAlign: 'center' }}>새로운 알림이 없습니다.</div> : notifications.map((item) => <div key={item.id} style={{ padding: '13px 16px', borderBottom: '1px solid #f1f1f3', background: item.read ? '#fff' : '#faf8ff' }}><div style={{ fontSize: 12, fontWeight: 700, color: '#333' }}>{item.title}</div><div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.5, color: '#777' }}>{item.description}</div></div>)}
+            </div>
+          )}
+        </div>
 
         <button
           type="button"

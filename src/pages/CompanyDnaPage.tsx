@@ -1,77 +1,8 @@
 import { useEffect, useState } from 'react'
 import PageHeader from '../components/PageHeader'
 import { getUserProfile } from '../users/userProfile'
-
-const API_URL = import.meta.env.VITE_API_URL || ''
-
-type Term = {
-  from: string
-  to: string
-}
-
-type CommunicationRule = {
-  id: string
-  title: string
-  description: string
-  icon: 'mail' | 'notice' | 'report'
-}
-
-type CompanyDNA = {
-  decisionStructure: string
-  channels: string
-  reporting: string
-  terms: Term[]
-  rules: CommunicationRule[]
-  accuracy: number
-}
-
-const defaultDNA: CompanyDNA = {
-  decisionStructure: '수평적 자율성 기반',
-  channels: 'Slack & Notion',
-  reporting: '상시 공유 (Always Sync)',
-  terms: [
-    {
-      from: '검토 요청',
-      to: '피드백 요청',
-    },
-    {
-      from: '부장님/차장님',
-      to: "'님' 호칭",
-    },
-    {
-      from: '신속하게',
-      to: '우선순위 높음',
-    },
-    {
-      from: 'ASAP',
-      to: '~까지 확인',
-    },
-  ],
-  rules: [
-    {
-      id: 'email',
-      title: '이메일 형식',
-      description:
-        '제목 앞머리에 [말머리] 필수 사용. 본문은 핵심 위주로 3문장 이내 요약 선호.',
-      icon: 'mail',
-    },
-    {
-      id: 'notice',
-      title: '공지 사항',
-      description:
-        '전체 공지 시 @channel 사용 지양. 긴급도가 낮은 경우 스레드 활용 권장.',
-      icon: 'notice',
-    },
-    {
-      id: 'report',
-      title: '보고 스타일',
-      description:
-        "성과(Outcome) 중심 보고. 문제 발생 시 해결 방안과 함께 보고하는 'Solution First' 문화.",
-      icon: 'report',
-    },
-  ],
-  accuracy: 92,
-}
+import { analyzeCompanyDNA, type RecipientAIProfile } from '../ai/aiInsights'
+import { emptyCompanyDNA, saveCompanyDNA, fetchCompanyDNA, type CompanyDNA, type CommunicationRule } from '../users/companyDna'
 
 type IconName =
   | 'search'
@@ -296,37 +227,17 @@ function Icon({
   return null
 }
 
-function Toggle({
-  enabled,
-  onChange,
-}: {
-  enabled: boolean
-  onChange: () => void
-}) {
-  return (
-    <button
-      type="button"
-      aria-label="AI 메시지 생성 반영"
-      aria-pressed={enabled}
-      onClick={onChange}
-      className={`relative h-7 w-12 shrink-0 rounded-full p-1 transition-colors ${
-        enabled ? 'bg-[#5035dc]' : 'bg-[#c9c9ce]'
-      }`}
-    >
-      <span
-        className={`block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-          enabled ? 'translate-x-5' : 'translate-x-0'
-        }`}
-      />
-    </button>
-  )
-}
-
 export default function CompanyDnaPage() {
-  const [dna, setDNA] = useState<CompanyDNA>(defaultDNA)
+  const [dna, setDNA] = useState<CompanyDNA>(emptyCompanyDNA)
   const [search, setSearch] = useState('')
   const profile = getUserProfile()
+  useEffect(() => {
+    setAiProfileLoading(true)
+    void analyzeCompanyDNA({ profile: getUserProfile(), dna }).then(setAiProfile).finally(() => setAiProfileLoading(false))
+  }, [dna])
   const [aiEnabled, setAIEnabled] = useState(true)
+  const [aiProfile, setAiProfile] = useState<RecipientAIProfile | null>(null)
+  const [aiProfileLoading, setAiProfileLoading] = useState(false)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -334,109 +245,58 @@ export default function CompanyDnaPage() {
 
   const [showRuleModal, setShowRuleModal] = useState(false)
   const [showEditRulesModal, setShowEditRulesModal] = useState(false)
-  const [showReportModal, setShowReportModal] = useState(false)
-  const [showSimulationModal, setShowSimulationModal] = useState(false)
 
   const [newRuleTitle, setNewRuleTitle] = useState('')
   const [newRuleDescription, setNewRuleDescription] = useState('')
 
   const [editingRules, setEditingRules] = useState<CommunicationRule[]>(
-    defaultDNA.rules,
+    emptyCompanyDNA.rules,
   )
 
   useEffect(() => {
-    async function loadDNA() {
-      try {
-        const response = await fetch(`${API_URL}/api/company-dna`)
-
-        if (!response.ok) {
-          throw new Error('Company DNA load failed')
+    const controller = new AbortController()
+    void fetchCompanyDNA(controller.signal)
+      .then((data) => {
+        setDNA(data)
+        setEditingRules(data.rules)
+        if (typeof data.aiEnabled === 'boolean') setAIEnabled(data.aiEnabled)
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          console.error(error)
         }
+      })
+      .finally(() => setLoading(false))
 
-        const data = await response.json()
-
-        setDNA({
-          ...defaultDNA,
-          ...data,
-          terms: Array.isArray(data.terms)
-            ? data.terms
-            : defaultDNA.terms,
-          rules: Array.isArray(data.rules)
-            ? data.rules
-            : defaultDNA.rules,
-        })
-
-        if (typeof data.aiEnabled === 'boolean') {
-          setAIEnabled(data.aiEnabled)
-        }
-      } catch {
-        setDNA(defaultDNA)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadDNA()
+    return () => controller.abort()
   }, [])
 
   async function saveDNA(nextDNA = dna) {
     setSaving(true)
     setSaved(false)
-
-    const payload = {
-      ...nextDNA,
-      aiEnabled,
-    }
-
     try {
-      const response = await fetch(`${API_URL}/api/company-dna`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        throw new Error('Company DNA save failed')
-      }
-
+      await saveCompanyDNA({ ...nextDNA, aiEnabled })
       setSaved(true)
-
-      window.setTimeout(() => {
-        setSaved(false)
-      }, 2200)
+      window.setTimeout(() => setSaved(false), 2200)
     } catch (error) {
       console.error(error)
-
-      /*
-       * 백엔드가 아직 없는 상태에서도 프론트 UI 테스트가 가능하도록
-       * 로컬 상태는 그대로 유지한다.
-       */
-      setSaved(true)
-
-      window.setTimeout(() => {
-        setSaved(false)
-      }, 2200)
+      alert('Company DNA 저장에 실패했습니다.')
     } finally {
       setSaving(false)
     }
   }
 
-  function toggleAI() {
-    setAIEnabled((previous) => !previous)
-  }
 
   function resetDNA() {
     const confirmed = window.confirm(
-      'Company DNA 설정을 기본값으로 초기화하시겠습니까?',
+      'Company DNA 설정을 비우시겠습니까?',
     )
 
     if (!confirmed) return
 
-    setDNA(defaultDNA)
+    setDNA(emptyCompanyDNA)
     setAIEnabled(true)
-    void saveDNA(defaultDNA)
+    void saveDNA(emptyCompanyDNA)
     setSaved(false)
   }
 
@@ -508,10 +368,15 @@ export default function CompanyDnaPage() {
     void saveDNA(nextDNA)
   }
 
+  const keyword = search.trim().toLowerCase()
+  const matches = (value: string) => !keyword || value.toLowerCase().includes(keyword)
+  const visibleTerms = dna.terms.filter((term) => matches(`${term.from} ${term.to}`))
+  const visibleRules = dna.rules.filter((rule) => matches(`${rule.title} ${rule.description}`))
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f8f9fc]">
-        <PageHeader searchValue={search} onSearchChange={setSearch} />
+        <PageHeader searchValue={search} onSearchChange={setSearch} onSearchSubmit={setSearch} />
 
         <main className="px-8 py-10">
           <div className="text-[14px] text-[#777]">
@@ -527,7 +392,7 @@ export default function CompanyDnaPage() {
       {/* =========================================================
           TOP HEADER
       ========================================================= */}
-      <PageHeader searchValue={search} onSearchChange={setSearch} />
+      <PageHeader searchValue={search} onSearchChange={setSearch} onSearchSubmit={setSearch} />
 
       <main className="px-8 pb-12 pt-8">
         <div className="w-full">
@@ -579,16 +444,7 @@ export default function CompanyDnaPage() {
                   </h2>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <span className="text-[12px] text-[#6d6662]">
-                    AI 메시지 생성 반영
-                  </span>
 
-                  <Toggle
-                    enabled={aiEnabled}
-                    onChange={toggleAI}
-                  />
-                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
@@ -677,14 +533,7 @@ export default function CompanyDnaPage() {
                 정확도로 반영되고 있습니다.
               </p>
 
-              <button
-                type="button"
-                onClick={() => setShowReportModal(true)}
-                className="mt-7 text-[12px] font-semibold text-[#5b3ce0] transition hover:text-[#3f26bf]"
-              >
-                분석 리포트 보기
-                <span className="ml-1">→</span>
-              </button>
+
             </aside>
           </div>
 
@@ -716,7 +565,7 @@ export default function CompanyDnaPage() {
               </div>
 
               <div className="mt-5 space-y-2">
-                {dna.terms.map((term) => (
+                {visibleTerms.map((term) => (
                   <div
                     key={`${term.from}-${term.to}`}
                     className="flex h-[38px] items-center rounded-lg border border-[#eeeef1] px-3 text-[12px]"
@@ -765,7 +614,7 @@ export default function CompanyDnaPage() {
 
                 <div className="flex items-center gap-3">
                   <span className="text-[11px] text-[#756e6a]">
-                    규칙 {dna.rules.length + 9}개 적용 중
+                    규칙 {dna.rules.length}개 적용 중
                   </span>
 
                   <button
@@ -782,8 +631,8 @@ export default function CompanyDnaPage() {
                 </div>
               </div>
 
-              <div className="mt-5 space-y-4">
-                {dna.rules.slice(0, 3).map((rule) => (
+              <div className="mt-5 max-h-[390px] space-y-4 overflow-y-auto pr-2">
+                {visibleRules.map((rule) => (
                   <div
                     key={rule.id}
                     className="rounded-lg border border-[#cfc5f7] p-4"
@@ -810,18 +659,8 @@ export default function CompanyDnaPage() {
                 ))}
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                <span className="rounded bg-[#f2efff] px-2 py-1 text-[9px] font-semibold text-[#625b72]">
-                  TONE: PROFESSIONAL
-                </span>
-
-                <span className="rounded bg-[#f2efff] px-2 py-1 text-[9px] font-semibold text-[#625b72]">
-                  STYLE: CONCISE
-                </span>
-
-                <span className="rounded bg-[#f2efff] px-2 py-1 text-[9px] font-semibold text-[#625b72]">
-                  EMOJI: CONSERVATIVE
-                </span>
+              <div className="mt-5 max-h-28 overflow-y-auto pr-1">
+                {aiProfileLoading ? <p className="text-[10px] text-[#999]">AI가 조직의 커뮤니케이션 패턴을 분석하고 있습니다.</p> : aiProfile ? <div className="flex flex-wrap gap-2">{[aiProfile.tone && `TONE: ${aiProfile.tone}`, aiProfile.style && `STYLE: ${aiProfile.style}`, aiProfile.emoji && `EMOJI: ${aiProfile.emoji}`].filter(Boolean).map((tag) => <span key={tag} className="rounded bg-[#f2efff] px-2 py-1 text-[9px] font-semibold text-[#625b72]">{tag}</span>)}</div> : <p className="text-[10px] text-[#999]">AI 분석 결과가 아직 없습니다.</p>}
               </div>
             </section>
           </div>
@@ -863,20 +702,6 @@ export default function CompanyDnaPage() {
                 />
 
                 설정 초기화
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowSimulationModal(true)}
-                className="flex items-center gap-2 rounded-lg bg-[#5335df] px-5 py-3 text-[12px] font-semibold text-white transition hover:bg-[#452bc9]"
-              >
-                <Icon
-                  name="simulation"
-                  size={15}
-                  stroke="white"
-                />
-
-                실시간 시뮬레이션
               </button>
             </div>
           </section>
@@ -1095,206 +920,7 @@ export default function CompanyDnaPage() {
         </div>
       )}
 
-      {/* =========================================================
-          REPORT MODAL
-      ========================================================= */}
-      {showReportModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-5 backdrop-blur-[1px]">
-          <div className="w-full max-w-[500px] rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-[17px] font-bold text-[#302b30]">
-                  AI 최적화 분석 리포트
-                </h3>
-
-                <p className="mt-1 text-[12px] text-[#898286]">
-                  현재 Company DNA가 메시지 생성에 반영되는 정도입니다.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowReportModal(false)}
-                className="text-[#777]"
-              >
-                <Icon
-                  name="close"
-                  size={19}
-                />
-              </button>
-            </div>
-
-            <div className="mt-7 flex items-center gap-6">
-              <div className="flex h-[112px] w-[112px] shrink-0 items-center justify-center rounded-full border-[9px] border-[#6041e4]">
-                <span className="text-[25px] font-bold">
-                  {dna.accuracy}%
-                </span>
-              </div>
-
-              <div className="space-y-3 text-[12px]">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-[#6041e4]" />
-                  조직 정보 반영
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-[#6041e4]" />
-                  용어 규칙 반영
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-[#6041e4]" />
-                  커뮤니케이션 규칙 반영
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 rounded-full ${
-                      aiEnabled ? 'bg-[#4b934b]' : 'bg-[#aaa]'
-                    }`}
-                  />
-                  AI 메시지 생성 반영{' '}
-                  {aiEnabled ? '활성화' : '비활성화'}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-7 rounded-xl bg-[#f7f4ff] p-4 text-[12px] leading-5 text-[#686172]">
-              현재 등록된 Company DNA 설정은 메시지의 표현 방식,
-              용어 선택, 보고 방식 및 조직 내 커뮤니케이션 스타일을
-              일관되게 유지하는 데 사용됩니다.
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowReportModal(false)}
-              className="mt-5 w-full rounded-lg bg-[#5035dc] py-3 text-[12px] font-semibold text-white"
-            >
-              확인
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================
-          SIMULATION MODAL
-      ========================================================= */}
-      {showSimulationModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-5 backdrop-blur-[1px]">
-          <div className="w-full max-w-[600px] rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#eeeef1] px-6 py-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f0edff] text-[#5035dc]">
-                  <Icon
-                    name="simulation"
-                    size={19}
-                  />
-                </div>
-
-                <div>
-                  <h3 className="text-[16px] font-bold text-[#302b30]">
-                    실시간 시뮬레이션
-                  </h3>
-
-                  <p className="mt-1 text-[11px] text-[#898286]">
-                    현재 Company DNA가 메시지에 어떻게 반영되는지
-                    확인합니다.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowSimulationModal(false)}
-                className="text-[#777]"
-              >
-                <Icon
-                  name="close"
-                  size={19}
-                />
-              </button>
-            </div>
-
-            <div className="p-6">
-              <div className="rounded-xl border border-[#ded9e7] bg-white p-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-[#8a8381]">
-                    AI 적용 상태
-                  </span>
-
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
-                      aiEnabled
-                        ? 'bg-[#eeeaff] text-[#5035dc]'
-                        : 'bg-[#f0f0f0] text-[#888]'
-                    }`}
-                  >
-                    {aiEnabled ? 'ACTIVE' : 'INACTIVE'}
-                  </span>
-                </div>
-
-                <div className="mt-5 space-y-3">
-                  <div className="flex items-center justify-between border-b border-[#f0eef2] pb-3 text-[12px]">
-                    <span className="text-[#999]">톤앤매너</span>
-                    <span className="font-medium">
-                      Professional
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between border-b border-[#f0eef2] pb-3 text-[12px]">
-                    <span className="text-[#999]">문장 스타일</span>
-                    <span className="font-medium">Concise</span>
-                  </div>
-
-                  <div className="flex items-center justify-between border-b border-[#f0eef2] pb-3 text-[12px]">
-                    <span className="text-[#999]">용어 규칙</span>
-                    <span className="font-medium">
-                      {dna.terms.length}개
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[12px]">
-                    <span className="text-[#999]">커뮤니케이션 규칙</span>
-                    <span className="font-medium">
-                      {dna.rules.length}개
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-xl border border-[#cfc5f7] bg-[#faf8ff] p-5">
-                <p className="text-[12px] font-semibold text-[#4b3b77]">
-                  AI가 적용할 주요 기준
-                </p>
-
-                <ul className="mt-3 space-y-2 text-[11px] leading-5 text-[#756d7e]">
-                  {dna.terms.slice(0, 3).map((term) => (
-                    <li
-                      key={term.from}
-                      className="flex gap-2"
-                    >
-                      <span className="text-[#5035dc]">•</span>
-                      <span>
-                        {term.from} → {term.to}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            <div className="flex justify-end border-t border-[#eeeef1] px-6 py-4">
-              <button
-                type="button"
-                onClick={() => setShowSimulationModal(false)}
-                className="rounded-lg bg-[#5035dc] px-5 py-2.5 text-[12px] font-semibold text-white"
-              >
-                시뮬레이션 닫기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
+

@@ -7,6 +7,7 @@ import SignInPage from './pages/login/sign-in'
 import SignUpPage from './pages/login/sign-up'
 import MessagesPage from './pages/messages/MessagesPage'
 import MessageOptimizedPage from './pages/messages/MessageOptimizedPage'
+import DraftsPage from './pages/messages/DraftsPage'
 import MyProfilePage from './pages/my-profile'
 import RecipientsPage from './pages/RecipientsPage'
 import SettingsPage from './pages/Setting'
@@ -42,6 +43,7 @@ function App() {
           path="/messages/optimized"
           element={<MessageOptimizedPage />}
         />
+        <Route path="/messages/drafts" element={<DraftsPage />} />
         <Route path="/recipients" element={<RecipientsPage />} />
         <Route path="/company-dna" element={<CompanyDnaPage />} />
         <Route path="/team-memory" element={<TeamMemoryPage />} />
