@@ -605,7 +605,7 @@ export default function HistoryPage() {
           onClick={() => setSelectedItem(null)}
         >
           <div
-            className="w-full max-w-[520px] rounded-xl border border-[#dedee5] bg-white p-6"
+            className="w-full max-w-130 rounded-xl border border-[#dedee5] bg-white p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -635,7 +635,7 @@ export default function HistoryPage() {
 
               <div className="flex justify-between border-b border-[#eee] pb-3">
                 <span className="text-[#777]">목적</span>
-                <span className="max-w-[300px] text-right">
+                <span className="max-w-75 text-right">
                   {selectedItem.purpose}
                 </span>
               </div>

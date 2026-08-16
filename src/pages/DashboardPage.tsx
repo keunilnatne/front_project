@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import { useConversations } from '../users/useConversations'
 import { useProfileAnalytics } from '../users/useProfileAnalytics'
-
 import DocumentIcon from '../images/dashboard/DocumentImg.png'
 import DocumentInBox from '../images/dashboard/DocumentInBox.png'
 
@@ -106,8 +105,8 @@ export default function DashboardPage() {
         {/* 왼쪽 메인 */}
         <section className="min-w-0">
           {/* Hero */}
-          <div className="relative h-[268px] overflow-hidden rounded-xl border border-[#ded9ed] bg-[#f5f2ff]">
-            <div className="absolute left-[36px] top-[44px]">
+          <div className="relative h-67 overflow-hidden rounded-xl border border-[#ded9ed] bg-[#f5f2ff]">
+            <div className="absolute left-9 top-11">
               <h1 className="text-[28px] font-bold leading-[1.45] tracking-[-0.02em] text-[#282328]">
                 AI가 당신의 메시지를
                 <br />
@@ -123,7 +122,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={handleCreateMessage}
-                  className="flex h-[49px] items-center gap-2 rounded-lg bg-[#4c2fdc] px-5 text-[13px] font-semibold text-white transition hover:bg-[#4327ca]"
+                  className="flex h-12.25 items-center gap-2 rounded-lg bg-[#4c2fdc] px-5 text-[13px] font-semibold text-white transition hover:bg-[#4327ca]"
                 >
                   <span className="text-[18px]">♢</span>
                   새 메시지 작성
@@ -132,7 +131,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={handleTemplate}
-                  className="flex h-[49px] items-center gap-2 rounded-lg border border-[#d6d2dc] bg-white px-5 text-[13px] font-semibold text-[#4d4750] transition hover:bg-[#fafafa]"
+                  className="flex h-12.25 items-center gap-2 rounded-lg border border-[#d6d2dc] bg-white px-5 text-[13px] font-semibold text-[#4d4750] transition hover:bg-[#fafafa]"
                 >
                   <span className="text-[17px] text-[#6040e8]">▱</span>
                   템플릿 둘러보기
@@ -144,13 +143,13 @@ export default function DashboardPage() {
             <img
               src={DocumentIcon}
               alt=""
-              className="pointer-events-none absolute right-[38px] top-[55px] h-[195px] w-[226px] object-contain"
+              className="pointer-events-none absolute right-9.5 top-13.75 h-48.75 w-56.5 object-contain"
             />
           </div>
 
           {/* 통계 카드 */}
-          <div className="mt-[17px] grid grid-cols-3 gap-4">
-            <div className="h-[102px] rounded-xl border border-[#dedee4] bg-white px-4 py-3">
+          <div className="mt-4.25 grid grid-cols-3 gap-4">
+            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3">
               <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
                 {loading ? '-' : stats.sentMessages}
               </strong>
@@ -160,7 +159,7 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="h-[102px] rounded-xl border border-[#dedee4] bg-white px-4 py-3">
+            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3">
               <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
                 {loading ? '-' : stats.aiConversions}
               </strong>
@@ -170,7 +169,7 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="h-[102px] rounded-xl border border-[#dedee4] bg-white px-4 py-3">
+            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3">
               <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
                 {loading ? '-' : stats.recipients}
               </strong>
@@ -182,14 +181,14 @@ export default function DashboardPage() {
           </div>
 
           {/* 빈 메시지 영역 */}
-          <div className="mt-[21px] flex h-[429px] flex-col items-center justify-center rounded-xl border border-[#dedee4] bg-white">
+          <div className="mt-5.25 flex h-107.25 flex-col items-center justify-center rounded-xl border border-[#dedee4] bg-white">
             <img
               src={DocumentInBox}
               alt=""
-              className="h-[115px] w-[113px] object-contain"
+              className="h-28.75 w-28.25 object-contain"
             />
 
-            <h2 className="mt-[13px] text-[17px] font-bold text-[#282328]">
+            <h2 className="mt-3.25 text-[17px] font-bold text-[#282328]">
               아직 작성한 메시지가 없어요
             </h2>
 
@@ -215,7 +214,7 @@ export default function DashboardPage() {
               이렇게 사용해보세요!
             </h2>
 
-            <div className="mt-6 space-y-[10px]">
+            <div className="mt-6 space-y-2.5">
               {guideItems.map((item) => {
                 const isOpen = openGuide === item.number
 
@@ -230,14 +229,14 @@ export default function DashboardPage() {
                           setOpenGuide(item.number)
                         }
                       }}
-                      className="flex h-[80px] w-full items-center rounded-lg border border-[#d9d9df] px-4 text-left transition hover:bg-[#fafafa]"
+                      className="flex h-20 w-full items-center rounded-lg border border-[#d9d9df] px-4 text-left transition hover:bg-[#fafafa]"
                     >
                       <div
-                        className="relative flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full"
+                        className="relative flex h-13 w-13 shrink-0 items-center justify-center rounded-full"
                         style={{ backgroundColor: item.bg }}
                       >
                         <span
-                          className="absolute left-[-4px] top-[-5px] flex h-[22px] w-[22px] items-center justify-center rounded-full text-[11px] font-semibold text-white"
+                          className="absolute -left-1 -top-1.25 flex h-5.5 w-5.5 items-center justify-center rounded-full text-[11px] font-semibold text-white"
                           style={{ backgroundColor: item.color }}
                         >
                           {item.number}
@@ -288,7 +287,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 새로운 소식 */}
-          <div className="mt-[16px] rounded-xl border border-[#dedee4] bg-white p-5">
+          <div className="mt-4 rounded-xl border border-[#dedee4] bg-white p-5">
             <div className="flex items-center gap-2">
               <h2 className="text-[16px] font-bold text-[#282328]">
                 새로운 소식
