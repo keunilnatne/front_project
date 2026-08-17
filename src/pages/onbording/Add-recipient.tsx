@@ -1,9 +1,12 @@
 import { type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-const fields = [
-  { label: '이름', name: 'name', placeholder: '장범수' },
-  { label: '직무', name: 'job', placeholder: 'front' },
+const countries = [
+  '대한민국', '미국', '일본', '중국', '영국', '캐나다', '호주', '뉴질랜드',
+  '싱가포르', '인도', '독일', '프랑스', '이탈리아', '스페인', '네덜란드', '벨기에',
+  '스위스', '스웨덴', '노르웨이', '덴마크', '핀란드', '폴란드', '오스트리아', '아일랜드',
+  '포르투갈', '체코', '브라질', '멕시코', '아르헨티나', '칠레', '베트남', '태국',
+  '필리핀', '인도네시아', '말레이시아', '아랍에미리트', '이스라엘', '터키', '남아프리카 공화국',
 ] as const
 
 const inputClass = 'h-10 w-full rounded-lg border border-[#bcbcbc] bg-white px-4 py-[9px] text-sm leading-[17px] text-[#241912] outline-none transition placeholder:text-[#564334]/50 focus:border-[#5b3df5] focus:ring-2 focus:ring-[#5b3df5]/10'
@@ -75,11 +78,22 @@ function AddRecipient() {
             </div>
 
             <div className="flex flex-col gap-3.75">
-              {fields.map((field) => (
-                <Field key={field.name} label={field.label}>
-                  <input name={field.name} required placeholder={field.placeholder} className={inputClass} />
-                </Field>
-              ))}
+              <Field label="이름">
+                <input name="name" required placeholder="장범수" className={inputClass} />
+              </Field>
+
+              <Field label="국가">
+                <select name="country" required defaultValue="" className={`${inputClass} appearance-auto text-[#241912]`}>
+                  <option value="" disabled>자주 협업하는 국가를 선택하세요</option>
+                  {countries.map((country) => (
+                    <option key={country} value={country}>{country}</option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="직무">
+                <input name="job" required placeholder="front" className={inputClass} />
+              </Field>
 
               <Field label="회사">
                 <div className="relative">

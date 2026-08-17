@@ -446,16 +446,11 @@ export default function MessageOptimizedPage() {
     originalSubject,
     originalBody,
     aiContext,
-    fallbackMode,
-    fallbackMessage,
-    spellCorrections,
     detectedSourceLanguage,
     targetLanguage,
   } = state
 
   const primaryRecipient = recipients[0]
-
-  const fallbackNotice = fallbackMode ? (fallbackMessage || 'AI 연결에 실패해서 맞춤법 검사만 진행했습니다.') : ''
 
   async function copyMessage() {
     try {
@@ -600,7 +595,7 @@ export default function MessageOptimizedPage() {
         ================================================= */}
 
         <main className="min-w-0 px-8 py-10">
-          <div className="mx-auto w-full max-w-[900px]">
+          <div className="mx-auto w-full max-w-225">
             {/* TITLE */}
             <div className="mb-8">
               <h1 className="text-[25px] font-bold text-[#2d282c]">

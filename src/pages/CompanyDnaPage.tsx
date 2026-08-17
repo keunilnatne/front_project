@@ -231,13 +231,20 @@ export default function CompanyDnaPage() {
   const [dna, setDNA] = useState<CompanyDNA>(emptyCompanyDNA)
   const [search, setSearch] = useState('')
   const profile = getUserProfile()
-  useEffect(() => {
-    setAiProfileLoading(true)
-    void analyzeCompanyDNA({ profile: getUserProfile(), dna }).then(setAiProfile).finally(() => setAiProfileLoading(false))
-  }, [dna])
   const [aiEnabled, setAIEnabled] = useState(true)
   const [aiProfile, setAiProfile] = useState<RecipientAIProfile | null>(null)
   const [aiProfileLoading, setAiProfileLoading] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    const loadProfile = async () => {
+      if (active) setAiProfileLoading(true)
+      const result = await analyzeCompanyDNA({ profile: getUserProfile(), dna })
+      if (active) { setAiProfile(result); setAiProfileLoading(false) }
+    }
+    void loadProfile()
+    return () => { active = false }
+  }, [dna])
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -448,7 +455,7 @@ export default function CompanyDnaPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                <div className="min-h-[146px] rounded-lg border border-[#dddce2] p-4">
+                <div className="min-h-36.5 rounded-lg border border-[#dddce2] p-4">
                   <p className="text-[12px] text-[#7d7775]">
                     의사결정 구조
                   </p>
@@ -457,13 +464,13 @@ export default function CompanyDnaPage() {
                     {dna.decisionStructure}
                   </p>
 
-                  <p className="mt-3 text-[11px] leading-[18px] text-[#817b79]">
+                  <p className="mt-3 text-[11px] leading-4.5 text-[#817b79]">
                     결론 중심의 빠른 피드백 문화를 지향하며, 직급
                     전문성을 존중합니다.
                   </p>
                 </div>
 
-                <div className="min-h-[146px] rounded-lg border border-[#dddce2] p-4">
+                <div className="min-h-36.5 rounded-lg border border-[#dddce2] p-4">
                   <p className="text-[12px] text-[#7d7775]">
                     주요 채널
                   </p>
@@ -472,13 +479,13 @@ export default function CompanyDnaPage() {
                     {dna.channels}
                   </p>
 
-                  <p className="mt-3 text-[11px] leading-[18px] text-[#817b79]">
+                  <p className="mt-3 text-[11px] leading-4.5 text-[#817b79]">
                     비동기 협업을 원칙으로 하며, 모든 히스토리는 기록을
                     남깁니다.
                   </p>
                 </div>
 
-                <div className="min-h-[146px] rounded-lg border border-[#dddce2] p-4">
+                <div className="min-h-36.5 rounded-lg border border-[#dddce2] p-4">
                   <p className="text-[12px] text-[#7d7775]">
                     보고 체계
                   </p>
@@ -487,7 +494,7 @@ export default function CompanyDnaPage() {
                     {dna.reporting}
                   </p>
 
-                  <p className="mt-3 text-[11px] leading-[18px] text-[#817b79]">
+                  <p className="mt-3 text-[11px] leading-4.5 text-[#817b79]">
                     주간 보고 대신 대시보드를 통한 상시 공유 체계를
                     활용합니다.
                   </p>
@@ -495,14 +502,14 @@ export default function CompanyDnaPage() {
               </div>
 
               {/* OFFICE IMAGE */}
-              <div className="relative mt-5 h-[145px] overflow-hidden rounded-lg bg-[#ddd9d1]">
+              <div className="relative mt-5 h-36.25 overflow-hidden rounded-lg bg-[#ddd9d1]">
                 <img
                   src="https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80"
                   alt="Company office"
                   className="h-full w-full object-cover"
                 />
 
-                <div className="absolute inset-0 bg-gradient-to-r from-black/5 via-transparent to-black/10" />
+                <div className="absolute inset-0 bg-linear-to-r from-black/5 via-transparent to-black/10" />
 
                 <div className="absolute bottom-3 right-4 rounded bg-[#b17b45]/80 px-3 py-1.5 text-[10px] font-semibold text-white backdrop-blur-sm">
                   Company DNA
@@ -512,7 +519,7 @@ export default function CompanyDnaPage() {
 
             {/* AI ACCURACY */}
             <aside className="rounded-xl border border-[#e5c9ba] bg-white px-7 py-8 text-center">
-              <div className="mx-auto flex h-[108px] w-[108px] items-center justify-center rounded-full border-[9px] border-[#6041e4]">
+              <div className="mx-auto flex h-27 w-27 items-center justify-center rounded-full border-[9px] border-[#6041e4]">
                 <div>
                   <span className="block text-[25px] font-bold leading-none text-[#29252a]">
                     {dna.accuracy}%
@@ -528,7 +535,7 @@ export default function CompanyDnaPage() {
                 AI 최적화 상태
               </p>
 
-              <p className="mt-4 text-[11px] leading-[19px] text-[#77716f]">
+              <p className="mt-4 text-[11px] leading-4.75 text-[#77716f]">
                 작성된 규칙들이 AI의 메시지 생성 알고리즘에 매우 높은
                 정확도로 반영되고 있습니다.
               </p>
@@ -542,7 +549,7 @@ export default function CompanyDnaPage() {
           ===================================================== */}
           <div className="mt-5 grid grid-cols-2 gap-5">
             {/* TERMS */}
-            <section className="min-h-[420px] rounded-xl border border-[#dedee5] bg-white p-6">
+            <section className="min-h-105 rounded-xl border border-[#dedee5] bg-white p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f0edff] text-[#5035dc]">
@@ -568,9 +575,9 @@ export default function CompanyDnaPage() {
                 {visibleTerms.map((term) => (
                   <div
                     key={`${term.from}-${term.to}`}
-                    className="flex h-[38px] items-center rounded-lg border border-[#eeeef1] px-3 text-[12px]"
+                    className="flex h-9.5 items-center rounded-lg border border-[#eeeef1] px-3 text-[12px]"
                   >
-                    <span className="w-[115px] truncate text-[#aaa4a1] line-through">
+                    <span className="w-28.75 truncate text-[#aaa4a1] line-through">
                       {term.from}
                     </span>
 
@@ -587,7 +594,7 @@ export default function CompanyDnaPage() {
                 ))}
               </div>
 
-              <div className="mt-5 rounded-lg border border-dashed border-[#b5a9dc] bg-[#f5f1ff] p-4 text-[11px] leading-[18px] text-[#6e6877]">
+              <div className="mt-5 rounded-lg border border-dashed border-[#b5a9dc] bg-[#f5f1ff] p-4 text-[11px] leading-4.5 text-[#6e6877]">
                 사내에서는 '검토 요청'보다 '피드백 요청'이라는 표현을
                 선호합니다.
                 <br />
@@ -597,7 +604,7 @@ export default function CompanyDnaPage() {
             </section>
 
             {/* COMMUNICATION RULES */}
-            <section className="min-h-[420px] rounded-xl border border-[#dedee5] bg-white p-6">
+            <section className="min-h-105 rounded-xl border border-[#dedee5] bg-white p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f0edff] text-[#5035dc]">
@@ -631,7 +638,7 @@ export default function CompanyDnaPage() {
                 </div>
               </div>
 
-              <div className="mt-5 max-h-[390px] space-y-4 overflow-y-auto pr-2">
+              <div className="mt-5 max-h-97.5 space-y-4 overflow-y-auto pr-2">
                 {visibleRules.map((rule) => (
                   <div
                     key={rule.id}
@@ -650,7 +657,7 @@ export default function CompanyDnaPage() {
                           {rule.title}
                         </p>
 
-                        <p className="mt-2 text-[11px] leading-[18px] text-[#77737a]">
+                        <p className="mt-2 text-[11px] leading-4.5 text-[#77737a]">
                           {rule.description}
                         </p>
                       </div>
@@ -668,7 +675,7 @@ export default function CompanyDnaPage() {
           {/* =====================================================
               BOTTOM AI GUIDE
           ===================================================== */}
-          <section className="mt-5 flex min-h-[112px] items-center justify-between rounded-xl border border-[#e3d6ca] bg-white px-7 py-5">
+          <section className="mt-5 flex min-h-28 items-center justify-between rounded-xl border border-[#e3d6ca] bg-white px-7 py-5">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#5035dc] text-white">
                 <Icon
@@ -683,7 +690,7 @@ export default function CompanyDnaPage() {
                   AI 메시지 가이드 작동 중
                 </p>
 
-                <p className="mt-1 max-w-[580px] text-[11px] leading-[18px] text-[#777]">
+                <p className="mt-1 max-w-145 text-[11px] leading-4.5 text-[#777]">
                   위 모든 설정값들이 실시간으로 학습되어, 임직원들이
                   메시지를 작성할 때 하단에 자동 제안됩니다.
                 </p>
@@ -739,8 +746,8 @@ export default function CompanyDnaPage() {
           ADD DNA RULE MODAL
       ========================================================= */}
       {showRuleModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-5 backdrop-blur-[1px]">
-          <div className="w-full max-w-[480px] rounded-2xl border border-[#e3e0e7] bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/30 p-5 backdrop-blur-[1px]">
+          <div className="w-full max-w-120 rounded-2xl border border-[#e3e0e7] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-[17px] font-bold text-[#302b30]">
@@ -791,7 +798,7 @@ export default function CompanyDnaPage() {
                     setNewRuleDescription(event.target.value)
                   }
                   placeholder="AI가 메시지를 작성할 때 적용할 규칙을 입력하세요."
-                  className="h-[120px] w-full resize-none rounded-lg border border-[#ddd9df] p-3 text-[13px] leading-5 outline-none focus:border-[#6246df] focus:ring-2 focus:ring-[#6246df]/10"
+                  className="h-30 w-full resize-none rounded-lg border border-[#ddd9df] p-3 text-[13px] leading-5 outline-none focus:border-[#6246df] focus:ring-2 focus:ring-[#6246df]/10"
                 />
               </label>
             </div>
@@ -821,8 +828,8 @@ export default function CompanyDnaPage() {
           EDIT RULES MODAL
       ========================================================= */}
       {showEditRulesModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-5 backdrop-blur-[1px]">
-          <div className="max-h-[85vh] w-full max-w-[620px] overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/30 p-5 backdrop-blur-[1px]">
+          <div className="max-h-[85vh] w-full max-w-155 overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#eeeef1] px-6 py-5">
               <div>
                 <h3 className="text-[17px] font-bold text-[#302b30]">

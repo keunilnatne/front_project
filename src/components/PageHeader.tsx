@@ -175,22 +175,25 @@ export default function PageHeader({
   }, [])
 
   useEffect(() => {
-    const keyword = searchValue.trim().toLowerCase()
-    if (!keyword) { setSearchResults([]); setSearchOpen(false); return }
-    const members = searchData.recipients
+    const updateSearchResults = async () => {
+      const keyword = searchValue.trim().toLowerCase()
+      if (!keyword) { setSearchResults([]); setSearchOpen(false); return }
+      const members = searchData.recipients
       .filter((item) => `${item.name} ${item.role} ${item.company} ${item.country} ${item.language}`.toLowerCase().includes(keyword))
       .slice(0, 5)
       .map((item) => ({ type: 'member' as const, id: String(item.id), title: item.name, subtitle: `${item.role} · ${item.company}` }))
-    const histories = searchData.history
+      const histories = searchData.history
       .filter((item) => `${item.recipient} ${item.purpose} ${item.content || ''} ${item.status}`.toLowerCase().includes(keyword))
       .slice(0, 5)
       .map((item) => ({ type: 'history' as const, id: item.id, title: item.purpose || '(제목 없음)', subtitle: `${item.recipient} · ${item.status}` }))
-    const conversations = searchData.conversations
+      const conversations = searchData.conversations
       .filter((item) => `${item.title} ${item.messages.map((message) => message.content).join(' ')}`.toLowerCase().includes(keyword))
       .slice(0, 5)
       .map((item) => ({ type: 'conversation' as const, id: item.id, title: item.title, subtitle: `대화 · ${item.messages.length}개 메시지` }))
-    setSearchResults([...members, ...histories, ...conversations].slice(0, 10))
-    setSearchOpen(true)
+      setSearchResults([...members, ...histories, ...conversations].slice(0, 10))
+      setSearchOpen(true)
+    }
+    void updateSearchResults()
   }, [searchValue, searchData])
 
   const unreadCount = useMemo(() => notifications.filter((item) => !item.read).length, [notifications])

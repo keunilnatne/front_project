@@ -77,13 +77,23 @@ export default function HistoryPage() {
   }, [searchParams])
 
   useEffect(() => {
-    loadHistory()
-  }, [loadHistory, searchParams])
+    const load = async () => { await loadHistory() }
+    void load()
+  }, [loadHistory])
 
   useEffect(() => {
-    if (!history.length) { setAiInsight(null); return }
-    setAiInsightLoading(true)
-    void analyzeHistory(history).then(setAiInsight).finally(() => setAiInsightLoading(false))
+    let active = true
+    const loadInsight = async () => {
+      if (!history.length) {
+        if (active) setAiInsight(null)
+        return
+      }
+      if (active) setAiInsightLoading(true)
+      const insight = await analyzeHistory(history)
+      if (active) { setAiInsight(insight); setAiInsightLoading(false) }
+    }
+    void loadInsight()
+    return () => { active = false }
   }, [history])
 
   const filtered = useMemo(() => {
@@ -108,7 +118,8 @@ export default function HistoryPage() {
   }, [history, search, activeTab])
 
   useEffect(() => {
-    setCurrentPage(1)
+    const resetPage = async () => setCurrentPage(1)
+    void resetPage()
   }, [search, activeTab])
 
   const totalPages = Math.max(
@@ -117,9 +128,10 @@ export default function HistoryPage() {
   )
 
   useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages)
+    const clampPage = async () => {
+      if (currentPage > totalPages) setCurrentPage(totalPages)
     }
+    void clampPage()
   }, [currentPage, totalPages])
 
   const paginated = useMemo(() => {

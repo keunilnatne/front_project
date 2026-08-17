@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import PageHeader from '../../components/PageHeader'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { fetchRecipients, type Recipient as UserRecipient } from '../../users/recipients'
+import { createRecipient, fetchRecipients, type Recipient as UserRecipient } from '../../users/recipients'
 import { optimizeMessage } from '../../users/messageService'
 import { createHistoryItem } from '../../users/history'
 import { analyzeMessageMetadata } from '../../ai/aiInsights'
-import { addNotification } from '../../users/notifications'
 import { detectMessageLanguage, translateAndSpellCheck } from '../../ai/freeLanguageTools'
+import { fetchConversations, type Conversation } from '../../users/conversationArchive'
 
 type Recipient = {
   id: string
   name: string
+  email?: string
   position: string
   company: string
   country?: string
@@ -195,11 +196,18 @@ export default function MessagesPage() {
 
   useEffect(() => {
     const id = searchParams.get('conversation')
-    if (!id) { setOpenedConversation(null); return }
-    void fetchConversations().then((items) => {
+    let active = true
+    const loadConversation = async () => {
+      if (!id) {
+        if (active) setOpenedConversation(null)
+        return
+      }
+      const items = await fetchConversations()
       const found = items.find((item) => item.id === id)
-      if (found) setOpenedConversation(found)
-    })
+      if (active) setOpenedConversation(found || null)
+    }
+    void loadConversation()
+    return () => { active = false }
   }, [searchParams])
 
 
@@ -211,6 +219,9 @@ export default function MessagesPage() {
     useState<Recipient[]>([])
 
   const [showRecipientList, setShowRecipientList] = useState(false)
+  const [quickRecipient, setQuickRecipient] = useState({ email: '', role: '' })
+  const [quickRecipientError, setQuickRecipientError] = useState('')
+  const [quickRecipientSaving, setQuickRecipientSaving] = useState(false)
   const recipientPickerRef = useRef<HTMLDivElement>(null)
 
   const [subject, setSubject] =
@@ -227,19 +238,17 @@ export default function MessagesPage() {
 
   /* 수정하기로 돌아온 경우 기존 데이터 유지 */
   useEffect(() => {
-    if (pageState?.recipients?.length) {
-      setSelectedRecipients(pageState.recipients)
-    } else if (pageState?.recipient) {
-      setSelectedRecipients([pageState.recipient])
-    }
+    const applyPageState = async () => {
+      if (pageState?.recipients?.length) {
+        setSelectedRecipients(pageState.recipients.slice(0, 1))
+      } else if (pageState?.recipient) {
+        setSelectedRecipients([pageState.recipient])
+      }
 
-    if (typeof pageState?.subject === 'string') {
-      setSubject(pageState.subject)
+      if (typeof pageState?.subject === 'string') setSubject(pageState.subject)
+      if (typeof pageState?.body === 'string') setBody(pageState.body)
     }
-
-    if (typeof pageState?.body === 'string') {
-      setBody(pageState.body)
-    }
+    void applyPageState()
   }, [pageState])
 
   /* 수신자 목록 */
@@ -247,18 +256,7 @@ export default function MessagesPage() {
     const controller = new AbortController()
     void fetchRecipients(controller.signal)
       .then((data) => {
-        setRecipients(data.map((item: UserRecipient) => ({
-          id: String(item.id),
-          name: item.name,
-          position: item.role,
-          company: item.company,
-          country: item.country,
-          language: item.language,
-          timezone: item.timezone,
-          relationship: item.organizationRelation,
-          speed: item.responseSpeed,
-          collaboration: item.collaborationActivity,
-        })))
+        setRecipients(data.map(toMessageRecipient))
       })
       .catch((error: unknown) => {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
@@ -275,19 +273,67 @@ export default function MessagesPage() {
       )
 
       if (exists) {
-        return current.filter(
-          (recipient) => recipient.id !== item.id,
-        )
+        return []
       }
 
-      return [...current, item]
+      return [item]
     })
+    setShowRecipientList(false)
   }
 
   function removeRecipient(id: string) {
     setSelectedRecipients((current) =>
       current.filter((recipient) => recipient.id !== id),
     )
+  }
+
+  async function addQuickRecipient() {
+    const email = quickRecipient.email.trim().toLowerCase()
+    const role = quickRecipient.role.trim()
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      setQuickRecipientError('올바른 이메일 주소를 입력해주세요.')
+      return
+    }
+    if (!role) {
+      setQuickRecipientError('수신자의 직책을 입력해주세요.')
+      return
+    }
+
+    const existing = recipients.find((recipient) => recipient.email?.toLowerCase() === email)
+    if (existing) {
+      setSelectedRecipients([existing])
+      setQuickRecipient({ email: '', role: '' })
+      setQuickRecipientError('')
+      setShowRecipientList(false)
+      return
+    }
+
+    setQuickRecipientSaving(true)
+    setQuickRecipientError('')
+    const emailName = email.split('@')[0]
+    const company = email.split('@')[1]?.split('.')[0] || ''
+    const recipient: UserRecipient = {
+      id: Date.now(), name: emailName, email, role, company,
+      country: 'South Korea', language: 'Korean', timezone: 'Asia/Seoul',
+      organizationRelation: '외부 수신자', responseSpeed: '보통',
+      averageResponseMinutes: 0, collaborationActivity: 'Medium',
+      isOnline: false, isFavorite: false, isRecent: true,
+      verifiedExpert: false, fullTime: false,
+      avatar: emailName.slice(0, 1).toUpperCase(),
+    }
+
+    try {
+      const saved = await createRecipient(recipient)
+      const messageRecipient = toMessageRecipient(saved)
+      setRecipients((current) => [messageRecipient, ...current.filter((item) => item.id !== messageRecipient.id)])
+      setSelectedRecipients([messageRecipient])
+      setQuickRecipient({ email: '', role: '' })
+      setShowRecipientList(false)
+    } catch {
+      setQuickRecipientError('수신자를 추가하지 못했습니다. 다시 시도해주세요.')
+    } finally {
+      setQuickRecipientSaving(false)
+    }
   }
 
   useEffect(() => {
@@ -302,8 +348,8 @@ export default function MessagesPage() {
   }, [showRecipientList])
 
   useEffect(() => {
-    if (!subject.trim() && !body.trim()) { setAiMetadata(null); return }
     const timer = window.setTimeout(() => {
+      if (!subject.trim() && !body.trim()) { setAiMetadata(null); return }
       setAiMetadataLoading(true)
       void analyzeMessageMetadata({
         recipients: selectedRecipients,
@@ -366,6 +412,7 @@ export default function MessagesPage() {
         recipients: selectedRecipients.map((item) => ({
           id: Number(item.id),
           name: item.name,
+          email: item.email,
           role: item.position,
           company: item.company,
           country: item.country || '',
@@ -449,7 +496,7 @@ export default function MessagesPage() {
   const normalizedSearch = search.trim().toLowerCase()
   const visibleRecipients = recipients.filter((item) =>
     !normalizedSearch
-      || `${item.name} ${item.position} ${item.company} ${item.country || ''}`
+      || `${item.name} ${item.email || ''} ${item.position} ${item.company} ${item.country || ''}`
         .toLowerCase()
         .includes(normalizedSearch),
   )
@@ -529,7 +576,7 @@ export default function MessagesPage() {
               </div>
 
               {/* RECIPIENT */}
-              <div className="relative mb-5 flex items-center">
+              <div ref={recipientPickerRef} className="relative mb-5 flex items-center">
                 <span className="w-[115px] shrink-0 text-[13px] text-[#5e5960]">
                   받는 사람
                 </span>
@@ -584,14 +631,14 @@ export default function MessagesPage() {
 
                 {/* RECIPIENT LIST */}
                 {showRecipientList && (
-                  <div className="absolute left-28.75 top-12 z-50 w-90 overflow-hidden rounded-xl border border-[#dedde4] bg-white shadow-lg">
+                  <div className="absolute left-28.75 top-12 z-50 max-h-[75vh] w-90 overflow-y-auto rounded-xl border border-[#dedde4] bg-white shadow-lg">
                     <div className="border-b border-[#eeeeef] px-4 py-3">
                       <p className="text-[12px] font-semibold">
                         수신자 선택
                       </p>
 
                       <p className="mt-1 text-[10px] text-[#999]">
-                        여러 명을 선택할 수 있습니다.
+                        AI 최적화를 위해 한 명만 선택할 수 있습니다.
                       </p>
                     </div>
 
@@ -645,6 +692,40 @@ export default function MessagesPage() {
                         </button>
                       )
                     })}
+
+                    {visibleRecipients.length === 0 && (
+                      <p className="px-4 py-4 text-center text-[11px] text-[#999]">등록된 수신자가 없습니다.</p>
+                    )}
+
+                    <div className="border-t border-[#eeeeef] bg-[#faf9ff] px-4 py-4">
+                      <p className="text-[11px] font-semibold text-[#4f4657]">새 수신자 바로 추가</p>
+                      <p className="mt-1 text-[10px] leading-4 text-[#8c8592]">등록되지 않은 사람도 이메일과 직책만으로 메시지를 작성할 수 있습니다.</p>
+                      <div className="mt-3 grid gap-2">
+                        <input
+                          type="email"
+                          value={quickRecipient.email}
+                          onChange={(event) => { setQuickRecipient((current) => ({ ...current, email: event.target.value })); setQuickRecipientError('') }}
+                          placeholder="이메일 (name@company.com)"
+                          className="h-9 rounded-lg border border-[#dddde3] bg-white px-3 text-[11px] outline-none focus:border-[#6650df]"
+                        />
+                        <input
+                          value={quickRecipient.role}
+                          onChange={(event) => { setQuickRecipient((current) => ({ ...current, role: event.target.value })); setQuickRecipientError('') }}
+                          onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void addQuickRecipient() } }}
+                          placeholder="직책 (예: 마케팅 팀장)"
+                          className="h-9 rounded-lg border border-[#dddde3] bg-white px-3 text-[11px] outline-none focus:border-[#6650df]"
+                        />
+                      </div>
+                      {quickRecipientError && <p className="mt-2 text-[10px] text-[#d04a5a]">{quickRecipientError}</p>}
+                      <button
+                        type="button"
+                        onClick={() => void addQuickRecipient()}
+                        disabled={quickRecipientSaving}
+                        className="mt-3 w-full rounded-lg border border-[#6650df] bg-white py-2 text-[11px] font-semibold text-[#5531e8] transition hover:bg-[#f3f0ff] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {quickRecipientSaving ? '추가 중...' : '추가하고 받는 사람으로 선택'}
+                      </button>
+                    </div>
 
                     <div className="border-t border-[#eeeeef] px-4 py-3">
                       <button
@@ -758,13 +839,13 @@ export default function MessagesPage() {
                   </div>
 
                   <p className="mt-3 text-[12px] leading-5 text-[#625c6b]">
-                    여러 수신자의 언어, 시간대, 직무와 조직 관계를
-                    고려하여 모든 수신자가 이해하기 쉬운 방식으로
+                    선택한 수신자의 언어, 시간대, 직무와 조직 관계를
+                    고려하여 이해하기 쉬운 방식으로
                     메시지를 작성해보세요.
                   </p>
 
                   <p className="mt-2 text-[11px] leading-5 text-[#8a8494]">
-                    {aiMetadata?.terms?.length ? `자주 사용하는 용어: ${aiMetadata.terms.join(', ')}` : 'AI가 메시지와 수신자 정보를 분석합니다.'}<br />AI 최적화를 실행하면 수신자별 Context를 반영한
+                    {aiMetadataLoading ? 'AI가 메시지와 수신자 정보를 분석 중입니다.' : aiMetadata?.terms?.length ? `자주 사용하는 용어: ${aiMetadata.terms.join(', ')}` : 'AI가 메시지와 수신자 정보를 분석합니다.'}<br />AI 최적화를 실행하면 수신자 Context를 반영한
                     메시지를 생성합니다.
                   </p>
                 </div>
@@ -779,4 +860,14 @@ export default function MessagesPage() {
       </div>
     </div>
   )
+}
+
+function toMessageRecipient(item: UserRecipient): Recipient {
+  return {
+    id: String(item.id), name: item.name, email: item.email, position: item.role,
+    company: item.company, country: item.country, language: item.language,
+    timezone: item.timezone, relationship: item.organizationRelation,
+    responseTime: item.averageResponseMinutes, speed: item.responseSpeed,
+    collaboration: item.collaborationActivity,
+  }
 }

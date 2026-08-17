@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { fetchRecipients, persistRecipients, type Recipient } from '../users/recipients'
+import { createRecipient, fetchRecipients, persistRecipients, type Recipient } from '../users/recipients'
 import { analyzeRecipient, type RecipientAIProfile } from '../ai/aiInsights'
 
 type TabId = 'all' | 'favorite' | 'recent'
@@ -132,7 +132,7 @@ function Avatar({
     <div
       className={[
         'relative flex shrink-0 items-center justify-center overflow-hidden rounded-full',
-        'bg-gradient-to-br from-[#e8e5ff] to-[#d8d4ff]',
+        'bg-linear-to-br from-[#e8e5ff] to-[#d8d4ff]',
         'font-semibold text-[#5145cd]',
         large
           ? 'h-20 w-20 text-[25px]'
@@ -535,7 +535,7 @@ function CollaborationModal({
       }}
     >
       <div
-        className="flex h-[720px] w-[620px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="flex h-180 w-155 max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         onMouseDown={(event) =>
           event.stopPropagation()
         }
@@ -900,7 +900,7 @@ function CollaborationModal({
 
 function RecipientsPage() {
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
 
   const [recipientList, setRecipientList] = useState<Recipient[]>([])
 
@@ -917,7 +917,7 @@ function RecipientsPage() {
   ] = useState<Recipient | null>(null)
 
   const [showAddRecipient, setShowAddRecipient] = useState(false)
-  const [newRecipient, setNewRecipient] = useState({ name: '', role: '', company: '', country: 'South Korea', language: 'Korean', timezone: 'Asia/Seoul', organizationRelation: '팀원' })
+  const [newRecipient, setNewRecipient] = useState({ name: '', email: '', role: '', company: '', country: 'South Korea', language: 'Korean', timezone: 'Asia/Seoul', organizationRelation: '팀원' })
   const [googleEmail, setGoogleEmail] = useState('')
   const [googleLookupLoading, setGoogleLookupLoading] = useState(false)
   const [googleLookupMessage, setGoogleLookupMessage] = useState('')
@@ -930,8 +930,11 @@ function RecipientsPage() {
       .then((data) => {
         setRecipientList(data)
         const requestedId = Number(searchParams.get('member'))
-        if (requestedId && data.some((item) => item.id === requestedId)) setSelectedId(requestedId)
-        else if (data.length && !data.some((item) => item.id === selectedId)) setSelectedId(data[0].id)
+        setSelectedId((current) => {
+          if (requestedId && data.some((item) => item.id === requestedId)) return requestedId
+          if (data.length && !data.some((item) => item.id === current)) return data[0].id
+          return current
+        })
       })
       .catch(() => {})
     return () => controller.abort()
@@ -943,12 +946,17 @@ function RecipientsPage() {
     ) || recipientList[0]
 
   useEffect(() => {
-    if (!selectedRecipient) { setAiProfile(null); return }
     let active = true
-    setAiLoading(true)
-    void analyzeRecipient(selectedRecipient).then((profile) => {
-      if (active) setAiProfile(profile)
-    }).finally(() => { if (active) setAiLoading(false) })
+    const loadProfile = async () => {
+      if (!selectedRecipient) {
+        if (active) { setAiProfile(null); setAiLoading(false) }
+        return
+      }
+      if (active) setAiLoading(true)
+      const profile = await analyzeRecipient(selectedRecipient)
+      if (active) { setAiProfile(profile); setAiLoading(false) }
+    }
+    void loadProfile()
     return () => { active = false }
   }, [selectedRecipient])
 
@@ -961,25 +969,38 @@ function RecipientsPage() {
       if (!response.ok) throw new Error('Google 계정 정보를 찾지 못했습니다.')
       const data = await response.json() as Partial<Recipient> & { email?: string }
       if (!data.name || !data.role) throw new Error('해당 이메일에 연결된 프로필 정보가 없습니다.')
-      setNewRecipient((current) => ({ ...current, name: data.name || '', role: data.role || '', company: data.company || '', country: data.country || current.country, language: data.language || current.language, timezone: data.timezone || current.timezone, organizationRelation: data.organizationRelation || current.organizationRelation }))
+      setNewRecipient((current) => ({ ...current, email: data.email || email, name: data.name || '', role: data.role || '', company: data.company || '', country: data.country || current.country, language: data.language || current.language, timezone: data.timezone || current.timezone, organizationRelation: data.organizationRelation || current.organizationRelation }))
       setGoogleLookupMessage('Google 계정 정보를 불러왔습니다. 확인 후 추가해주세요.')
     } catch (error) {
       setGoogleLookupMessage(error instanceof Error ? error.message : 'Google 계정 정보를 불러오지 못했습니다.')
     } finally { setGoogleLookupLoading(false) }
   }
 
-  function addRecipient() {
-    if (!newRecipient.name.trim() || !newRecipient.role.trim()) return
+  async function addRecipient() {
+    const email = newRecipient.email.trim()
+    if (!newRecipient.name.trim() || !newRecipient.role.trim()) {
+      setGoogleLookupMessage('이름과 직무를 입력해주세요.')
+      return
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      setGoogleLookupMessage('올바른 이메일 주소를 입력해주세요.')
+      return
+    }
+    if (recipientList.some((recipient) => recipient.email?.toLowerCase() === email.toLowerCase())) {
+      setGoogleLookupMessage('이미 등록된 이메일입니다.')
+      return
+    }
     const nextId = recipientList.reduce((max, item) => Math.max(max, item.id), 0) + 1
     const created: Recipient = {
-      id: nextId, name: newRecipient.name.trim(), role: newRecipient.role.trim(), company: newRecipient.company.trim(),
+      id: nextId, name: newRecipient.name.trim(), email, role: newRecipient.role.trim(), company: newRecipient.company.trim(),
       country: newRecipient.country.trim() || 'South Korea', language: newRecipient.language.trim() || 'Korean', timezone: newRecipient.timezone.trim() || 'Asia/Seoul',
       organizationRelation: newRecipient.organizationRelation.trim() || '팀원', responseSpeed: '보통', averageResponseMinutes: 0, collaborationActivity: 'Medium',
       isOnline: false, isFavorite: false, isRecent: true, verifiedExpert: false, fullTime: true, avatar: newRecipient.name.trim().slice(0, 1),
     }
-    const next = [created, ...recipientList]
-    persistRecipients(next); setRecipientList(next); setSelectedId(created.id); setShowAddRecipient(false)
-    setNewRecipient({ name: '', role: '', company: '', country: 'South Korea', language: 'Korean', timezone: 'Asia/Seoul', organizationRelation: '팀원' }); setGoogleEmail(''); setGoogleLookupMessage('')
+    const saved = await createRecipient(created)
+    const next = [saved, ...recipientList.filter((recipient) => recipient.id !== saved.id)]
+    persistRecipients(next); setRecipientList(next); setSelectedId(saved.id); setShowAddRecipient(false)
+    setNewRecipient({ name: '', email: '', role: '', company: '', country: 'South Korea', language: 'Korean', timezone: 'Asia/Seoul', organizationRelation: '팀원' }); setGoogleEmail(''); setGoogleLookupMessage('')
   }
 
   const toggleFavorite = (id: number) => {
@@ -1054,6 +1075,7 @@ function RecipientsPage() {
 
       return [
         recipient.name,
+        recipient.email || '',
         recipient.role,
         recipient.company,
         recipient.country,
@@ -1092,7 +1114,7 @@ function RecipientsPage() {
 
         <div className="grid grid-cols-[298px_minmax(0,1fr)] items-stretch gap-7">
           {/* Left */}
-          <div className="flex min-h-[760px] flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div className="flex min-h-190 flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
             <div className="border-b border-[#ededf0] p-4">
               <div className="flex h-9 items-center rounded-full bg-[#f1f1f4] px-4">
                 <input
@@ -1149,7 +1171,7 @@ function RecipientsPage() {
                     <div
                       key={recipient.id}
                       className={[
-                        'group mb-1 flex w-full items-center gap-3 rounded-[16px] px-3 py-3 transition',
+                        'group mb-1 flex w-full items-center gap-3 rounded-2xl px-3 py-3 transition',
                         selected
                           ? 'bg-[#f0edff]'
                           : 'hover:bg-[#f7f7f9]',
@@ -1249,7 +1271,7 @@ function RecipientsPage() {
 
           {/* Right */}
           {!selectedRecipient ? (
-            <div className="flex min-h-[760px] items-center justify-center rounded-[22px] border border-[#e7e7eb] bg-white p-10 text-center">
+            <div className="flex min-h-190 items-center justify-center rounded-[22px] border border-[#e7e7eb] bg-white p-10 text-center">
               <div>
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f0edff] text-2xl text-[#5143d1]">+</div>
                 <h2 className="mt-4 text-[18px] font-semibold text-[#29292d]">등록된 수신자가 없습니다</h2>
@@ -1258,7 +1280,7 @@ function RecipientsPage() {
               </div>
             </div>
           ) : (
-          <div className="flex min-h-[760px] flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div className="flex min-h-190 flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-5 px-6 py-5">
               <Avatar
                 recipient={selectedRecipient}
@@ -1413,6 +1435,14 @@ function RecipientsPage() {
                 </span>
 
                 <span className="text-[#7b7b84]">
+                  이메일
+                </span>
+
+                <span className="font-medium text-[#555662]">
+                  {selectedRecipient.email || '-'}
+                </span>
+
+                <span className="text-[#7b7b84]">
                   조직 관계
                 </span>
 
@@ -1424,7 +1454,7 @@ function RecipientsPage() {
               </div>
             </div>
 
-            <div className="min-h-[315px] flex-1" />
+            <div className="min-h-78.75 flex-1" />
 
             {/* AI-generated communication profile */}
             <div className="border-t border-[#ededf0] px-6 py-6">
@@ -1454,7 +1484,7 @@ function RecipientsPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-5">
-                <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
+                <div className="flex h-23 flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#4c3ddd]">
                     {
                       selectedRecipient.averageResponseMinutes
@@ -1470,7 +1500,7 @@ function RecipientsPage() {
                   </p>
                 </div>
 
-                <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
+                <div className="flex h-23 flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#7a57ee]">
                     {selectedRecipient.responseSpeed ===
                     '빠름'
@@ -1486,7 +1516,7 @@ function RecipientsPage() {
                   </p>
                 </div>
 
-                <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
+                <div className="flex h-23 flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#9a58ed]">
                     {
                       selectedRecipient.collaborationActivity
@@ -1524,12 +1554,13 @@ function RecipientsPage() {
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               {([['name','이름'],['role','직무'],['company','회사']] as const).map(([key,label]) => <label key={key} className="text-[11px] text-[#777]"><span className="mb-1 block">{label}</span><input value={newRecipient[key]} onChange={(e) => setNewRecipient((v) => ({...v,[key]:e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]" /></label>)}
+              <label className="text-[11px] text-[#777]"><span className="mb-1 block">이메일</span><input type="email" value={newRecipient.email} onChange={(e) => setNewRecipient((v) => ({ ...v, email: e.target.value }))} placeholder="name@company.com" className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]" /></label>
               <label className="text-[11px] text-[#777]"><span className="mb-1 block">국가</span><select value={newRecipient.country} onChange={(e) => setNewRecipient((v) => ({...v, country: e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"><option>South Korea</option><option>Indonesia</option><option>United States</option><option>Japan</option><option>China</option><option>Germany</option><option>Spain</option><option>United Kingdom</option><option>Singapore</option></select></label>
               <label className="text-[11px] text-[#777]"><span className="mb-1 block">언어</span><select value={newRecipient.language} onChange={(e) => setNewRecipient((v) => ({...v, language: e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"><option>Korean</option><option>English</option><option>Indonesian</option><option>Japanese</option><option>Chinese</option><option>German</option><option>Spanish</option></select></label>
               <label className="text-[11px] text-[#777]"><span className="mb-1 block">시간대</span><select value={newRecipient.timezone} onChange={(e) => setNewRecipient((v) => ({...v, timezone: e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"><option value="Asia/Seoul">KST · Asia/Seoul</option><option value="Asia/Jakarta">WIB · Asia/Jakarta</option><option value="Asia/Makassar">WITA · Asia/Makassar</option><option value="Asia/Jayapura">WIT · Asia/Jayapura</option><option value="Asia/Tokyo">JST · Asia/Tokyo</option><option value="America/New_York">ET · America/New_York</option><option value="America/Los_Angeles">PT · America/Los_Angeles</option><option value="Europe/London">GMT · Europe/London</option><option value="Europe/Berlin">CET · Europe/Berlin</option></select></label>
             </div>
             <label className="mt-3 block text-[11px] text-[#777]"><span className="mb-1 block">조직 관계</span><input value={newRecipient.organizationRelation} onChange={(e) => setNewRecipient((v) => ({...v,organizationRelation:e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px]" /></label>
-            <button type="button" onClick={addRecipient} className="mt-5 w-full rounded-lg bg-[#4d3bd5] py-3 text-[12px] font-semibold text-white">추가하기</button>
+            <button type="button" onClick={() => void addRecipient()} className="mt-5 w-full rounded-lg bg-[#4d3bd5] py-3 text-[12px] font-semibold text-white">추가하기</button>
           </div>
         </div>
       )}

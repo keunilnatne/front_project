@@ -1,22 +1,10 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import gmailLogo from '../../images/gmail.png'
-import notionLogo from '../../images/Notion.png'
-import slackLogo from '../../images/slack.png'
-import teamsLogo from '../../images/teams.png'
 import { getUserProfile, saveUserProfile } from '../../users/userProfile'
 
 const roles = ['PM', '기획자', '디자이너', '개발자', '마케터', '팀 리더', '기타'] as const
-const tools = [
-  { name: 'Gmail', logo: gmailLogo },
-  { name: 'Slack', logo: slackLogo },
-  { name: 'Notion', logo: notionLogo },
-  { name: 'Microsoft Teams', logo: teamsLogo },
-  { name: '기타', logo: null },
-] as const
 
 type Role = (typeof roles)[number]
-type Tool = (typeof tools)[number]['name']
 
 const inputClass = 'h-10 min-w-0 rounded-lg border border-[#e5e7ef] bg-white px-2 py-[9px] text-xs font-normal outline-none transition placeholder:text-[#999] focus:border-[#6a54ee] focus:ring-2 focus:ring-[#6a54ee]/10'
 
@@ -41,19 +29,15 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 function ProfileSetup() {
   const navigate = useNavigate()
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
-  const [selectedTools, setSelectedTools] = useState<Tool[]>([])
   const profile = getUserProfile()
-
-  const toggleTool = (tool: Tool) => {
-    setSelectedTools((current) =>
-      current.includes(tool) ? current.filter((item) => item !== tool) : [...current, tool],
-    )
-  }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    saveUserProfile({ name: String(form.get('name')), company: String(form.get('company')), position: String(form.get('position')), role: selectedRole || profile.role, tools: selectedTools })
+    const role = selectedRole === '기타'
+      ? String(form.get('customRole')).trim()
+      : selectedRole || profile.role
+    saveUserProfile({ name: String(form.get('name')), company: String(form.get('company')), position: String(form.get('position')), role })
     localStorage.setItem('onboarding.profile', 'true')
     navigate('/communication')
   }
@@ -81,14 +65,19 @@ function ProfileSetup() {
               <div className="flex min-h-9.75 flex-wrap items-start gap-2">
                 {roles.map((role) => <button key={role} type="button" aria-pressed={selectedRole === role} onClick={() => setSelectedRole(role)} className={`h-7.75 rounded-full border px-3.25 text-[11px] transition ${selectedRole === role ? 'border-[#aaa5f4] bg-[#eeedff] text-[#5146d8]' : 'border-[#d8d5f5] bg-white text-[#574b45] hover:bg-[#f8f7ff]'}`}>{role}</button>)}
               </div>
-            </fieldset>
-
-            <fieldset className="border-b border-[#ececf1] py-4">
-              <legend className="sr-only">주로 사용하는 업무 도구</legend>
-              <p className="mb-2 text-[11px] font-medium leading-4 text-[#2f2b29]">주로 사용하는 업무 도구</p>
-              <div className="grid min-h-21.5 grid-cols-3 content-start gap-2 max-sm:grid-cols-2">
-                {tools.map(({ name, logo }) => { const active = selectedTools.includes(name); return <button key={name} type="button" aria-pressed={active} onClick={() => toggleTool(name)} className={`flex h-8.75 items-center gap-2 rounded-md border px-2 text-left text-[11px] transition ${active ? 'border-[#6a54ee] bg-[#efedff] text-[#4f46e5]' : 'border-[#e1e1e6] bg-white text-[#272321] hover:bg-[#fafafa]'}`}>{logo ? <img src={logo} alt="" className="h-4 w-4 shrink-0 object-contain" /> : <span aria-hidden="true" className="text-base leading-none">＋</span>}{name}</button> })}
-              </div>
+              {selectedRole === '기타' && (
+                <div className="mt-3">
+                  <Field label="직무 직접 입력">
+                    <input
+                      name="customRole"
+                      required
+                      autoFocus
+                      placeholder="예: 데이터 분석가"
+                      className={`${inputClass} w-full`}
+                    />
+                  </Field>
+                </div>
+              )}
             </fieldset>
 
             <div className="flex min-h-[76.19px] items-end gap-4 pt-4">

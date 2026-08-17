@@ -662,11 +662,11 @@ export default function TeamMemoryPage() {
         =================================================== */}
 
         <div className="flex items-end justify-between border-b border-[#e4e1e7]">
-          <div className="flex h-[47px] items-start gap-8">
+          <div className="flex h-11.75 items-start gap-8">
             <button
               type="button"
               onClick={() => setTab('saved')}
-              className={`relative h-[47px] px-2 text-[15px] ${
+              className={`relative h-11.75 px-2 text-[15px] ${
                 tab === 'saved'
                   ? 'font-medium text-[#5037d7]'
                   : 'text-[#6f6b70]'
@@ -675,14 +675,14 @@ export default function TeamMemoryPage() {
               저장된 패턴
 
               {tab === 'saved' && (
-                <span className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-[#5037d7]" />
+                <span className="absolute -bottom-px left-0 right-0 h-0.5 bg-[#5037d7]" />
               )}
             </button>
 
             <button
               type="button"
               onClick={() => setTab('candidates')}
-              className={`relative h-[47px] px-2 text-[15px] ${
+              className={`relative h-11.75 px-2 text-[15px] ${
                 tab === 'candidates'
                   ? 'font-medium text-[#5037d7]'
                   : 'text-[#6f6b70]'
@@ -690,12 +690,12 @@ export default function TeamMemoryPage() {
             >
               학습 후보
 
-              <span className="ml-1 inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#5037d7] px-1 text-[11px] font-semibold text-white">
+              <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#5037d7] px-1 text-[11px] font-semibold text-white">
                 {candidates.length}
               </span>
 
               {tab === 'candidates' && (
-                <span className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-[#5037d7]" />
+                <span className="absolute -bottom-px left-0 right-0 h-0.5 bg-[#5037d7]" />
               )}
             </button>
           </div>
@@ -703,7 +703,7 @@ export default function TeamMemoryPage() {
           <button
             type="button"
             onClick={openAddModal}
-            className="mb-3 flex h-[37px] items-center gap-2 rounded-lg bg-[#5037d7] px-4 text-[13px] font-medium text-white shadow-sm transition hover:bg-[#432bc9]"
+            className="mb-3 flex h-9.25 items-center gap-2 rounded-lg bg-[#5037d7] px-4 text-[13px] font-medium text-white shadow-sm transition hover:bg-[#432bc9]"
           >
             <PlusIcon />
             패턴 추가
@@ -732,7 +732,7 @@ export default function TeamMemoryPage() {
                   onClick={() =>
                     setShowUnreadOnly((current) => !current)
                   }
-                  className={`h-[31px] rounded border px-3 text-[12px] transition ${
+                  className={`h-7.75 rounded border px-3 text-[12px] transition ${
                     showUnreadOnly
                       ? 'border-[#a99ce8] bg-[#f2efff] text-[#5037d7]'
                       : 'border-[#d4d1d6] bg-white text-[#4f4a50] hover:bg-[#fafafa]'
@@ -748,7 +748,7 @@ export default function TeamMemoryPage() {
                   onClick={() =>
                     setSortActive((current) => !current)
                   }
-                  className={`flex h-[31px] items-center gap-2 rounded border px-3 text-[12px] transition ${
+                  className={`flex h-7.75 items-center gap-2 rounded border px-3 text-[12px] transition ${
                     sortActive
                       ? 'border-[#a99ce8] bg-[#f2efff] text-[#5037d7]'
                       : 'border-[#d4d1d6] bg-white text-[#4f4a50] hover:bg-[#fafafa]'
@@ -907,7 +907,7 @@ export default function TeamMemoryPage() {
               <button
                 type="button"
                 onClick={() => setShowLearningLog(true)}
-                className="mt-5 h-[40px] w-full rounded-lg border border-[#dfbda8] bg-white text-[12px] text-[#665c57] transition hover:bg-[#fffaf7]"
+                className="mt-5 h-10 w-full rounded-lg border border-[#dfbda8] bg-white text-[12px] text-[#665c57] transition hover:bg-[#fffaf7]"
               >
                 학습 로그 보기
               </button>
@@ -918,7 +918,7 @@ export default function TeamMemoryPage() {
              Candidate Tab
           =================================================== */
 
-          <section className="mt-6 grid max-w-[920px] grid-cols-1 gap-4">
+          <section className="mt-6 grid max-w-230 grid-cols-1 gap-4">
             {candidates.length === 0 ? (
               <div className="rounded-xl border border-[#dedce2] bg-white px-6 py-14 text-center text-[13px] text-[#88848a]">
                 현재 학습 후보가 없습니다.
@@ -993,7 +993,7 @@ export default function TeamMemoryPage() {
           onMouseDown={() => setShowAddModal(false)}
         >
           <div
-            className="w-full max-w-[620px] rounded-xl bg-white p-6 shadow-2xl"
+            className="w-full max-w-155 rounded-xl bg-white p-6 shadow-2xl"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -1054,7 +1054,7 @@ export default function TeamMemoryPage() {
           onMouseDown={() => setShowEditModal(false)}
         >
           <div
-            className="w-full max-w-[620px] rounded-xl bg-white p-6 shadow-2xl"
+            className="w-full max-w-155 rounded-xl bg-white p-6 shadow-2xl"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -1116,7 +1116,7 @@ export default function TeamMemoryPage() {
           onMouseDown={() => setShowLearningLog(false)}
         >
           <div
-            className="w-full max-w-[560px] overflow-hidden rounded-xl bg-white shadow-2xl"
+            className="w-full max-w-140 overflow-hidden rounded-xl bg-white shadow-2xl"
             onMouseDown={(event) => event.stopPropagation()}
           >
             {/* Header */}
@@ -1141,7 +1141,7 @@ export default function TeamMemoryPage() {
             </div>
 
             {/* Logs */}
-            <div className="max-h-[440px] overflow-y-auto px-6 py-4">
+            <div className="max-h-110 overflow-y-auto px-6 py-4">
               {learningLogs.length === 0 ? (
                 <div className="py-12 text-center text-[12px] text-[#8c878d]">
                   학습 로그가 없습니다.
@@ -1183,7 +1183,7 @@ export default function TeamMemoryPage() {
               <button
                 type="button"
                 onClick={() => setShowLearningLog(false)}
-                className="h-[38px] w-full rounded-lg border border-[#d9d5da] bg-white text-[12px] text-[#5e585e] hover:bg-[#fafafa]"
+                className="h-9.5full rounded-lg border border-[#d9d5da] bg-white text-[12px] text-[#5e585e] hover:bg-[#fafafa]"
               >
                 닫기
               </button>
@@ -1237,14 +1237,14 @@ function PatternCard({
     >
       {/* 사진의 왼쪽 세로선 */}
       {isSelected && (
-        <span className="absolute bottom-0 left-0 top-0 w-[3px] rounded-l-xl bg-[#e7e4ea]" />
+        <span className="absolute bottom-0 left-0 top-0 w-0.75 rounded-l-xl bg-[#e7e4ea]" />
       )}
 
       <div
         className={
           isFeatured
             ? 'p-6'
-            : 'min-h-[182px] p-6'
+            : 'min-h-45.5 p-6'
         }
       >
         {/* Header */}
@@ -1265,7 +1265,7 @@ function PatternCard({
                 </h2>
 
                 {pattern.unread && (
-                  <span className="h-[6px] w-[6px] rounded-full bg-[#5436da]" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#5436da]" />
                 )}
               </div>
 
@@ -1300,7 +1300,7 @@ function PatternCard({
             </button>
 
             {showMenu && (
-              <div className="absolute right-0 top-7 z-20 w-[125px] overflow-hidden rounded-lg border border-[#dedbe1] bg-white py-1 shadow-lg">
+              <div className="absolute right-0 top-7 z-20 w-31.25 overflow-hidden rounded-lg border border-[#dedbe1] bg-white py-1 shadow-lg">
                 <button
                   type="button"
                   onClick={onEdit}
@@ -1329,7 +1329,7 @@ function PatternCard({
           <>
             {/* 목적 + 첨부파일 */}
             <div className="mt-5 grid grid-cols-2 gap-4">
-              <div className="min-h-[95px] rounded-lg border border-[#dddbe0] p-4">
+              <div className="min-h-23.75 rounded-lg border border-[#dddbe0] p-4">
                 <p className="text-[11px] font-medium text-[#5136d8]">
                   목적
                 </p>
@@ -1339,7 +1339,7 @@ function PatternCard({
                 </p>
               </div>
 
-              <div className="min-h-[95px] rounded-lg border border-[#dddbe0] p-4">
+              <div className="min-h-23.75 rounded-lg border border-[#dddbe0] p-4">
                 <p className="text-[11px] font-medium text-[#5136d8]">
                   첨부파일
                 </p>
@@ -1388,7 +1388,7 @@ function PatternCard({
 
             {/* 요청사항 + 마감 */}
             <div className="mt-4 grid grid-cols-2 gap-4">
-              <div className="min-h-[98px] rounded-lg border border-[#dddbe0] p-4">
+              <div className="min-h-24.5 rounded-lg border border-[#dddbe0] p-4">
                 <p className="text-[11px] font-medium text-[#5136d8]">
                   요청사항
                 </p>
@@ -1398,7 +1398,7 @@ function PatternCard({
                 </p>
               </div>
 
-              <div className="min-h-[98px] rounded-lg border border-[#dddbe0] p-4">
+              <div className="min-h-24.5 rounded-lg border border-[#dddbe0] p-4">
                 <p className="text-[11px] font-medium text-[#5136d8]">
                   마감
                 </p>

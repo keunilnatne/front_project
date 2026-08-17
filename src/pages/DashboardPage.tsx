@@ -31,7 +31,7 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('')
   const { conversations } = useConversations(true)
   const analytics = useProfileAnalytics()
-  const [showNews, setShowNews] = useState(false)
+  const [openGuide, setOpenGuide] = useState<number | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -46,12 +46,15 @@ export default function DashboardPage() {
       count + conversation.messages.filter((message) => message.role === 'user').length
     ), 0)
 
-    setStats((current) => ({
-      ...current,
-      sentMessages,
-      aiConversions: analytics.optimizedMessageCount,
-    }))
-    setLoading(false)
+    const updateStats = async () => {
+      setStats((current) => ({
+        ...current,
+        sentMessages,
+        aiConversions: analytics.optimizedMessageCount,
+      }))
+      setLoading(false)
+    }
+    void updateStats()
   }, [conversations, analytics.optimizedMessageCount])
 
   const guideItems = useMemo(
@@ -99,7 +102,7 @@ export default function DashboardPage() {
         {/* 왼쪽 메인 */}
         <section className="min-w-0">
           {/* Hero */}
-          <div className="relative h-67flow-hidden rounded-xl border border-[#ded9ed] bg-[#f5f2ff]">
+          <div className="relative h-67 overflow-hidden rounded-xl border border-[#ded9ed] bg-[#f5f2ff]">
             <div className="absolute left-9 top-11">
               <h1 className="text-[28px] font-bold leading-[1.45] tracking-[-0.02em] text-[#282328]">
                 AI가 당신의 메시지를
@@ -135,8 +138,8 @@ export default function DashboardPage() {
           </div>
 
           {/* 통계 카드 */}
-          <div className="mt-[17px] grid grid-cols-3 gap-4">
-            <div className="h-[102px] rounded-xl border border-[#dedee4] bg-white px-4 py-3">
+          <div className="mt-4.25 grid grid-cols-3 gap-4">
+            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3">
               <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
                 {loading ? '-' : stats.sentMessages}
               </strong>
@@ -146,7 +149,7 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="h-[102px] rounded-xl border border-[#dedee4] bg-white px-4 py-3">
+            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3">
               <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
                 {loading ? '-' : stats.aiConversions}
               </strong>
@@ -156,7 +159,7 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="h-[102px] rounded-xl border border-[#dedee4] bg-white px-4 py-3">
+            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3">
               <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
                 {loading ? '-' : stats.recipients}
               </strong>
@@ -201,8 +204,8 @@ export default function DashboardPage() {
               이렇게 사용해보세요!
             </h2>
 
-            <div className="mt-6 space-y-[10px]">
-              {guideItems.map((item) => {
+            <div className="mt-6 space-y-2.5">
+              {visibleGuideItems.map((item) => {
                 const isOpen = openGuide === item.number
 
                 return (
@@ -216,7 +219,7 @@ export default function DashboardPage() {
                           setOpenGuide(item.number)
                         }
                       }}
-                      className="flex h-[80px] w-full items-center rounded-lg border border-[#d9d9df] px-4 text-left transition hover:bg-[#fafafa]"
+                      className="flex h-20 w-full items-center rounded-lg border border-[#d9d9df] px-4 text-left transition hover:bg-[#fafafa]"
                     >
                       <div
                         className="relative flex h-13 w-13 shrink-0 items-center justify-center rounded-full"
@@ -269,9 +272,7 @@ export default function DashboardPage() {
 
             <button
               type="button"
-              onClick={() => {
-                setShowNews(true)
-              }}
+              onClick={() => window.alert('성능 개선과 새로운 기능이 반영되었습니다.')}
               className="mt-3 w-full rounded-lg bg-[#f0edff] p-5 text-left transition hover:bg-[#e9e5ff]"
             >
               <p className="text-[13px] font-semibold text-[#4b4650]">
