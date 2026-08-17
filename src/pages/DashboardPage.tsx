@@ -100,7 +100,7 @@ export default function DashboardPage() {
         {/* 왼쪽 메인 */}
         <section className="min-w-0">
           {/* Hero */}
-          <div className="relative h-67flow-hidden rounded-xl border border-[#ded9ed] bg-[#f5f2ff]">
+          <div className="relative h-[268px] overflow-hidden rounded-xl border border-[#ded9ed] bg-[#f5f2ff]">
             <div className="absolute left-9 top-11">
               <h1 className="text-[28px] font-bold leading-[1.45] tracking-[-0.02em] text-[#282328]">
                 AI가 당신의 메시지를
