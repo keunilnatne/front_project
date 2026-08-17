@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { sendMessage as sendMessageRequest } from '../../users/messageService'
+import { createHistoryItem } from '../../users/history'
+import { saveConversation } from '../../users/conversationArchive'
 
 type Recipient = {
   id: string
@@ -27,6 +30,12 @@ type OptimizedState = {
 
   originalSubject: string
   originalBody: string
+  aiContext?: { tags?: string[]; terms?: string[]; rules?: string[]; priority?: string; sourceLanguage?: string; targetLanguage?: string }
+  fallbackMode?: boolean
+  fallbackMessage?: string
+  spellCorrections?: Array<{ message: string; replacement: string }>
+  detectedSourceLanguage?: string
+  targetLanguage?: string
 }
 
 function getRecipients(state: OptimizedState): Recipient[] {
@@ -264,8 +273,10 @@ function RelationshipContextIcon() {
 
 function RecipientContextCard({
   recipient,
+  aiTags = [],
 }: {
   recipient: Recipient
+  aiTags?: string[]
 }) {
   return (
     <div className="border-b border-[#eeeef0] pb-5">
@@ -352,18 +363,8 @@ function RecipientContextCard({
           커뮤니케이션 스타일
         </p>
 
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          <span className="rounded bg-[#f0ebff] px-2 py-1 text-[10px] text-[#6343dd]">
-            명확한 표현 선호
-          </span>
-
-          <span className="rounded bg-[#f0ebff] px-2 py-1 text-[10px] text-[#6343dd]">
-            짧은 단락
-          </span>
-
-          <span className="rounded bg-[#f0ebff] px-2 py-1 text-[10px] text-[#6343dd]">
-            직접 소통
-          </span>
+        <div className="mt-3 max-h-24 overflow-y-auto pr-1">
+          {aiTags.length > 0 ? <div className="flex flex-wrap gap-1.5">{aiTags.map((tag) => <span key={tag} className="rounded bg-[#f0ebff] px-2 py-1 text-[10px] text-[#6343dd]">{tag}</span>)}</div> : <p className="text-[10px] text-[#999]">AI 최적화 과정에서 생성된 수신자 스타일 정보가 없습니다.</p>}
         </div>
       </div>
     </div>
@@ -444,9 +445,17 @@ export default function MessageOptimizedPage() {
     body,
     originalSubject,
     originalBody,
+    aiContext,
+    fallbackMode,
+    fallbackMessage,
+    spellCorrections,
+    detectedSourceLanguage,
+    targetLanguage,
   } = state
 
   const primaryRecipient = recipients[0]
+
+  const fallbackNotice = fallbackMode ? (fallbackMessage || 'AI 연결에 실패해서 맞춤법 검사만 진행했습니다.') : ''
 
   async function copyMessage() {
     try {
@@ -468,22 +477,59 @@ export default function MessageOptimizedPage() {
     if (sending || recipients.length === 0) return
     setSending(true)
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/messages/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipients,
-          subject,
-          body,
-          originalSubject,
-          originalBody,
-        }),
+      await sendMessageRequest({
+        recipients: recipients.map((item) => ({
+          id: Number(item.id),
+          name: item.name,
+          role: item.position,
+          company: item.company,
+          country: item.country || '',
+          language: item.language,
+          timezone: item.timezone,
+          organizationRelation: item.relationship,
+          responseSpeed: item.speed === '빠름' || item.speed === '느림' ? item.speed : '보통',
+          averageResponseMinutes: item.responseTime || 0,
+          collaborationActivity: item.collaboration === 'High' || item.collaboration === 'Low' ? item.collaboration : 'Medium',
+          isOnline: false,
+          isFavorite: false,
+          isRecent: false,
+          verifiedExpert: false,
+          fullTime: false,
+          avatar: item.name.slice(0, 1),
+        })),
+        subject,
+        body,
+        originalSubject,
+        originalBody,
       })
-      if (!response.ok) throw new Error('메시지 전송에 실패했습니다.')
+      await saveConversation({
+        id: `conversation-${Date.now()}`,
+        title: subject || '메시지',
+        updatedAt: new Date().toISOString(),
+        messages: [
+          {
+            role: 'user',
+            content: body,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+        analysisStatus: 'completed',
+      })
+      void createHistoryItem({
+        id: `send-${Date.now()}`,
+        date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+        recipient: recipients.map((item) => item.name).join(', '),
+        purpose: subject,
+        score: 0,
+        status: '전송 완료',
+        type: '전송',
+        createdAt: new Date().toISOString(),
+        content: body,
+      })
       window.alert('메시지가 전송되었습니다.')
     } catch (error) {
       console.error(error)
-      window.alert('메시지 전송에 실패했습니다. 백엔드 서버 연결을 확인해주세요.')
+      window.alert(error instanceof Error ? error.message : '메시지 전송에 실패했습니다. 백엔드 서버 연결을 확인해주세요.')
     } finally {
       setSending(false)
     }
@@ -554,7 +600,7 @@ export default function MessageOptimizedPage() {
         ================================================= */}
 
         <main className="min-w-0 px-8 py-10">
-          <div className="mx-auto w-full max-w-225">
+          <div className="mx-auto w-full max-w-[900px]">
             {/* TITLE */}
             <div className="mb-8">
               <h1 className="text-[25px] font-bold text-[#2d282c]">
@@ -606,7 +652,7 @@ export default function MessageOptimizedPage() {
 
                 {/* FOOTER */}
                 <div className="border-t border-[#e5e1f3] px-5 py-3 text-[11px] text-[#aaa5b2]">
-                  언어: Korean
+                  언어: {detectedSourceLanguage || aiContext?.sourceLanguage || '감지 중'}
                 </div>
               </div>
 
@@ -651,7 +697,7 @@ export default function MessageOptimizedPage() {
 
                 {/* FOOTER */}
                 <div className="border-t border-[#eeeeef] px-5 py-3 text-[11px] text-[#aaa5b2]">
-                  언어: {primaryRecipient?.language || 'Korean'} · 시간:{' '}
+                  언어: {aiContext?.sourceLanguage || detectedSourceLanguage || '감지 중'} → {aiContext?.targetLanguage || targetLanguage || primaryRecipient?.language || '-'} · 시간:{' '}
                   {primaryRecipient?.timezone || '-'} 기준
                 </div>
               </div>
@@ -718,7 +764,7 @@ export default function MessageOptimizedPage() {
                   </div>
 
                   <p className="mt-4 text-[13px] font-semibold">
-                    Korean → {primaryRecipient?.language || 'Korean'}
+                    {aiContext?.sourceLanguage || detectedSourceLanguage || '감지 중'} → {aiContext?.targetLanguage || targetLanguage || primaryRecipient?.language || '-'}
                   </p>
 
                   <p className="mt-2 text-[11px] leading-5 text-[#999]">
@@ -804,6 +850,7 @@ export default function MessageOptimizedPage() {
                 <RecipientContextCard
                   key={item.id}
                   recipient={item}
+                  aiTags={aiContext?.tags || []}
                 />
               ))}
             </div>

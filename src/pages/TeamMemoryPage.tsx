@@ -2,119 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import PageHeader from '../components/PageHeader'
-
-const API_URL = import.meta.env.VITE_API_URL || ''
-
-type Pattern = {
-  id: string
-  title: string
-  purpose: string
-  reason: string
-  request: string
-  deadline: string
-  attachmentName?: string
-  updatedAt?: string
-  unread?: boolean
-}
-
-type Candidate = {
-  id: string
-  text: string
-  suggestion: string
-  confidence: number
-}
-
-type LearningLog = {
-  id: string
-  action: string
-  description: string
-  time: string
-}
-
-const defaultPatterns: Pattern[] = [
-  {
-    id: '1',
-    title: '디자인 피드백 요청',
-    purpose:
-      '신규 UI 컴포넌트의 시각적 일관성 검토 및 브랜드 가이드 준수 확인',
-    reason:
-      '사용자 데이터 밀도 최적화를 위해 기존 카드 시스템의 패딩 값을 24px에서 16px로 축소함',
-    request: '가독성 저하 여부 확인\n모바일 해상도 대응 확인',
-    deadline: '2024-11-20 (수) 15:00까지',
-    updatedAt: '2시간 전',
-    unread: true,
-  },
-  {
-    id: '2',
-    title: '주간 보고 템플릿',
-    purpose:
-      '팀 내 성과 지표와 이슈 및 계획을 요약하는 정형화된 보고 체계입니다.',
-    reason: '',
-    request: '',
-    deadline: '',
-    updatedAt: '1일 전',
-    unread: false,
-  },
-  {
-    id: '3',
-    title: 'QA 버그 리포트',
-    purpose:
-      '재현 경로와 스크린샷 링크를 포함한 기술적 이슈 보고 형식입니다.',
-    reason: '',
-    request: '',
-    deadline: '',
-    updatedAt: '1일 전',
-    unread: false,
-  },
-]
-
-const defaultCandidates: Candidate[] = [
-  {
-    id: 'candidate-1',
-    text: '"최근 5회 협업에서 동일한 표현이 반복되었습니다."',
-    suggestion: '"문건에 대해 데이터 정합성 확인 부탁드립니다."',
-    confidence: 94,
-  },
-  {
-    id: 'candidate-2',
-    text: '"확인 부탁드립니다" 표현이 반복적으로 사용되었습니다.',
-    suggestion: '"확인 부탁드립니다"를 기본 표현으로 학습합니다.',
-    confidence: 91,
-  },
-  {
-    id: 'candidate-3',
-    text: '보고 메시지에서 결론을 먼저 전달하는 패턴이 발견되었습니다.',
-    suggestion: '결론 → 근거 → 요청 순서의 보고 패턴을 저장합니다.',
-    confidence: 89,
-  },
-]
-
-const defaultLogs: LearningLog[] = [
-  {
-    id: 'log-1',
-    action: '패턴 학습 완료',
-    description: '디자인 피드백 요청 패턴이 팀 메모리에 저장되었습니다.',
-    time: '오늘 05:21',
-  },
-  {
-    id: 'log-2',
-    action: 'AI 패턴 감지',
-    description: '협업 메시지에서 반복 표현이 감지되었습니다.',
-    time: '오늘 04:52',
-  },
-  {
-    id: 'log-3',
-    action: '패턴 업데이트',
-    description: '디자인 피드백 요청 패턴의 변경 이유가 업데이트되었습니다.',
-    time: '어제 18:30',
-  },
-  {
-    id: 'log-4',
-    action: '패턴 학습 완료',
-    description: '주간 보고 템플릿 패턴이 팀 메모리에 저장되었습니다.',
-    time: '어제 14:12',
-  },
-]
+import {
+  deleteTeamMemoryPattern,
+  fetchTeamMemory,
+  fetchTeamMemoryCandidates,
+  getLocalLearningLogs,
+  persistLearningLogs,
+  saveTeamMemoryPattern,
+  updateTeamMemoryPattern,
+  type Candidate,
+  type LearningLog,
+  type Pattern,
+} from '../users/teamMemory'
+import { addNotification } from '../users/notifications'
 
 /* =========================================================
    Icons
@@ -321,7 +221,8 @@ function getUpdatedTimeValue(value?: string) {
     return week * 7 * 24 * 60
   }
 
-  return 999999
+  const parsed = Date.parse(value)
+  return Number.isNaN(parsed) ? 999999 : Math.floor(parsed / 60000)
 }
 
 /* =========================================================
@@ -329,18 +230,19 @@ function getUpdatedTimeValue(value?: string) {
 ========================================================= */
 
 export default function TeamMemoryPage() {
-  const [patterns, setPatterns] = useState<Pattern[]>(defaultPatterns)
+  const [patterns, setPatterns] = useState<Pattern[]>([])
   const [selectedId, setSelectedId] = useState('1')
   const [tab, setTab] = useState<'saved' | 'candidates'>('saved')
 
   const [candidates, setCandidates] =
-    useState<Candidate[]>(defaultCandidates)
+    useState<Candidate[]>([])
 
   const [learningLogs, setLearningLogs] =
-    useState<LearningLog[]>(defaultLogs)
+    useState<LearningLog[]>(getLocalLearningLogs())
 
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
+  const [growthRate, setGrowthRate] = useState(0)
 
   // 버튼이 눌렸을 때만 true
   const [showUnreadOnly, setShowUnreadOnly] = useState(false)
@@ -370,18 +272,29 @@ export default function TeamMemoryPage() {
   ========================================================= */
 
   useEffect(() => {
-    fetch(`${API_URL}/api/team-memory`)
-      .then((res) => {
-        if (!res.ok) throw new Error()
-        return res.json()
+    const controller = new AbortController()
+    void Promise.all([
+      fetchTeamMemory(controller.signal),
+      fetchTeamMemoryCandidates(controller.signal),
+    ])
+      .then(([loadedPatterns, loadedCandidates]) => {
+        setPatterns(loadedPatterns)
+        setSelectedId(loadedPatterns[0]?.id || '')
+        setCandidates(loadedCandidates)
+        if (loadedCandidates.length > 0 && loadedCandidates.length !== Number(localStorage.getItem('ieum.teamMemory.lastCandidateCount') || 0)) {
+          addNotification({ type: 'learning', title: '새 AI 학습 후보가 도착했습니다.', description: `${loadedCandidates.length}개의 커뮤니케이션 패턴을 검토할 수 있습니다.` })
+          localStorage.setItem('ieum.teamMemory.lastCandidateCount', String(loadedCandidates.length))
+        }
+        const previousCount = Number(localStorage.getItem('ieum.teamMemory.previousCount') || loadedPatterns.length)
+        setGrowthRate(previousCount > 0 ? Math.round(((loadedPatterns.length - previousCount) / previousCount) * 100) : 0)
+        localStorage.setItem('ieum.teamMemory.previousCount', String(loadedPatterns.length))
       })
-      .then((data) => {
-        if (Array.isArray(data) && data.length) {
-          setPatterns(data)
-          setSelectedId(data[0].id)
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          console.error('팀 메모리를 불러오지 못했습니다.', error)
         }
       })
-      .catch(() => {})
+    return () => controller.abort()
   }, [])
 
   /* =========================================================
@@ -475,15 +388,19 @@ export default function TeamMemoryPage() {
       hour12: false,
     })
 
-    setLearningLogs((current) => [
-      {
-        id: `log-${Date.now()}`,
-        action,
-        description,
-        time: `오늘 ${time}`,
-      },
-      ...current,
-    ])
+    setLearningLogs((current) => {
+      const next = [
+        {
+          id: `log-${Date.now()}`,
+          action,
+          description,
+          time: `오늘 ${time}`,
+        },
+        ...current,
+      ]
+      persistLearningLogs(next)
+      return next
+    })
   }
 
   /* =========================================================
@@ -522,13 +439,13 @@ export default function TeamMemoryPage() {
       `"${newPattern.title}" 패턴이 추가되었습니다.`,
     )
 
-    await fetch(`${API_URL}/api/team-memory`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(newPattern),
-    }).catch(() => {})
+    try {
+      const saved = await saveTeamMemoryPattern(newPattern)
+      setPatterns((current) => current.map((item) => item.id === saved.id ? saved : item))
+    } catch (error) {
+      console.error(error)
+      alert('팀 메모리 저장에 실패했습니다.')
+    }
   }
 
   /* =========================================================
@@ -575,14 +492,15 @@ export default function TeamMemoryPage() {
       `"${updated.title}" 패턴이 수정되었습니다.`,
     )
 
-    await fetch(`${API_URL}/api/team-memory/${updated.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(updated),
-    }).catch(() => {})
-    setLoading(false)
+    try {
+      const saved = await updateTeamMemoryPattern(updated)
+      setPatterns((current) => current.map((item) => item.id === saved.id ? saved : item))
+    } catch (error) {
+      console.error(error)
+      alert('팀 메모리 수정에 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   /* =========================================================
@@ -613,9 +531,12 @@ export default function TeamMemoryPage() {
       `"${deletedTitle}" 패턴이 삭제되었습니다.`,
     )
 
-    await fetch(`${API_URL}/api/team-memory/${selected.id}`, {
-      method: 'DELETE',
-    }).catch(() => {})
+    try {
+      await deleteTeamMemoryPattern(selected.id)
+    } catch (error) {
+      console.error(error)
+      alert('팀 메모리 삭제에 실패했습니다.')
+    }
   }
 
   /* =========================================================
@@ -645,13 +566,13 @@ export default function TeamMemoryPage() {
       `신뢰도 ${candidate.confidence}%의 AI 학습 후보가 저장되었습니다.`,
     )
 
-    await fetch(`${API_URL}/api/team-memory`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(newPattern),
-    }).catch(() => {})
+    try {
+      const saved = await saveTeamMemoryPattern(newPattern)
+      setPatterns((current) => current.map((item) => item.id === saved.id ? saved : item))
+    } catch (error) {
+      console.error(error)
+      alert('팀 메모리 저장에 실패했습니다.')
+    }
   }
 
   function ignoreCandidate(candidateId: string) {
@@ -725,7 +646,7 @@ export default function TeamMemoryPage() {
           Header
       ===================================================== */}
 
-      <PageHeader searchValue={search} onSearchChange={setSearch} />
+      <PageHeader searchValue={search} onSearchChange={setSearch} onSearchSubmit={setSearch} />
 
       {/* =====================================================
           Main
@@ -848,78 +769,28 @@ export default function TeamMemoryPage() {
                     ? '읽지 않은 패턴이 없습니다.'
                     : '조건에 맞는 패턴이 없습니다.'}
                 </div>
-              ) : (
-                <div className="space-y-5">
-                  {/* ================================
-                      Featured / Large Card
-                  ================================= */}
-
-                  {featuredPattern && (
-                    <PatternCard
-                      pattern={featuredPattern}
-                      isSelected={
-                        selected?.id === featuredPattern.id
-                      }
-                      isFeatured
-                      showMenu={
-                        showMenu &&
-                        selected?.id === featuredPattern.id
-                      }
-                      onSelect={() => {
-                        setSelectedId(featuredPattern.id)
-                        markAsRead(featuredPattern.id)
-                      }}
-                      onEdit={openEditModal}
-                      onToggleMenu={() =>
-                        setShowMenu((current) => !current)
-                      }
-                      onDelete={deleteSelected}
-                      onUpload={() =>
-                        fileInputRef.current?.click()
-                      }
-                      fileInputRef={fileInputRef}
-                      onFileChange={handleFileChange}
-                    />
-                  )}
-
-                  {/* ================================
-                      Bottom 2 Cards
-                  ================================= */}
-
-                  {secondaryPatterns.length > 0 && (
-                    <div className="grid grid-cols-2 gap-5">
-                      {secondaryPatterns.map((pattern) => (
-                        <PatternCard
-                          key={pattern.id}
-                          pattern={pattern}
-                          isSelected={
-                            selected?.id === pattern.id
-                          }
-                          isFeatured={false}
-                          showMenu={
-                            showMenu &&
-                            selected?.id === pattern.id
-                          }
-                          onSelect={() => {
-                            setSelectedId(pattern.id)
-                            markAsRead(pattern.id)
-                          }}
-                          onEdit={openEditModal}
-                          onToggleMenu={() =>
-                            setShowMenu((current) => !current)
-                          }
-                          onDelete={deleteSelected}
-                          onUpload={() =>
-                            fileInputRef.current?.click()
-                          }
-                          fileInputRef={fileInputRef}
-                          onFileChange={handleFileChange}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              ) : sortActive ? (
+                  <div className="flex gap-4 overflow-x-auto pb-3">
+                    {displayPatterns.map((pattern) => (
+                      <div key={pattern.id} className="w-[320px] shrink-0">
+                        <PatternCard pattern={pattern} isSelected={selected?.id === pattern.id} isFeatured={false} showMenu={showMenu && selected?.id === pattern.id} onSelect={() => { setSelectedId(pattern.id); markAsRead(pattern.id) }} onEdit={openEditModal} onToggleMenu={() => setShowMenu((current) => !current)} onDelete={deleteSelected} onUpload={() => fileInputRef.current?.click()} fileInputRef={fileInputRef} onFileChange={handleFileChange} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    {featuredPattern && (
+                      <PatternCard pattern={featuredPattern} isSelected={selected?.id === featuredPattern.id} isFeatured showMenu={showMenu && selected?.id === featuredPattern.id} onSelect={() => { setSelectedId(featuredPattern.id); markAsRead(featuredPattern.id) }} onEdit={openEditModal} onToggleMenu={() => setShowMenu((current) => !current)} onDelete={deleteSelected} onUpload={() => fileInputRef.current?.click()} fileInputRef={fileInputRef} onFileChange={handleFileChange} />
+                    )}
+                    {secondaryPatterns.length > 0 && (
+                      <div className="grid grid-cols-2 gap-5">
+                        {secondaryPatterns.map((pattern) => (
+                          <PatternCard key={pattern.id} pattern={pattern} isSelected={selected?.id === pattern.id} isFeatured={false} showMenu={showMenu && selected?.id === pattern.id} onSelect={() => { setSelectedId(pattern.id); markAsRead(pattern.id) }} onEdit={openEditModal} onToggleMenu={() => setShowMenu((current) => !current)} onDelete={deleteSelected} onUpload={() => fileInputRef.current?.click()} fileInputRef={fileInputRef} onFileChange={handleFileChange} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
             </section>
 
             {/* =================================================
@@ -1012,9 +883,7 @@ export default function TeamMemoryPage() {
                     </p>
 
                     <strong className="mt-1 block text-[20px] font-semibold text-[#5037d7]">
-                      {124 +
-                        (defaultCandidates.length -
-                          candidates.length)}
+                      {patterns.length}
                       개
                     </strong>
                   </div>
@@ -1025,7 +894,7 @@ export default function TeamMemoryPage() {
                     </p>
 
                     <strong className="mt-1 block text-[20px] font-semibold text-[#087fa7]">
-                      +12%
+                      {growthRate >= 0 ? `+${growthRate}%` : `${growthRate}%`}
                     </strong>
                   </div>
                 </div>

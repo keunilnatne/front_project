@@ -135,8 +135,8 @@ export default function DashboardPage() {
           </div>
 
           {/* 통계 카드 */}
-          <div className="mt-4.25 grid grid-cols-2 gap-4">
-            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3">
+          <div className="mt-[17px] grid grid-cols-3 gap-4">
+            <div className="h-[102px] rounded-xl border border-[#dedee4] bg-white px-4 py-3">
               <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
                 {loading ? '-' : stats.sentMessages}
               </strong>
@@ -146,7 +146,17 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3">
+            <div className="h-[102px] rounded-xl border border-[#dedee4] bg-white px-4 py-3">
+              <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
+                {loading ? '-' : stats.aiConversions}
+              </strong>
+
+              <p className="mt-4 text-[11px] text-[#c1c1c1]">
+                AI 변환 횟수
+              </p>
+            </div>
+
+            <div className="h-[102px] rounded-xl border border-[#dedee4] bg-white px-4 py-3">
               <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
                 {loading ? '-' : stats.recipients}
               </strong>
@@ -191,14 +201,22 @@ export default function DashboardPage() {
               이렇게 사용해보세요!
             </h2>
 
-            <div className="mt-6 space-y-2.5">
-              {visibleGuideItems.map((item) => {
+            <div className="mt-6 space-y-[10px]">
+              {guideItems.map((item) => {
+                const isOpen = openGuide === item.number
+
                 return (
                   <div key={item.number}>
                     <button
                       type="button"
-                      onClick={item.action}
-                      className="flex h-20 w-full items-center rounded-lg border border-[#d9d9df] px-4 text-left transition hover:bg-[#fafafa]"
+                      onClick={() => {
+                        if (isOpen) {
+                          setOpenGuide(null)
+                        } else {
+                          setOpenGuide(item.number)
+                        }
+                      }}
+                      className="flex h-[80px] w-full items-center rounded-lg border border-[#d9d9df] px-4 text-left transition hover:bg-[#fafafa]"
                     >
                       <div
                         className="relative flex h-13 w-13 shrink-0 items-center justify-center rounded-full"
@@ -269,19 +287,6 @@ export default function DashboardPage() {
           </div>
         </aside>
       </main>
-
-      {showNews && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/30 p-4" onMouseDown={() => setShowNews(false)}>
-          <div className="w-full max-w-115 rounded-2xl bg-white p-6 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="flex items-start justify-between gap-4">
-              <div><p className="text-[11px] font-semibold text-[#6844e2]">NEW</p><h2 className="mt-1 text-[18px] font-bold text-[#282328]">더 편리해진 이음이를 만나보세요</h2></div>
-              <button type="button" onClick={() => setShowNews(false)} className="text-xl text-[#888]">×</button>
-            </div>
-            <p className="mt-5 text-[13px] leading-6 text-[#666]">성능 개선과 새로운 기능으로 더 나은 커뮤니케이션 경험을 제공합니다.</p>
-            <button type="button" onClick={() => setShowNews(false)} className="mt-6 w-full rounded-lg bg-[#5035dc] py-3 text-[12px] font-semibold text-white">확인</button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

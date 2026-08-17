@@ -1,8 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import PageHeader from '../../components/PageHeader'
-import { useLocation, useNavigate } from 'react-router-dom'
-
-const API_URL = import.meta.env.VITE_API_URL || ''
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { fetchRecipients, type Recipient as UserRecipient } from '../../users/recipients'
+import { optimizeMessage } from '../../users/messageService'
+import { createHistoryItem } from '../../users/history'
+import { analyzeMessageMetadata } from '../../ai/aiInsights'
+import { addNotification } from '../../users/notifications'
+import { detectMessageLanguage, translateAndSpellCheck } from '../../ai/freeLanguageTools'
 
 type Recipient = {
   id: string
@@ -24,59 +28,6 @@ type MessagePageState = {
   subject?: string
   body?: string
 }
-
-const mockRecipients: Recipient[] = [
-  {
-    id: '1',
-    name: 'Aditya Putra',
-    position: 'Backend Developer',
-    company: 'PT. Maju Digital',
-    country: 'Indonesia',
-    language: 'English',
-    timezone: 'WIB (UTC+7)',
-    relationship: 'External Partner',
-  },
-  {
-    id: '2',
-    name: '김민수',
-    position: 'Product Designer',
-    company: 'ABC Company',
-    country: 'South Korea',
-    language: 'Korean',
-    timezone: 'KST (UTC+9)',
-    relationship: 'External Partner',
-  },
-  {
-    id: '3',
-    name: '이서윤',
-    position: 'Marketing Lead',
-    company: 'Nova Inc.',
-    country: 'South Korea',
-    language: 'Korean',
-    timezone: 'KST (UTC+9)',
-    relationship: 'Partner',
-  },
-  {
-    id: '4',
-    name: '박준호',
-    position: 'Backend Engineer',
-    company: 'ABC Company',
-    country: 'South Korea',
-    language: 'Korean',
-    timezone: 'KST (UTC+9)',
-    relationship: 'Internal',
-  },
-  {
-    id: '5',
-    name: '최유리',
-    position: 'CEO',
-    company: 'Studio Bright',
-    country: 'South Korea',
-    language: 'Korean',
-    timezone: 'KST (UTC+9)',
-    relationship: 'External Partner',
-  },
-]
 
 /* -------------------------------------------------------
  * 공통 아이콘
@@ -129,6 +80,19 @@ function SparkleIcon() {
   )
 }
 
+function getRecipientTimeNotice(recipient?: Recipient) {
+  if (!recipient?.timezone) return '수신자를 선택하면 현지 업무시간을 확인할 수 있습니다.'
+  try {
+    const now = new Date()
+    const time = new Intl.DateTimeFormat('en-GB', { timeZone: recipient.timezone, hour: '2-digit', minute: '2-digit', hour12: false }).format(now)
+    const [hour, minute] = time.split(':').map(Number)
+    const afterHours = hour >= 18 || hour < 9
+    const labels: Record<string, string> = { 'Asia/Jakarta': 'WIB', 'Asia/Makassar': 'WITA', 'Asia/Jayapura': 'WIT', 'Asia/Seoul': 'KST', 'Asia/Tokyo': 'JST', 'America/New_York': 'ET', 'America/Los_Angeles': 'PT' }
+    const zone = labels[recipient.timezone] || recipient.timezone
+    return `${zone} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} · ${afterHours ? '수신자 업무 시간 이후입니다' : '수신자 업무 시간입니다'}`
+  } catch { return `${recipient.timezone} · 수신자 현지 시간을 확인할 수 없습니다.` }
+}
+
 /* -------------------------------------------------------
  * 수신자 Context 컴포넌트
  * 사진에서 보이는 1명 단위
@@ -136,8 +100,10 @@ function SparkleIcon() {
 
 function RecipientContextCard({
   recipient,
+  aiTags = [],
 }: {
   recipient: Recipient
+  aiTags?: string[]
 }) {
   return (
     <div className="border-b border-[#eeeef0] pb-6">
@@ -206,19 +172,8 @@ function RecipientContextCard({
         <p className="text-[10px] text-[#999]">
           커뮤니케이션 스타일
         </p>
-
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <span className="rounded bg-[#f0ebff] px-2 py-1 text-[9px] text-[#6343dd]">
-            명확한 표현 선호
-          </span>
-
-          <span className="rounded bg-[#f0ebff] px-2 py-1 text-[9px] text-[#6343dd]">
-            짧은 단락
-          </span>
-
-          <span className="rounded bg-[#f0ebff] px-2 py-1 text-[9px] text-[#6343dd]">
-            직접 소통
-          </span>
+        <div className="mt-2 max-h-24 overflow-y-auto pr-1">
+          {aiTags.length ? <div className="flex flex-wrap gap-1.5">{aiTags.map((tag) => <span key={tag} className="rounded bg-[#f0ebff] px-2 py-1 text-[9px] text-[#6343dd]">{tag}</span>)}</div> : <p className="text-[10px] text-[#999]">AI 분석 결과가 아직 없습니다.</p>}
         </div>
       </div>
     </div>
@@ -233,18 +188,30 @@ export default function MessagesPage() {
   const [search, setSearch] = useState('')
   const location = useLocation()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [openedConversation, setOpenedConversation] = useState<Conversation | null>(null)
 
   const pageState = location.state as MessagePageState | null
 
+  useEffect(() => {
+    const id = searchParams.get('conversation')
+    if (!id) { setOpenedConversation(null); return }
+    void fetchConversations().then((items) => {
+      const found = items.find((item) => item.id === id)
+      if (found) setOpenedConversation(found)
+    })
+  }, [searchParams])
+
+
   const [recipients, setRecipients] =
-    useState<Recipient[]>(mockRecipients)
+    useState<Recipient[]>([])
 
   // 처음에는 비어있음
   const [selectedRecipients, setSelectedRecipients] =
     useState<Recipient[]>([])
 
-  const [showRecipientList, setShowRecipientList] =
-    useState(false)
+  const [showRecipientList, setShowRecipientList] = useState(false)
+  const recipientPickerRef = useRef<HTMLDivElement>(null)
 
   const [subject, setSubject] =
     useState(pageState?.subject || '')
@@ -255,6 +222,8 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(false)
 
   const [draftSaved, setDraftSaved] = useState(false)
+  const [aiMetadata, setAiMetadata] = useState<{ priority?: string; tags?: string[]; terms?: string[]; rules?: string[]; sourceLanguage?: string; targetLanguage?: string } | null>(null)
+  const [aiMetadataLoading, setAiMetadataLoading] = useState(false)
 
   /* 수정하기로 돌아온 경우 기존 데이터 유지 */
   useEffect(() => {
@@ -275,22 +244,28 @@ export default function MessagesPage() {
 
   /* 수신자 목록 */
   useEffect(() => {
-    fetch(`${API_URL}/api/recipients`)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error()
-        }
-
-        return res.json()
-      })
+    const controller = new AbortController()
+    void fetchRecipients(controller.signal)
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setRecipients(data)
+        setRecipients(data.map((item: UserRecipient) => ({
+          id: String(item.id),
+          name: item.name,
+          position: item.role,
+          company: item.company,
+          country: item.country,
+          language: item.language,
+          timezone: item.timezone,
+          relationship: item.organizationRelation,
+          speed: item.responseSpeed,
+          collaboration: item.collaborationActivity,
+        })))
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          console.error(error)
         }
       })
-      .catch(() => {
-        setRecipients(mockRecipients)
-      })
+    return () => controller.abort()
   }, [])
 
   function toggleRecipient(item: Recipient) {
@@ -314,6 +289,35 @@ export default function MessagesPage() {
       current.filter((recipient) => recipient.id !== id),
     )
   }
+
+  useEffect(() => {
+    if (!showRecipientList) return
+    const handlePointerDown = (event: MouseEvent) => {
+      if (recipientPickerRef.current && !recipientPickerRef.current.contains(event.target as Node)) {
+        setShowRecipientList(false)
+      }
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [showRecipientList])
+
+  useEffect(() => {
+    if (!subject.trim() && !body.trim()) { setAiMetadata(null); return }
+    const timer = window.setTimeout(() => {
+      setAiMetadataLoading(true)
+      void analyzeMessageMetadata({
+        recipients: selectedRecipients,
+        subject,
+        body,
+        sourceLanguage: detectMessageLanguage(`${subject} ${body}`),
+        targetLanguages: selectedRecipients.map((recipient) => recipient.language),
+      }).then((metadata) => {
+        if (!metadata) { setAiMetadata(null); return }
+        setAiMetadata(metadata)
+      }).finally(() => setAiMetadataLoading(false))
+    }, 450)
+    return () => window.clearTimeout(timer)
+  }, [selectedRecipients, subject, body])
 
   /* 임시 저장 */
   function saveDraft() {
@@ -342,79 +346,130 @@ export default function MessagesPage() {
   }
 
   /* AI 최적화 */
-  async function optimizeMessage() {
+  async function handleOptimizeMessage() {
     if (selectedRecipients.length === 0) {
       alert('수신자를 선택해주세요.')
       return
     }
-
     if (!subject.trim()) {
       alert('제목을 입력해주세요.')
       return
     }
-
     if (!body.trim()) {
       alert('메시지를 입력해주세요.')
       return
     }
 
     setLoading(true)
-
     try {
-      const response = await fetch(
-        `${API_URL}/api/messages/optimize`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            recipients: selectedRecipients,
-            subject,
-            body,
-          }),
-        },
-      )
+      const optimized = await optimizeMessage({
+        recipients: selectedRecipients.map((item) => ({
+          id: Number(item.id),
+          name: item.name,
+          role: item.position,
+          company: item.company,
+          country: item.country || '',
+          language: item.language,
+          timezone: item.timezone,
+          organizationRelation: item.relationship,
+          responseSpeed: item.speed === '빠름' || item.speed === '느림' ? item.speed : '보통',
+          averageResponseMinutes: item.responseTime || 0,
+          collaborationActivity: item.collaboration === 'High' || item.collaboration === 'Low' ? item.collaboration : 'Medium',
+          isOnline: false,
+          isFavorite: false,
+          isRecent: false,
+          verifiedExpert: false,
+          fullTime: false,
+          avatar: item.name.slice(0, 1),
+        })),
+        subject,
+        body,
+      })
 
-      if (!response.ok) {
-        throw new Error('AI optimization failed')
-      }
+      void createHistoryItem({
+        id: `conversion-${Date.now()}`,
+        date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+        recipient: selectedRecipients.map((item) => item.name).join(', '),
+        purpose: subject,
+        score: optimized.score ?? 0,
+        status: 'AI 변환 완료',
+        type: '변환',
+        createdAt: new Date().toISOString(),
+        content: optimized.body,
+      })
 
-      const data = await response.json()
-
+      const optimizedMetadata = await analyzeMessageMetadata({
+        recipients: selectedRecipients,
+        subject: optimized.subject,
+        body: optimized.body,
+        optimized: true,
+        sourceLanguage: detectMessageLanguage(`${optimized.subject} ${optimized.body}`),
+        targetLanguages: selectedRecipients.map((recipient) => recipient.language),
+      })
       navigate('/messages/optimized', {
         state: {
           recipients: selectedRecipients,
-          subject: data.subject,
-          body: data.body,
+          subject: optimized.subject,
+          body: optimized.body,
           originalSubject: subject,
           originalBody: body,
+          score: optimized.score,
+          explanation: optimized.explanation,
+          aiContext: optimizedMetadata,
         },
       })
     } catch (error) {
       console.error(error)
-
-      /*
-       * 백엔드 연결 전 테스트용.
-       * 절대로 [최적화됨] 같은 가짜 문구를 붙이지 않음.
-       */
-      navigate('/messages/optimized', {
-        state: {
-          recipients: selectedRecipients,
-          subject,
-          body,
-          originalSubject: subject,
-          originalBody: body,
-        },
-      })
+      try {
+        const detectedSource = aiMetadata?.sourceLanguage || detectMessageLanguage(`${subject} ${body}`)
+        const fallback = await translateAndSpellCheck(body, selectedRecipients[0]?.language || 'en', detectedSource)
+        navigate('/messages/optimized', {
+          state: {
+            recipients: selectedRecipients,
+            subject,
+            body: fallback.translatedText,
+            originalSubject: subject,
+            originalBody: body,
+            fallbackMode: true,
+            fallbackMessage: 'AI 연결에 실패해서 맞춤법 검사만 진행했습니다.',
+            spellCorrections: fallback.corrections,
+            detectedSourceLanguage: fallback.sourceLanguage,
+            targetLanguage: fallback.targetLanguage,
+            aiContext: { tags: [], terms: [], rules: [] },
+          },
+        })
+      } catch {
+        alert('AI 최적화에 실패했습니다. 무료 번역/맞춤법 검사도 사용할 수 없습니다.')
+      }
     } finally {
       setLoading(false)
     }
   }
 
+  const normalizedSearch = search.trim().toLowerCase()
+  const visibleRecipients = recipients.filter((item) =>
+    !normalizedSearch
+      || `${item.name} ${item.position} ${item.company} ${item.country || ''}`
+        .toLowerCase()
+        .includes(normalizedSearch),
+  )
+
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
-      <PageHeader searchValue={search} onSearchChange={setSearch} />
+      {openedConversation && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/30 p-6" onMouseDown={() => { setOpenedConversation(null); setSearchParams((current) => { current.delete('conversation'); return current }) }}>
+          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[#eeeef1] px-6 py-5">
+              <div><h2 className="text-[15px] font-semibold">{openedConversation.title}</h2><p className="mt-1 text-[11px] text-[#999]">메시지 {openedConversation.messages.length}개</p></div>
+              <button type="button" onClick={() => { setOpenedConversation(null); setSearchParams((current) => { current.delete('conversation'); return current }) }} className="text-xl text-[#888]">×</button>
+            </div>
+            <div className="space-y-3 overflow-y-auto p-6">
+              {openedConversation.messages.map((message, index) => <div key={`${openedConversation.id}-${index}`} className={`max-w-[80%] rounded-xl px-4 py-3 text-[12px] leading-5 ${message.role === 'user' ? 'ml-auto bg-[#f1edff]' : 'bg-[#f5f5f7]'}`}><p>{message.content}</p>{message.createdAt && <p className="mt-1 text-[9px] text-[#999]">{new Date(message.createdAt).toLocaleString('ko-KR')}</p>}</div>)}
+            </div>
+          </div>
+        </div>
+      )}
+      <PageHeader searchValue={search} onSearchChange={setSearch} onSearchSubmit={setSearch} />
 
       {/* PAGE */}
       <div className="min-h-[calc(100vh-68px)]">
@@ -475,7 +530,7 @@ export default function MessagesPage() {
 
               {/* RECIPIENT */}
               <div className="relative mb-5 flex items-center">
-                <span className="w-28.75 shrink-0 text-[13px] text-[#5e5960]">
+                <span className="w-[115px] shrink-0 text-[13px] text-[#5e5960]">
                   받는 사람
                 </span>
 
@@ -540,7 +595,7 @@ export default function MessagesPage() {
                       </p>
                     </div>
 
-                    {recipients.map((item) => {
+                    {visibleRecipients.map((item) => {
                       const selected = selectedRecipients.some(
                         (recipient) => recipient.id === item.id,
                       )
@@ -634,7 +689,7 @@ export default function MessagesPage() {
                 <div className="flex items-center gap-2 border-t border-[#eeeeef] px-5 py-3 text-[12px] text-[#a2a0a7]">
                   <ClockIcon />
 
-                  수신자 현지 시간을 기준으로 메시지를 확인할 수 있습니다.
+                  {getRecipientTimeNotice(selectedRecipients[0])}
                 </div>
 
                 {/* BOTTOM */}
@@ -648,14 +703,17 @@ export default function MessagesPage() {
                       <PaperclipIcon />
                     </button>
 
-                    <span className="rounded bg-[#ffe5e8] px-2 py-1 text-[11px] text-[#9e4653]">
-                      PRIORITY HIGH
-                    </span>
+                    {aiMetadata && (
+                      <div className="flex max-w-[520px] flex-wrap gap-1.5">
+                        {aiMetadata.priority && <span className="rounded bg-[#ffe5e8] px-2 py-1 text-[11px] text-[#9e4653]">PRIORITY {aiMetadata.priority}</span>}
+                        {(aiMetadata.tags || []).map((tag) => <span key={tag} className="rounded bg-[#f1edff] px-2 py-1 text-[10px] font-medium text-[#6244db]">{tag}</span>)}
+                      </div>
+                    )}
                   </div>
 
                   <button
                     type="button"
-                    onClick={optimizeMessage}
+                    onClick={handleOptimizeMessage}
                     disabled={loading}
                     className="flex items-center gap-2 rounded-lg bg-[#4f2ee0] px-6 py-4 text-[14px] font-semibold text-white transition hover:bg-[#4525d0] disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -684,6 +742,7 @@ export default function MessagesPage() {
                     <RecipientContextCard
                       key={recipient.id}
                       recipient={recipient}
+                      aiTags={aiMetadata?.tags || []}
                     />
                   ))}
                 </div>
@@ -705,7 +764,7 @@ export default function MessagesPage() {
                   </p>
 
                   <p className="mt-2 text-[11px] leading-5 text-[#8a8494]">
-                    AI 최적화를 실행하면 수신자별 Context를 반영한
+                    {aiMetadata?.terms?.length ? `자주 사용하는 용어: ${aiMetadata.terms.join(', ')}` : 'AI가 메시지와 수신자 정보를 분석합니다.'}<br />AI 최적화를 실행하면 수신자별 Context를 반영한
                     메시지를 생성합니다.
                   </p>
                 </div>

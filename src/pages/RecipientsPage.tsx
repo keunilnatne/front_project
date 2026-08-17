@@ -1,26 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
-import { useNavigate } from 'react-router-dom'
-
-type Recipient = {
-  id: number
-  name: string
-  role: string
-  company: string
-  country: string
-  language: string
-  timezone: string
-  organizationRelation: string
-  responseSpeed: '빠름' | '보통' | '느림'
-  averageResponseMinutes: number
-  collaborationActivity: 'High' | 'Medium' | 'Low'
-  isOnline: boolean
-  isFavorite: boolean
-  isRecent: boolean
-  verifiedExpert: boolean
-  fullTime: boolean
-  avatar: string
-}
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { fetchRecipients, persistRecipients, type Recipient } from '../users/recipients'
+import { analyzeRecipient, type RecipientAIProfile } from '../ai/aiInsights'
 
 type TabId = 'all' | 'favorite' | 'recent'
 
@@ -29,277 +11,12 @@ type CollaborationModalProps = {
   onClose: () => void
 }
 
-const STORAGE_KEY = 'recipients-data'
-
-const initialRecipients: Recipient[] = [
-  {
-    id: 1,
-    name: '김민수',
-    role: 'Product Designer',
-    company: 'ABC Company',
-    country: 'South Korea',
-    language: 'Korean',
-    timezone: 'Asia/Seoul',
-    organizationRelation: 'External Partner',
-    responseSpeed: '빠름',
-    averageResponseMinutes: 14,
-    collaborationActivity: 'High',
-    isOnline: true,
-    isFavorite: true,
-    isRecent: true,
-    verifiedExpert: true,
-    fullTime: true,
-    avatar: '김',
-  },
-  {
-    id: 2,
-    name: '이서연',
-    role: 'Marketing Lead',
-    company: 'Nova Inc.',
-    country: 'South Korea',
-    language: 'Korean',
-    timezone: 'Asia/Seoul',
-    organizationRelation: 'External Partner',
-    responseSpeed: '보통',
-    averageResponseMinutes: 38,
-    collaborationActivity: 'Medium',
-    isOnline: false,
-    isFavorite: true,
-    isRecent: true,
-    verifiedExpert: false,
-    fullTime: true,
-    avatar: '이',
-  },
-  {
-    id: 3,
-    name: '박준호',
-    role: 'Backend Engineer',
-    company: 'ABC Company',
-    country: 'South Korea',
-    language: 'Korean',
-    timezone: 'Asia/Seoul',
-    organizationRelation: 'Internal Team',
-    responseSpeed: '느림',
-    averageResponseMinutes: 92,
-    collaborationActivity: 'Low',
-    isOnline: false,
-    isFavorite: false,
-    isRecent: true,
-    verifiedExpert: false,
-    fullTime: false,
-    avatar: '박',
-  },
-  {
-    id: 4,
-    name: '최유리',
-    role: 'CEO',
-    company: 'Studio Bright',
-    country: 'South Korea',
-    language: 'Korean',
-    timezone: 'Asia/Seoul',
-    organizationRelation: 'External Partner',
-    responseSpeed: '빠름',
-    averageResponseMinutes: 21,
-    collaborationActivity: 'High',
-    isOnline: true,
-    isFavorite: true,
-    isRecent: true,
-    verifiedExpert: true,
-    fullTime: false,
-    avatar: '최',
-  },
-
-  // 해외 테스트 데이터
-  {
-    id: 5,
-    name: 'Emma Wilson',
-    role: 'Product Manager',
-    company: 'Northstar Labs',
-    country: 'United States',
-    language: 'English',
-    timezone: 'America/New_York',
-    organizationRelation: 'External Partner',
-    responseSpeed: '빠름',
-    averageResponseMinutes: 18,
-    collaborationActivity: 'High',
-    isOnline: true,
-    isFavorite: true,
-    isRecent: true,
-    verifiedExpert: true,
-    fullTime: false,
-    avatar: 'E',
-  },
-  {
-    id: 6,
-    name: 'Liam Carter',
-    role: 'Senior Engineer',
-    company: 'Orbit Systems',
-    country: 'United Kingdom',
-    language: 'English',
-    timezone: 'Europe/London',
-    organizationRelation: 'External Partner',
-    responseSpeed: '보통',
-    averageResponseMinutes: 47,
-    collaborationActivity: 'Medium',
-    isOnline: false,
-    isFavorite: false,
-    isRecent: true,
-    verifiedExpert: false,
-    fullTime: true,
-    avatar: 'L',
-  },
-  {
-    id: 7,
-    name: 'Sofia Rossi',
-    role: 'UX Researcher',
-    company: 'Milan Studio',
-    country: 'Italy',
-    language: 'Italian / English',
-    timezone: 'Europe/Rome',
-    organizationRelation: 'External Partner',
-    responseSpeed: '보통',
-    averageResponseMinutes: 34,
-    collaborationActivity: 'High',
-    isOnline: true,
-    isFavorite: false,
-    isRecent: true,
-    verifiedExpert: true,
-    fullTime: true,
-    avatar: 'S',
-  },
-  {
-    id: 8,
-    name: 'Kenji Tanaka',
-    role: 'Engineering Manager',
-    company: 'Tokyo Works',
-    country: 'Japan',
-    language: 'Japanese / English',
-    timezone: 'Asia/Tokyo',
-    organizationRelation: 'External Partner',
-    responseSpeed: '느림',
-    averageResponseMinutes: 76,
-    collaborationActivity: 'Medium',
-    isOnline: false,
-    isFavorite: false,
-    isRecent: false,
-    verifiedExpert: false,
-    fullTime: true,
-    avatar: 'K',
-  },
-  {
-    id: 9,
-    name: 'Olivia Brown',
-    role: 'Creative Director',
-    company: 'Sydney Creative',
-    country: 'Australia',
-    language: 'English',
-    timezone: 'Australia/Sydney',
-    organizationRelation: 'External Partner',
-    responseSpeed: '빠름',
-    averageResponseMinutes: 24,
-    collaborationActivity: 'High',
-    isOnline: true,
-    isFavorite: false,
-    isRecent: false,
-    verifiedExpert: false,
-    fullTime: false,
-    avatar: 'O',
-  },
-  {
-    id: 10,
-    name: 'Daniel Kim',
-    role: 'Strategy Consultant',
-    company: 'Toronto Advisory',
-    country: 'Canada',
-    language: 'English / Korean',
-    timezone: 'America/Toronto',
-    organizationRelation: 'External Partner',
-    responseSpeed: '보통',
-    averageResponseMinutes: 41,
-    collaborationActivity: 'Medium',
-    isOnline: false,
-    isFavorite: false,
-    isRecent: false,
-    verifiedExpert: true,
-    fullTime: true,
-    avatar: 'D',
-  },
-  {
-    id: 11,
-    name: 'Aarav Mehta',
-    role: 'Data Engineer',
-    company: 'Bangalore Tech',
-    country: 'India',
-    language: 'English / Hindi',
-    timezone: 'Asia/Kolkata',
-    organizationRelation: 'External Partner',
-    responseSpeed: '빠름',
-    averageResponseMinutes: 16,
-    collaborationActivity: 'High',
-    isOnline: true,
-    isFavorite: false,
-    isRecent: false,
-    verifiedExpert: false,
-    fullTime: true,
-    avatar: 'A',
-  },
-  {
-    id: 12,
-    name: 'Camila Silva',
-    role: 'Brand Designer',
-    company: 'São Paulo Creative',
-    country: 'Brazil',
-    language: 'Portuguese / English',
-    timezone: 'America/Sao_Paulo',
-    organizationRelation: 'External Partner',
-    responseSpeed: '보통',
-    averageResponseMinutes: 52,
-    collaborationActivity: 'Medium',
-    isOnline: false,
-    isFavorite: false,
-    isRecent: false,
-    verifiedExpert: false,
-    fullTime: false,
-    avatar: 'C',
-  },
-]
-
 const tabs: { id: TabId; label: string }[] = [
   { id: 'all', label: '전체' },
   { id: 'favorite', label: '즐겨찾기' },
   { id: 'recent', label: '최근 연락' },
 ]
 
-function loadRecipients(): Recipient[] {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-
-    if (!saved) {
-      return initialRecipients
-    }
-
-    const parsed = JSON.parse(saved)
-
-    if (!Array.isArray(parsed)) {
-      return initialRecipients
-    }
-
-    return parsed
-  } catch {
-    return initialRecipients
-  }
-}
-
-function saveRecipients(recipients: Recipient[]) {
-  try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(recipients),
-    )
-  } catch {
-    // localStorage 사용 불가 시 현재 상태만 유지
-  }
-}
 
 function StarIcon({
   filled = false,
@@ -1183,42 +900,87 @@ function CollaborationModal({
 
 function RecipientsPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [recipientList, setRecipientList] =
-    useState<Recipient[]>(loadRecipients)
+  const [recipientList, setRecipientList] = useState<Recipient[]>([])
 
   const [activeTab, setActiveTab] =
     useState<TabId>('all')
 
   const [search, setSearch] = useState('')
 
-  const [selectedId, setSelectedId] = useState(1)
+  const [selectedId, setSelectedId] = useState(0)
 
   const [
     collaborationTarget,
     setCollaborationTarget,
   ] = useState<Recipient | null>(null)
 
+  const [showAddRecipient, setShowAddRecipient] = useState(false)
+  const [newRecipient, setNewRecipient] = useState({ name: '', role: '', company: '', country: 'South Korea', language: 'Korean', timezone: 'Asia/Seoul', organizationRelation: '팀원' })
+  const [googleEmail, setGoogleEmail] = useState('')
+  const [googleLookupLoading, setGoogleLookupLoading] = useState(false)
+  const [googleLookupMessage, setGoogleLookupMessage] = useState('')
+  const [aiProfile, setAiProfile] = useState<RecipientAIProfile | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+
   useEffect(() => {
     const controller = new AbortController()
-    fetch(`${import.meta.env.VITE_API_URL || ''}/api/recipients`, { signal: controller.signal })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error('수신자 조회 실패')))
-      .then((data: unknown) => {
-        if (Array.isArray(data) && data.length) {
-          const next = data as Recipient[]
-          setRecipientList(next)
-          if (!next.some((item) => item.id === selectedId)) setSelectedId(next[0].id)
-          saveRecipients(next)
-        }
+    void fetchRecipients(controller.signal)
+      .then((data) => {
+        setRecipientList(data)
+        const requestedId = Number(searchParams.get('member'))
+        if (requestedId && data.some((item) => item.id === requestedId)) setSelectedId(requestedId)
+        else if (data.length && !data.some((item) => item.id === selectedId)) setSelectedId(data[0].id)
       })
       .catch(() => {})
     return () => controller.abort()
-  }, [])
+  }, [searchParams])
 
   const selectedRecipient =
     recipientList.find(
       (recipient) => recipient.id === selectedId,
     ) || recipientList[0]
+
+  useEffect(() => {
+    if (!selectedRecipient) { setAiProfile(null); return }
+    let active = true
+    setAiLoading(true)
+    void analyzeRecipient(selectedRecipient).then((profile) => {
+      if (active) setAiProfile(profile)
+    }).finally(() => { if (active) setAiLoading(false) })
+    return () => { active = false }
+  }, [selectedRecipient])
+
+  async function lookupGoogleRecipient() {
+    const email = googleEmail.trim()
+    if (!email || !email.includes('@')) { setGoogleLookupMessage('구글 이메일 주소를 입력해주세요.'); return }
+    setGoogleLookupLoading(true); setGoogleLookupMessage('Google 계정 정보를 불러오는 중...')
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/recipients/google?email=${encodeURIComponent(email)}`)
+      if (!response.ok) throw new Error('Google 계정 정보를 찾지 못했습니다.')
+      const data = await response.json() as Partial<Recipient> & { email?: string }
+      if (!data.name || !data.role) throw new Error('해당 이메일에 연결된 프로필 정보가 없습니다.')
+      setNewRecipient((current) => ({ ...current, name: data.name || '', role: data.role || '', company: data.company || '', country: data.country || current.country, language: data.language || current.language, timezone: data.timezone || current.timezone, organizationRelation: data.organizationRelation || current.organizationRelation }))
+      setGoogleLookupMessage('Google 계정 정보를 불러왔습니다. 확인 후 추가해주세요.')
+    } catch (error) {
+      setGoogleLookupMessage(error instanceof Error ? error.message : 'Google 계정 정보를 불러오지 못했습니다.')
+    } finally { setGoogleLookupLoading(false) }
+  }
+
+  function addRecipient() {
+    if (!newRecipient.name.trim() || !newRecipient.role.trim()) return
+    const nextId = recipientList.reduce((max, item) => Math.max(max, item.id), 0) + 1
+    const created: Recipient = {
+      id: nextId, name: newRecipient.name.trim(), role: newRecipient.role.trim(), company: newRecipient.company.trim(),
+      country: newRecipient.country.trim() || 'South Korea', language: newRecipient.language.trim() || 'Korean', timezone: newRecipient.timezone.trim() || 'Asia/Seoul',
+      organizationRelation: newRecipient.organizationRelation.trim() || '팀원', responseSpeed: '보통', averageResponseMinutes: 0, collaborationActivity: 'Medium',
+      isOnline: false, isFavorite: false, isRecent: true, verifiedExpert: false, fullTime: true, avatar: newRecipient.name.trim().slice(0, 1),
+    }
+    const next = [created, ...recipientList]
+    persistRecipients(next); setRecipientList(next); setSelectedId(created.id); setShowAddRecipient(false)
+    setNewRecipient({ name: '', role: '', company: '', country: 'South Korea', language: 'Korean', timezone: 'Asia/Seoul', organizationRelation: '팀원' }); setGoogleEmail(''); setGoogleLookupMessage('')
+  }
 
   const toggleFavorite = (id: number) => {
     setRecipientList((current) => {
@@ -1231,7 +993,7 @@ function RecipientsPage() {
           : recipient,
       )
 
-      saveRecipients(updated)
+      persistRecipients(updated)
       const changed = updated.find((recipient) => recipient.id === id)
       if (changed) {
         void fetch(`${import.meta.env.VITE_API_URL || ''}/api/recipients/${id}`, {
@@ -1313,7 +1075,7 @@ function RecipientsPage() {
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
       {/* Top Search */}
-      <PageHeader searchValue={search} onSearchChange={setSearch} />
+      <PageHeader searchValue={search} onSearchChange={setSearch} onSearchSubmit={setSearch} />
 
       {/* Page */}
       <section className="px-8 pb-12 pt-8">
@@ -1322,10 +1084,10 @@ function RecipientsPage() {
             수신자
           </h1>
 
-          <p className="mt-1 text-[13px] text-[#87888f]">
-            자주 소통하는 상대의 커뮤니케이션 성향을
-            확인하고 관리하세요
-          </p>
+          <div className="flex items-end justify-between gap-4">
+            <p className="mt-1 text-[13px] text-[#87888f]">자주 소통하는 상대의 커뮤니케이션 성향을 확인하고 관리하세요</p>
+            <button type="button" onClick={() => setShowAddRecipient(true)} className="shrink-0 rounded-lg bg-[#4d3bd5] px-4 py-2.5 text-[12px] font-semibold text-white">+ 수신자 추가</button>
+          </div>
         </div>
 
         <div className="grid grid-cols-[298px_minmax(0,1fr)] items-stretch gap-7">
@@ -1486,6 +1248,16 @@ function RecipientsPage() {
           </div>
 
           {/* Right */}
+          {!selectedRecipient ? (
+            <div className="flex min-h-[760px] items-center justify-center rounded-[22px] border border-[#e7e7eb] bg-white p-10 text-center">
+              <div>
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f0edff] text-2xl text-[#5143d1]">+</div>
+                <h2 className="mt-4 text-[18px] font-semibold text-[#29292d]">등록된 수신자가 없습니다</h2>
+                <p className="mt-2 text-[12px] leading-5 text-[#888]">수신자를 추가하면 AI가 해당 사람과의 커뮤니케이션 데이터를 분석해 맞춤형 Context를 생성합니다.</p>
+                <button type="button" onClick={() => setShowAddRecipient(true)} className="mt-5 rounded-lg bg-[#4d3bd5] px-5 py-2.5 text-[12px] font-semibold text-white">수신자 추가</button>
+              </div>
+            </div>
+          ) : (
           <div className="flex min-h-[760px] flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-5 px-6 py-5">
               <Avatar
@@ -1654,6 +1426,21 @@ function RecipientsPage() {
 
             <div className="min-h-[315px] flex-1" />
 
+            {/* AI-generated communication profile */}
+            <div className="border-t border-[#ededf0] px-6 py-6">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-[16px] font-semibold text-[#292b38]">AI 커뮤니케이션 프로필</h3>
+                <span className="text-[10px] text-[#8a8790]">{aiLoading ? '분석 중...' : aiProfile ? 'AI 분석 완료' : 'AI 분석 데이터 없음'}</span>
+              </div>
+              {aiProfile ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div><p className="mb-2 text-[10px] text-[#888]">커뮤니케이션 성향</p><div className="max-h-24 overflow-y-auto pr-1"><div className="flex flex-wrap gap-1.5">{aiProfile.tags.map((tag) => <span key={tag} className="rounded bg-[#f0ebff] px-2 py-1 text-[9px] text-[#6343dd]">{tag}</span>)}</div></div></div>
+                  <div><p className="mb-2 text-[10px] text-[#888]">자주 사용하는 용어</p><div className="max-h-24 overflow-y-auto pr-1"><div className="flex flex-wrap gap-1.5">{aiProfile.terms.map((term) => <span key={term} className="rounded bg-[#f4f4f6] px-2 py-1 text-[9px] text-[#666]">{term}</span>)}</div></div></div>
+                  <div className="md:col-span-2"><p className="mb-2 text-[10px] text-[#888]">커뮤니케이션 규칙</p><div className="max-h-28 space-y-1 overflow-y-auto pr-1">{aiProfile.rules.map((rule) => <div key={rule} className="rounded-lg bg-[#f8f8fa] px-3 py-2 text-[10px] text-[#666]">{rule}</div>)}</div></div>
+                </div>
+              ) : <p className="text-[11px] text-[#999]">수신자의 실제 커뮤니케이션 데이터가 AI에 전달되면 맞춤형 태그와 규칙이 표시됩니다.</p>}
+            </div>
+
             {/* Metrics */}
             <div className="border-t border-[#ededf0] px-6 py-6">
               <div className="mb-6 flex items-center gap-2">
@@ -1723,8 +1510,29 @@ function RecipientsPage() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </section>
+
+      {showAddRecipient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4" onMouseDown={() => setShowAddRecipient(false)}>
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between"><h2 className="text-[18px] font-semibold">수신자 추가</h2><button type="button" onClick={() => setShowAddRecipient(false)} className="text-xl text-[#888]">×</button></div>
+            <div className="mt-5 rounded-xl border border-[#e6e2f4] bg-[#faf9ff] p-4">
+              <label className="block text-[11px] text-[#777]"><span className="mb-1 block font-semibold text-[#5d5565]">Google 이메일로 불러오기</span><div className="flex gap-2"><input type="email" value={googleEmail} onChange={(e) => setGoogleEmail(e.target.value)} placeholder="example@gmail.com" className="h-10 min-w-0 flex-1 rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]" /><button type="button" onClick={lookupGoogleRecipient} disabled={googleLookupLoading} className="rounded-lg bg-[#4d3bd5] px-3 text-[11px] font-semibold text-white disabled:opacity-50">{googleLookupLoading ? '조회 중' : '불러오기'}</button></div></label>
+              {googleLookupMessage && <p className="mt-2 text-[10px] text-[#756e79]">{googleLookupMessage}</p>}
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              {([['name','이름'],['role','직무'],['company','회사']] as const).map(([key,label]) => <label key={key} className="text-[11px] text-[#777]"><span className="mb-1 block">{label}</span><input value={newRecipient[key]} onChange={(e) => setNewRecipient((v) => ({...v,[key]:e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]" /></label>)}
+              <label className="text-[11px] text-[#777]"><span className="mb-1 block">국가</span><select value={newRecipient.country} onChange={(e) => setNewRecipient((v) => ({...v, country: e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"><option>South Korea</option><option>Indonesia</option><option>United States</option><option>Japan</option><option>China</option><option>Germany</option><option>Spain</option><option>United Kingdom</option><option>Singapore</option></select></label>
+              <label className="text-[11px] text-[#777]"><span className="mb-1 block">언어</span><select value={newRecipient.language} onChange={(e) => setNewRecipient((v) => ({...v, language: e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"><option>Korean</option><option>English</option><option>Indonesian</option><option>Japanese</option><option>Chinese</option><option>German</option><option>Spanish</option></select></label>
+              <label className="text-[11px] text-[#777]"><span className="mb-1 block">시간대</span><select value={newRecipient.timezone} onChange={(e) => setNewRecipient((v) => ({...v, timezone: e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"><option value="Asia/Seoul">KST · Asia/Seoul</option><option value="Asia/Jakarta">WIB · Asia/Jakarta</option><option value="Asia/Makassar">WITA · Asia/Makassar</option><option value="Asia/Jayapura">WIT · Asia/Jayapura</option><option value="Asia/Tokyo">JST · Asia/Tokyo</option><option value="America/New_York">ET · America/New_York</option><option value="America/Los_Angeles">PT · America/Los_Angeles</option><option value="Europe/London">GMT · Europe/London</option><option value="Europe/Berlin">CET · Europe/Berlin</option></select></label>
+            </div>
+            <label className="mt-3 block text-[11px] text-[#777]"><span className="mb-1 block">조직 관계</span><input value={newRecipient.organizationRelation} onChange={(e) => setNewRecipient((v) => ({...v,organizationRelation:e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px]" /></label>
+            <button type="button" onClick={addRecipient} className="mt-5 w-full rounded-lg bg-[#4d3bd5] py-3 text-[12px] font-semibold text-white">추가하기</button>
+          </div>
+        </div>
+      )}
 
       {collaborationTarget && (
         <CollaborationModal
