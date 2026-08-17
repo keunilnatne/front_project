@@ -7,7 +7,7 @@ import { createHistoryItem } from '../../users/history'
 import { analyzeMessageMetadata } from '../../ai/aiInsights'
 import { fetchConversations, type Conversation } from '../../users/conversationArchive'
 import { detectMessageLanguage, translateAndSpellCheck } from '../../ai/freeLanguageTools'
-import AttachmentPicker, { type AttachmentItem } from '../../components/AttachmentPicker'
+import { type AttachmentItem } from '../../components/AttachmentPicker'
 
 type Recipient = {
   id: string
@@ -225,6 +225,7 @@ export default function MessagesPage() {
   const [quickRecipientError, setQuickRecipientError] = useState('')
   const [quickRecipientSaving, setQuickRecipientSaving] = useState(false)
   const recipientPickerRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [subject, setSubject] =
     useState(pageState?.subject || '')
@@ -784,10 +785,33 @@ export default function MessagesPage() {
                   placeholder="메시지를 입력하세요"
                 />
 
-                {/* ATTACHMENT PICKER */}
-                <div className="border-t border-[#eeeeef] bg-[#fdfdff] p-4">
-                  <AttachmentPicker attachments={attachments} onChange={setAttachments} />
-                </div>
+                {/* ATTACHMENT PREVIEW (compact) */}
+                {attachments.length > 0 && (
+                  <div className="border-t border-[#eeeeef] bg-[#fafaff] px-5 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      {attachments.map((file, idx) => (
+                        <div key={`${file.name}-${idx}`} className="group flex items-center gap-2 rounded-lg border border-[#e5e3ec] bg-white px-3 py-2 text-[12px]">
+                          {file.type?.startsWith('image/') && file.data ? (
+                            <img src={file.data} alt={file.name} className="h-6 w-6 rounded object-cover" />
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                              <path d="M14 2v6h6" />
+                            </svg>
+                          )}
+                          <span className="max-w-[120px] truncate text-[#555]">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                            className="ml-1 text-[#bbb] transition hover:text-[#d04a5a]"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* TIME INFO */}
                 <div className="flex items-center gap-2 border-t border-[#eeeeef] px-5 py-3 text-[12px] text-[#a2a0a7]">
@@ -799,9 +823,31 @@ export default function MessagesPage() {
                 {/* BOTTOM */}
                 <div className="flex items-center justify-between border-t border-[#eeeeef] px-5 py-4">
                   <div className="flex items-center gap-3">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || [])
+                        files.forEach((file) => {
+                          if (file.size > 10 * 1024 * 1024) return
+                          const reader = new FileReader()
+                          reader.onload = () => {
+                            setAttachments((prev) => [
+                              ...prev,
+                              { id: `file-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: file.name, type: file.type, size: file.size, data: reader.result as string },
+                            ])
+                          }
+                          reader.readAsDataURL(file)
+                        })
+                        e.target.value = ''
+                      }}
+                    />
                     <button
                       type="button"
                       aria-label="파일 첨부"
+                      onClick={() => fileInputRef.current?.click()}
                       className="text-[#777] transition hover:text-[#4338ca]"
                     >
                       <PaperclipIcon />
