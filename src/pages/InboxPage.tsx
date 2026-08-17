@@ -134,7 +134,7 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fc]">
+    <div className="flex h-screen flex-col bg-[#f8f9fc]">
       {/* Top Header */}
       <header className="flex h-17 shrink-0 items-center justify-between border-b border-[#e5e5e8] bg-white px-8">
         <div className="flex items-center gap-3">
@@ -166,7 +166,7 @@ export default function InboxPage() {
       </header>
 
       {/* Main Content Area */}
-      <div className="p-8">
+      <div className="min-h-0 flex-1 p-8">
         {notConnected ? (
           /* Gmail Not Connected Card */
           <div className="mx-auto mt-12 max-w-xl rounded-2xl border border-[#e5e7ef] bg-white p-10 text-center shadow-sm">
@@ -197,7 +197,7 @@ export default function InboxPage() {
           </div>
         ) : (
           /* 2-Column Split Pane */
-          <div className="grid grid-cols-[360px_minmax(0,1fr)] items-stretch gap-7" style={{ height: 'calc(100vh - 136px)' }}>
+          <div className="grid h-full grid-cols-[360px_minmax(0,1fr)] items-stretch gap-7">
             {/* Left: Email List */}
             <div className="flex flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
               {/* Search Bar */}
