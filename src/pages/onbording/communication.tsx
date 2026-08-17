@@ -59,10 +59,10 @@ function Communication() {
     )
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    saveUserProfile({ communicationPreferences: selected, customStyle: String(form.get('customStyle') || '') })
+    await saveUserProfile({ communicationPreferences: selected, customStyle: String(form.get('customStyle') || '') })
     localStorage.setItem('onboarding.communication', 'true')
     navigate('/add-recipient')
   }

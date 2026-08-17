@@ -20,6 +20,7 @@ export const defaultUserProfile: UserProfile = {
   customStyle: '',
 }
 
+const API_URL = import.meta.env.VITE_API_URL || ''
 const STORAGE_KEY = 'ieum.userProfile'
 const ONBOARDING_STORAGE_KEYS = [
   'onboarding.profile',
@@ -30,6 +31,20 @@ const ONBOARDING_STORAGE_KEYS = [
   'onboarding.skipped',
 ] as const
 
+function getAuthToken(): string | null {
+  return (
+    localStorage.getItem('ieum.token') ||
+    localStorage.getItem('ieum.accessToken') ||
+    localStorage.getItem('token') ||
+    localStorage.getItem('accessToken')
+  )
+}
+
+function authorizationHeaders(): Record<string, string> {
+  const token = getAuthToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 export function getUserProfile(): UserProfile {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -39,9 +54,70 @@ export function getUserProfile(): UserProfile {
   }
 }
 
-export function saveUserProfile(profile: Partial<UserProfile>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...getUserProfile(), ...profile }))
+export async function fetchUserProfile(): Promise<UserProfile> {
+  try {
+    const token = getAuthToken()
+    if (!token) return getUserProfile()
+
+    const response = await fetch(`${API_URL}/api/users/me`, {
+      headers: authorizationHeaders(),
+    })
+    if (response.ok) {
+      const data = await response.json()
+      const profile: UserProfile = {
+        email: data.email || '',
+        name: data.name || '',
+        company: data.companyName || data.company?.name || '',
+        position: data.position || data.jobTitle || '',
+        role: data.jobRole || data.role || '',
+        tools: data.tools || ['Slack', 'Notion', 'Gmail'],
+        communicationPreferences: data.communicationPreferences || [],
+        customStyle: data.customStyle || data.preferredStyle || '',
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
+      window.dispatchEvent(new Event('profile-updated'))
+      return profile
+    }
+  } catch {
+    // fallback
+  }
+  return getUserProfile()
+}
+
+export async function saveUserProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
+  const updated: UserProfile = { ...getUserProfile(), ...profile }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
   window.dispatchEvent(new Event('profile-updated'))
+
+  try {
+    const token = getAuthToken()
+    if (token) {
+      await fetch(`${API_URL}/api/users/me`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authorizationHeaders(),
+        },
+        body: JSON.stringify({
+          name: updated.name,
+          company: updated.company,
+          companyName: updated.company,
+          position: updated.position,
+          jobTitle: updated.position,
+          role: updated.role,
+          jobRole: updated.role,
+          tools: updated.tools,
+          communicationPreferences: updated.communicationPreferences,
+          customStyle: updated.customStyle,
+          preferredStyle: updated.customStyle || (updated.communicationPreferences?.join(', ') ?? ''),
+        }),
+      })
+    }
+  } catch {
+    // offline / sync error
+  }
+
+  return updated
 }
 
 export function resetUserProfile() {
@@ -77,4 +153,3 @@ export function skipOnboarding(email = '') {
   completeOnboarding(email)
   window.dispatchEvent(new Event('profile-updated'))
 }
-

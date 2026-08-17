@@ -31,13 +31,13 @@ function ProfileSetup() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const profile = getUserProfile()
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const role = selectedRole === '기타'
       ? String(form.get('customRole')).trim()
       : selectedRole || profile.role
-    saveUserProfile({ name: String(form.get('name')), company: String(form.get('company')), position: String(form.get('position')), role })
+    await saveUserProfile({ name: String(form.get('name')), company: String(form.get('company')), position: String(form.get('position')), role })
     localStorage.setItem('onboarding.profile', 'true')
     navigate('/communication')
   }

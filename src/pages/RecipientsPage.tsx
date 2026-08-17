@@ -1363,7 +1363,7 @@ function RecipientsPage() {
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f0edff] text-2xl text-[#5143d1]">+</div>
                 <h2 className="mt-4 text-[18px] font-semibold text-[#29292d]">등록된 수신자가 없습니다</h2>
                 <p className="mt-2 text-[12px] leading-5 text-[#888]">수신자를 추가하면 AI가 해당 사람과의 커뮤니케이션 데이터를 분석해 맞춤형 Context를 생성합니다.</p>
-                <button type="button" onClick={() => setShowAddRecipient(true)} className="mt-5 rounded-lg bg-[#4d3bd5] px-5 py-2.5 text-[12px] font-semibold text-white">수신자 추가</button>
+                <button type="button" onClick={openAddRecipientModal} className="mt-5 rounded-lg bg-[#4d3bd5] px-5 py-2.5 text-[12px] font-semibold text-white">수신자 추가</button>
               </div>
             </div>
           ) : (
@@ -1530,10 +1530,31 @@ function RecipientsPage() {
                     selectedRecipient.organizationRelation
                   }
                 </span>
+
+                <span className="text-[#7b7b84]">
+                  선호 소통 스타일
+                </span>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {Array.isArray(selectedRecipient.communicationStyle) && selectedRecipient.communicationStyle.length > 0 ? (
+                    selectedRecipient.communicationStyle.map((style) => (
+                      <span
+                        key={style}
+                        className="rounded-full bg-[#f1edff] px-2.5 py-0.5 text-[11px] font-medium text-[#5143d1]"
+                      >
+                        {style}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="font-medium text-[#555662]">
+                      {selectedRecipient.preferredStyle || '명확하고 간결하게'}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="min-h-[315px] flex-1" />
+            <div className="min-h-[220px] flex-1" />
 
             {/* AI-generated communication profile */}
             <div className="border-t border-[#ededf0] px-6 py-6">
