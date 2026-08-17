@@ -329,7 +329,7 @@ function RecipientContextCard({
             <span>직무</span>
           </div>
 
-          <span className="max-w-[180px] text-right font-medium text-[#29292d]">
+          <span className="max-w-45 text-right font-medium text-[#29292d]">
             {recipient.position || '-'}
           </span>
         </div>
@@ -340,7 +340,7 @@ function RecipientContextCard({
             <span>조직 관계</span>
           </div>
 
-          <span className="max-w-[180px] text-right font-medium text-[#29292d]">
+          <span className="max-w-45 text-right font-medium text-[#29292d]">
             {recipient.relationship || '-'}
           </span>
         </div>
@@ -387,9 +387,9 @@ export default function MessageOptimizedPage() {
     return (
       <div className="min-h-screen bg-[#f8f9fc]">
         {/* HEADER */}
-        <header className="flex h-[68px] shrink-0 items-center justify-between border-b border-[#e5e5e8] bg-white px-10">
+        <header className="flex h-17 shrink-0 items-center justify-between border-b border-[#e5e5e8] bg-white px-10">
           <div className="min-w-0 flex-1">
-            <div className="relative w-full max-w-[445px]">
+            <div className="relative w-full max-w-111.25">
               <SearchIcon />
 
               <input
@@ -506,13 +506,13 @@ export default function MessageOptimizedPage() {
           HEADER
       ================================================= */}
 
-      <header className="flex h-[68px] shrink-0 items-center justify-between border-b border-[#e5e5e8] bg-white px-10">
+      <header className="flex h-17 shrink-0 items-center justify-between border-b border-[#e5e5e8] bg-white px-10">
         {/* 검색창
             flex-1 + max-width를 사용해서 화면 크기가 달라도
             검색창이 찌그러지지 않도록 함.
         */}
         <div className="min-w-0 flex-1">
-          <div className="relative w-full max-w-[445px]">
+          <div className="relative w-full max-w-111.25">
             <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#777]">
               <SearchIcon />
             </div>
@@ -554,7 +554,7 @@ export default function MessageOptimizedPage() {
         ================================================= */}
 
         <main className="min-w-0 px-8 py-10">
-          <div className="mx-auto w-full max-w-[900px]">
+          <div className="mx-auto w-full max-w-225">
             {/* TITLE */}
             <div className="mb-8">
               <h1 className="text-[25px] font-bold text-[#2d282c]">
@@ -594,7 +594,7 @@ export default function MessageOptimizedPage() {
                 </div>
 
                 {/* CONTENT */}
-                <div className="min-h-[350px] px-5 py-6">
+                <div className="min-h-87.5 px-5 py-6">
                   <p className="mb-5 text-[13px] font-semibold text-[#555]">
                     {originalSubject}
                   </p>
@@ -639,7 +639,7 @@ export default function MessageOptimizedPage() {
                 </div>
 
                 {/* CONTENT */}
-                <div className="min-h-[350px] px-5 py-6">
+                <div className="min-h-87.5 px-5 py-6">
                   <p className="mb-5 text-[14px] font-semibold text-[#333]">
                     {subject}
                   </p>

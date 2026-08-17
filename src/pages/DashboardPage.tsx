@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import { useConversations } from '../users/useConversations'
 import { useProfileAnalytics } from '../users/useProfileAnalytics'
+import { fetchRecipients } from '../users/recipients'
+
 import DocumentIcon from '../images/dashboard/DocumentImg.png'
 import DocumentInBox from '../images/dashboard/DocumentInBox.png'
 
@@ -29,17 +31,14 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('')
   const { conversations } = useConversations(true)
   const analytics = useProfileAnalytics()
-  const [openGuide, setOpenGuide] = useState<number | null>(null)
+  const [showNews, setShowNews] = useState(false)
 
   useEffect(() => {
-    let active = true
-    void fetch('/api/recipients')
-      .then((response) => response.ok ? response.json() : [])
-      .then((data) => {
-        if (active && Array.isArray(data)) setStats((current) => ({ ...current, recipients: data.length }))
-      })
+    const controller = new AbortController()
+    void fetchRecipients(controller.signal)
+      .then((data) => setStats((current) => ({ ...current, recipients: data.length })))
       .catch(() => undefined)
-    return () => { active = false }
+    return () => controller.abort()
   }, [])
 
   useEffect(() => {
@@ -75,37 +74,32 @@ export default function DashboardPage() {
         bg: '#e9fbf7',
         action: () => navigate('/recipients'),
       },
-      {
-        number: 3,
-        title: 'AI 최적화',
-        description: '상황에 맞는 메시지로 최적화해보세요.',
-        icon: '✦',
-        color: '#3b82f6',
-        bg: '#edf4ff',
-        action: () => navigate('/messages/optimized'),
-      },
+
     ],
     [navigate],
+  )
+
+  const keyword = search.trim().toLowerCase()
+  const visibleGuideItems = guideItems.filter((item) =>
+    !keyword
+      || `${item.title} ${item.description}`.toLowerCase().includes(keyword),
   )
 
   const handleCreateMessage = () => {
     navigate('/messages')
   }
 
-  const handleTemplate = () => {
-    navigate('/messages')
-  }
 
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
       {/* 상단 검색 영역 */}
-      <PageHeader searchValue={search} onSearchChange={setSearch} />
+      <PageHeader searchValue={search} onSearchChange={setSearch} onSearchSubmit={setSearch} />
 
       <main className="grid grid-cols-[minmax(0,1fr)_302px] gap-6 px-8 pb-12 pt-8">
         {/* 왼쪽 메인 */}
         <section className="min-w-0">
           {/* Hero */}
-          <div className="relative h-67 overflow-hidden rounded-xl border border-[#ded9ed] bg-[#f5f2ff]">
+          <div className="relative h-67flow-hidden rounded-xl border border-[#ded9ed] bg-[#f5f2ff]">
             <div className="absolute left-9 top-11">
               <h1 className="text-[28px] font-bold leading-[1.45] tracking-[-0.02em] text-[#282328]">
                 AI가 당신의 메시지를
@@ -128,14 +122,7 @@ export default function DashboardPage() {
                   새 메시지 작성
                 </button>
 
-                <button
-                  type="button"
-                  onClick={handleTemplate}
-                  className="flex h-12.25 items-center gap-2 rounded-lg border border-[#d6d2dc] bg-white px-5 text-[13px] font-semibold text-[#4d4750] transition hover:bg-[#fafafa]"
-                >
-                  <span className="text-[17px] text-[#6040e8]">▱</span>
-                  템플릿 둘러보기
-                </button>
+
               </div>
             </div>
 
@@ -148,7 +135,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 통계 카드 */}
-          <div className="mt-4.25 grid grid-cols-3 gap-4">
+          <div className="mt-4.25 grid grid-cols-2 gap-4">
             <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3">
               <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
                 {loading ? '-' : stats.sentMessages}
@@ -156,16 +143,6 @@ export default function DashboardPage() {
 
               <p className="mt-4 text-[11px] text-[#c1c1c1]">
                 전송한 메시지
-              </p>
-            </div>
-
-            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3">
-              <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
-                {loading ? '-' : stats.aiConversions}
-              </strong>
-
-              <p className="mt-4 text-[11px] text-[#c1c1c1]">
-                AI 변환 횟수
               </p>
             </div>
 
@@ -215,20 +192,12 @@ export default function DashboardPage() {
             </h2>
 
             <div className="mt-6 space-y-2.5">
-              {guideItems.map((item) => {
-                const isOpen = openGuide === item.number
-
+              {visibleGuideItems.map((item) => {
                 return (
                   <div key={item.number}>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (isOpen) {
-                          setOpenGuide(null)
-                        } else {
-                          setOpenGuide(item.number)
-                        }
-                      }}
+                      onClick={item.action}
                       className="flex h-20 w-full items-center rounded-lg border border-[#d9d9df] px-4 text-left transition hover:bg-[#fafafa]"
                     >
                       <div
@@ -255,31 +224,13 @@ export default function DashboardPage() {
                           {item.title}
                         </p>
 
-                        {isOpen && (
-                          <p className="mt-1 text-[10px] text-[#999]">
-                            {item.description}
-                          </p>
-                        )}
+                        <p className="mt-1 text-[10px] text-[#999]">
+                          {item.description}
+                        </p>
                       </div>
 
-                      <span
-                        className={`text-[14px] text-[#aaa] transition-transform ${
-                          isOpen ? 'rotate-180' : ''
-                        }`}
-                      >
-                        ⌄
-                      </span>
+                      <span className="text-[14px] text-[#aaa]">→</span>
                     </button>
-
-                    {isOpen && (
-                      <button
-                        type="button"
-                        onClick={item.action}
-                        className="mt-1 w-full rounded-lg bg-[#f7f5ff] py-2 text-[11px] font-semibold text-[#6844e2]"
-                      >
-                        바로 시작하기 →
-                      </button>
-                    )}
                   </div>
                 )
               })}
@@ -301,9 +252,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => {
-                window.alert(
-                  '성능 개선과 새로운 기능으로 더 나은 커뮤니케이션 경험을 제공합니다.',
-                )
+                setShowNews(true)
               }}
               className="mt-3 w-full rounded-lg bg-[#f0edff] p-5 text-left transition hover:bg-[#e9e5ff]"
             >
@@ -320,6 +269,19 @@ export default function DashboardPage() {
           </div>
         </aside>
       </main>
+
+      {showNews && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/30 p-4" onMouseDown={() => setShowNews(false)}>
+          <div className="w-full max-w-115 rounded-2xl bg-white p-6 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <div><p className="text-[11px] font-semibold text-[#6844e2]">NEW</p><h2 className="mt-1 text-[18px] font-bold text-[#282328]">더 편리해진 이음이를 만나보세요</h2></div>
+              <button type="button" onClick={() => setShowNews(false)} className="text-xl text-[#888]">×</button>
+            </div>
+            <p className="mt-5 text-[13px] leading-6 text-[#666]">성능 개선과 새로운 기능으로 더 나은 커뮤니케이션 경험을 제공합니다.</p>
+            <button type="button" onClick={() => setShowNews(false)} className="mt-6 w-full rounded-lg bg-[#5035dc] py-3 text-[12px] font-semibold text-white">확인</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
