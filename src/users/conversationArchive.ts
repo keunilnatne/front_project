@@ -7,6 +7,10 @@ export type ConversationMessage = {
 export type Conversation = {
   id: string
   title: string
+  subject?: string
+  body?: string
+  recipientName?: string
+  recipientEmail?: string
   updatedAt: string
   messages: ConversationMessage[]
   analysisStatus?: 'pending' | 'analyzing' | 'completed' | 'failed'
@@ -21,7 +25,22 @@ export type ConversationStyleAnalysis = {
   confidence: number
 }
 
+const API_URL = import.meta.env.VITE_API_URL || ''
 const CONVERSATIONS_KEY = 'ieum.conversations'
+
+function getAuthToken(): string | null {
+  return (
+    localStorage.getItem('ieum.token') ||
+    localStorage.getItem('ieum.accessToken') ||
+    localStorage.getItem('token') ||
+    localStorage.getItem('accessToken')
+  )
+}
+
+function authorizationHeaders(): Record<string, string> {
+  const token = getAuthToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 function isConversation(value: unknown): value is Conversation {
   if (!value || typeof value !== 'object') return false
@@ -31,12 +50,6 @@ function isConversation(value: unknown): value is Conversation {
     && typeof conversation.title === 'string'
     && typeof conversation.updatedAt === 'string'
     && Array.isArray(conversation.messages)
-    && conversation.messages.every((message) => (
-      message
-      && typeof message === 'object'
-      && (message.role === 'user' || message.role === 'assistant')
-      && typeof message.content === 'string'
-    ))
 }
 
 function readLocalConversations(): Conversation[] {
@@ -49,9 +62,25 @@ function readLocalConversations(): Conversation[] {
 }
 
 export async function fetchConversations(signal?: AbortSignal): Promise<Conversation[]> {
-  // 백엔드 연동(대화 목록 조회): 이곳에서 현재 사용자의 전체 대화 목록 조회 API를 호출
-  // 응답에는 analysisStatus와 styleAnalysis를 포함하고 최신 수정일 내림차순으로 반환
   signal?.throwIfAborted()
+  try {
+    const response = await fetch(`${API_URL}/api/conversations`, {
+      signal,
+      headers: authorizationHeaders(),
+    })
+    if (response.ok) {
+      const data: unknown = await response.json()
+      if (Array.isArray(data)) {
+        const items = data.filter(isConversation)
+        if (items.length) {
+          localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(items))
+          return items.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+        }
+      }
+    }
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+  }
   return readLocalConversations().sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
 }
 
@@ -61,14 +90,19 @@ export function normalizeAnalysisConfidence(value: number) {
 }
 
 export async function deleteConversation(conversationId: string): Promise<void> {
-  // 백엔드 연동(대화 삭제): 이곳에서 DELETE /api/users/me/conversations/:conversationId를 호출
+  try {
+    await fetch(`${API_URL}/api/conversations/${conversationId}`, {
+      method: 'DELETE',
+      headers: authorizationHeaders(),
+    })
+  } catch {
+    // ignore
+  }
   const remainingConversations = readLocalConversations().filter(({ id }) => id !== conversationId)
   localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(remainingConversations))
 }
 
 export async function saveConversation(conversation: Conversation): Promise<void> {
-  // 백엔드 연동(대화 저장): 메시지를 주고받을 때 이 함수 대신 대화 생성/수정 API를 호출
-  // 새 대화는 POST /api/users/me/conversations, 기존 대화는 PUT 또는 PATCH 요청으로 저장
   const conversations = readLocalConversations()
   const existingIndex = conversations.findIndex(({ id }) => id === conversation.id)
 

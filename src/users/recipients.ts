@@ -19,6 +19,8 @@ export type Recipient = {
   verifiedExpert: boolean
   fullTime: boolean
   avatar: string
+  communicationStyle?: string[]
+  preferredStyle?: string
 }
 
 const API_URL = import.meta.env.VITE_API_URL || ''
