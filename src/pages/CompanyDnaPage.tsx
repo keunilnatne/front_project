@@ -476,7 +476,11 @@ export default function CompanyDnaPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Company DNA 추출에 실패했습니다.')
+        const errorMsg =
+          (typeof data?.error === 'object' ? data?.error?.message : data?.error) ||
+          data?.message ||
+          '문서 기반 Company DNA 추출에 실패했습니다.'
+        throw new Error(errorMsg)
       }
 
       // 추출 결과로 DNA 업데이트
@@ -508,11 +512,15 @@ export default function CompanyDnaPage() {
 
     try {
       const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken')
+      if (!token) {
+        throw new Error('로그인이 필요합니다. 먼저 로그인해 주세요.')
+      }
+
       const response = await fetch(`${API_URL}/api/company-dna/extract/gmail`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ maxResults: 25 }),
       })
@@ -520,7 +528,11 @@ export default function CompanyDnaPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Gmail 기반 Company DNA 추출에 실패했습니다.')
+        const errorMsg =
+          (typeof data?.error === 'object' ? data?.error?.message : data?.error) ||
+          data?.message ||
+          'Gmail 기반 Company DNA 추출에 실패했습니다.'
+        throw new Error(errorMsg)
       }
 
       if (data.dna) {
