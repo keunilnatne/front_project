@@ -7,6 +7,7 @@ import { saveConversation } from '../../users/conversationArchive'
 type Recipient = {
   id: string
   name: string
+  email?: string
   position: string
   company: string
   country?: string
@@ -19,6 +20,8 @@ type Recipient = {
 }
 
 type OptimizedState = {
+  messageId?: number
+  messageResultId?: number
   subject: string
   body: string
 
@@ -473,9 +476,12 @@ export default function MessageOptimizedPage() {
     setSending(true)
     try {
       await sendMessageRequest({
+        messageId: state?.messageId,
+        messageResultId: state?.messageResultId,
         recipients: recipients.map((item) => ({
           id: Number(item.id),
           name: item.name,
+          email: item.email || '',
           role: item.position,
           company: item.company,
           country: item.country || '',

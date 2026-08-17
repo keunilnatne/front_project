@@ -464,6 +464,8 @@ export default function MessagesPage() {
       navigate('/messages/optimized', {
         state: {
           recipients: selectedRecipients,
+          messageId: optimized.messageId,
+          messageResultId: optimized.messageResultId,
           subject: optimized.subject,
           body: optimized.body,
           originalSubject: subject,
