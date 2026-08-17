@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 export type Recipient = {
   id: number
+  email?: string
   name: string
   role: string
   company: string
@@ -22,6 +23,16 @@ export type Recipient = {
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 const STORAGE_KEY = 'recipients-data'
+
+function authorizationHeaders(): Record<string, string> {
+  const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+async function apiError(response: Response, fallback: string) {
+  const data = await response.json().catch(() => null) as { message?: string; error?: { message?: string } } | null
+  return new Error(data?.message || data?.error?.message || fallback)
+}
 
 function isRecipient(value: unknown): value is Recipient {
   if (!value || typeof value !== 'object') return false
@@ -61,8 +72,11 @@ export function persistRecipients(recipients: Recipient[]) {
 export async function fetchRecipients(signal?: AbortSignal): Promise<Recipient[]> {
   signal?.throwIfAborted()
   try {
-    const response = await fetch(`${API_URL}/api/recipients`, { signal })
-    if (!response.ok) throw new Error('수신자 조회 실패')
+    const response = await fetch(`${API_URL}/api/recipients`, {
+      signal,
+      headers: authorizationHeaders(),
+    })
+    if (!response.ok) throw await apiError(response, '수신자 조회 실패')
     const data: unknown = await response.json()
     if (!Array.isArray(data)) throw new Error('수신자 응답 형식 오류')
     const recipients = data.filter(isRecipient)
@@ -77,13 +91,15 @@ export async function fetchRecipients(signal?: AbortSignal): Promise<Recipient[]
   return readLocalRecipients()
 }
 
-export async function createRecipient(recipient: Recipient): Promise<Recipient> {
+export type CreateRecipientInput = Omit<Recipient, 'id'> & { email: string }
+
+export async function createRecipient(recipient: CreateRecipientInput): Promise<Recipient> {
   const response = await fetch(`${API_URL}/api/recipients`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
     body: JSON.stringify(recipient),
   })
-  if (!response.ok) throw new Error('수신자 저장에 실패했습니다.')
+  if (!response.ok) throw await apiError(response, '수신자 저장에 실패했습니다.')
   const data: unknown = await response.json()
   if (!isRecipient(data)) throw new Error('수신자 응답 형식 오류')
   const current = readLocalRecipients().filter((item) => item.id !== data.id)
@@ -91,10 +107,21 @@ export async function createRecipient(recipient: Recipient): Promise<Recipient> 
   return data
 }
 
+export async function fetchRecipientByEmail(email: string): Promise<Recipient> {
+  const response = await fetch(
+    `${API_URL}/api/recipients/email-lookup?email=${encodeURIComponent(email.trim())}`,
+    { headers: authorizationHeaders() },
+  )
+  if (!response.ok) throw await apiError(response, '등록된 이메일 정보를 불러오지 못했습니다.')
+  const data: unknown = await response.json()
+  if (!isRecipient(data)) throw new Error('수신자 응답 형식 오류')
+  return data
+}
+
 export async function updateRecipient(recipient: Recipient): Promise<Recipient> {
   const response = await fetch(`${API_URL}/api/recipients/${recipient.id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
     body: JSON.stringify(recipient),
   })
   if (!response.ok) throw new Error('수신자 수정에 실패했습니다.')

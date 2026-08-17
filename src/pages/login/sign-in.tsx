@@ -161,6 +161,7 @@ function SignInPage() {
 type GoogleAuthMessage = {
   type: 'google-auth-success' | 'google-auth-error'
   email?: string
+  token?: string
   message?: string
 }
 
@@ -179,6 +180,10 @@ function SocialLoginSection() {
         localStorage.setItem('auth.isGoogleLogin', 'true')
         localStorage.setItem('onboarding.gmail', 'true')
         localStorage.setItem('onboarding.gmailEmail', email)
+        if (event.data.token) {
+          localStorage.setItem('ieum.accessToken', event.data.token)
+          localStorage.setItem('ieum.token', event.data.token)
+        }
 
         if (isOnboardingCompleted(email)) {
           navigate('/dashboard')

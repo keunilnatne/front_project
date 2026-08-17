@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { fetchRecipients, persistRecipients, type Recipient } from '../users/recipients'
+import { createRecipient, fetchRecipientByEmail, fetchRecipients, persistRecipients, type Recipient } from '../users/recipients'
 import { analyzeRecipient, type RecipientAIProfile } from '../ai/aiInsights'
 
 type TabId = 'all' | 'favorite' | 'recent'
@@ -921,6 +921,7 @@ function RecipientsPage() {
   const [googleEmail, setGoogleEmail] = useState('')
   const [googleLookupLoading, setGoogleLookupLoading] = useState(false)
   const [googleLookupMessage, setGoogleLookupMessage] = useState('')
+  const [recipientSaving, setRecipientSaving] = useState(false)
   const [aiProfile, setAiProfile] = useState<RecipientAIProfile | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
 
@@ -954,32 +955,40 @@ function RecipientsPage() {
 
   async function lookupGoogleRecipient() {
     const email = googleEmail.trim()
-    if (!email || !email.includes('@')) { setGoogleLookupMessage('구글 이메일 주소를 입력해주세요.'); return }
-    setGoogleLookupLoading(true); setGoogleLookupMessage('Google 계정 정보를 불러오는 중...')
+    if (!email || !email.includes('@')) { setGoogleLookupMessage('이메일 주소를 입력해주세요.'); return }
+    setGoogleLookupLoading(true); setGoogleLookupMessage('등록된 이메일 정보를 불러오는 중...')
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/recipients/google?email=${encodeURIComponent(email)}`)
-      if (!response.ok) throw new Error('Google 계정 정보를 찾지 못했습니다.')
-      const data = await response.json() as Partial<Recipient> & { email?: string }
-      if (!data.name || !data.role) throw new Error('해당 이메일에 연결된 프로필 정보가 없습니다.')
+      const data = await fetchRecipientByEmail(email)
       setNewRecipient((current) => ({ ...current, name: data.name || '', role: data.role || '', company: data.company || '', country: data.country || current.country, language: data.language || current.language, timezone: data.timezone || current.timezone, organizationRelation: data.organizationRelation || current.organizationRelation }))
-      setGoogleLookupMessage('Google 계정 정보를 불러왔습니다. 확인 후 추가해주세요.')
+      setGoogleLookupMessage('등록된 이메일 정보를 불러왔습니다.')
     } catch (error) {
-      setGoogleLookupMessage(error instanceof Error ? error.message : 'Google 계정 정보를 불러오지 못했습니다.')
+      setGoogleLookupMessage(error instanceof Error ? error.message : '등록된 이메일 정보를 불러오지 못했습니다.')
     } finally { setGoogleLookupLoading(false) }
   }
 
-  function addRecipient() {
-    if (!newRecipient.name.trim() || !newRecipient.role.trim()) return
-    const nextId = recipientList.reduce((max, item) => Math.max(max, item.id), 0) + 1
-    const created: Recipient = {
-      id: nextId, name: newRecipient.name.trim(), role: newRecipient.role.trim(), company: newRecipient.company.trim(),
-      country: newRecipient.country.trim() || 'South Korea', language: newRecipient.language.trim() || 'Korean', timezone: newRecipient.timezone.trim() || 'Asia/Seoul',
-      organizationRelation: newRecipient.organizationRelation.trim() || '팀원', responseSpeed: '보통', averageResponseMinutes: 0, collaborationActivity: 'Medium',
-      isOnline: false, isFavorite: false, isRecent: true, verifiedExpert: false, fullTime: true, avatar: newRecipient.name.trim().slice(0, 1),
+  async function addRecipient() {
+    const email = googleEmail.trim()
+    if (!email || !email.includes('@')) { setGoogleLookupMessage('저장할 이메일 주소를 입력해주세요.'); return }
+    if (!newRecipient.name.trim() || !newRecipient.role.trim()) { setGoogleLookupMessage('이름과 직무를 입력해주세요.'); return }
+    setRecipientSaving(true)
+    try {
+      const created = await createRecipient({
+        email,
+        name: newRecipient.name.trim(), role: newRecipient.role.trim(), company: newRecipient.company.trim(),
+        country: newRecipient.country.trim() || 'South Korea', language: newRecipient.language.trim() || 'Korean', timezone: newRecipient.timezone.trim() || 'Asia/Seoul',
+        organizationRelation: newRecipient.organizationRelation.trim() || '팀원', responseSpeed: '보통', averageResponseMinutes: 0, collaborationActivity: 'Medium',
+        isOnline: false, isFavorite: false, isRecent: true, verifiedExpert: false, fullTime: true, avatar: newRecipient.name.trim().slice(0, 1),
+      })
+      const refreshed = await fetchRecipients()
+      setRecipientList(refreshed)
+      setSelectedId(created.id)
+      setShowAddRecipient(false)
+      setNewRecipient({ name: '', role: '', company: '', country: 'South Korea', language: 'Korean', timezone: 'Asia/Seoul', organizationRelation: '팀원' }); setGoogleEmail(''); setGoogleLookupMessage('')
+    } catch (error) {
+      setGoogleLookupMessage(error instanceof Error ? error.message : '수신자 저장에 실패했습니다.')
+    } finally {
+      setRecipientSaving(false)
     }
-    const next = [created, ...recipientList]
-    persistRecipients(next); setRecipientList(next); setSelectedId(created.id); setShowAddRecipient(false)
-    setNewRecipient({ name: '', role: '', company: '', country: 'South Korea', language: 'Korean', timezone: 'Asia/Seoul', organizationRelation: '팀원' }); setGoogleEmail(''); setGoogleLookupMessage('')
   }
 
   const toggleFavorite = (id: number) => {
@@ -1519,7 +1528,7 @@ function RecipientsPage() {
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between"><h2 className="text-[18px] font-semibold">수신자 추가</h2><button type="button" onClick={() => setShowAddRecipient(false)} className="text-xl text-[#888]">×</button></div>
             <div className="mt-5 rounded-xl border border-[#e6e2f4] bg-[#faf9ff] p-4">
-              <label className="block text-[11px] text-[#777]"><span className="mb-1 block font-semibold text-[#5d5565]">Google 이메일로 불러오기</span><div className="flex gap-2"><input type="email" value={googleEmail} onChange={(e) => setGoogleEmail(e.target.value)} placeholder="example@gmail.com" className="h-10 min-w-0 flex-1 rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]" /><button type="button" onClick={lookupGoogleRecipient} disabled={googleLookupLoading} className="rounded-lg bg-[#4d3bd5] px-3 text-[11px] font-semibold text-white disabled:opacity-50">{googleLookupLoading ? '조회 중' : '불러오기'}</button></div></label>
+              <label className="block text-[11px] text-[#777]"><span className="mb-1 block font-semibold text-[#5d5565]">이메일 불러오기</span><div className="flex gap-2"><input type="email" value={googleEmail} onChange={(e) => setGoogleEmail(e.target.value)} placeholder="example@email.com" className="h-10 min-w-0 flex-1 rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]" /><button type="button" onClick={lookupGoogleRecipient} disabled={googleLookupLoading || recipientSaving} className="rounded-lg bg-[#4d3bd5] px-3 text-[11px] font-semibold text-white disabled:opacity-50">{googleLookupLoading ? '조회 중' : '불러오기'}</button></div></label>
               {googleLookupMessage && <p className="mt-2 text-[10px] text-[#756e79]">{googleLookupMessage}</p>}
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
@@ -1529,7 +1538,7 @@ function RecipientsPage() {
               <label className="text-[11px] text-[#777]"><span className="mb-1 block">시간대</span><select value={newRecipient.timezone} onChange={(e) => setNewRecipient((v) => ({...v, timezone: e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"><option value="Asia/Seoul">KST · Asia/Seoul</option><option value="Asia/Jakarta">WIB · Asia/Jakarta</option><option value="Asia/Makassar">WITA · Asia/Makassar</option><option value="Asia/Jayapura">WIT · Asia/Jayapura</option><option value="Asia/Tokyo">JST · Asia/Tokyo</option><option value="America/New_York">ET · America/New_York</option><option value="America/Los_Angeles">PT · America/Los_Angeles</option><option value="Europe/London">GMT · Europe/London</option><option value="Europe/Berlin">CET · Europe/Berlin</option></select></label>
             </div>
             <label className="mt-3 block text-[11px] text-[#777]"><span className="mb-1 block">조직 관계</span><input value={newRecipient.organizationRelation} onChange={(e) => setNewRecipient((v) => ({...v,organizationRelation:e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px]" /></label>
-            <button type="button" onClick={addRecipient} className="mt-5 w-full rounded-lg bg-[#4d3bd5] py-3 text-[12px] font-semibold text-white">추가하기</button>
+            <button type="button" onClick={addRecipient} disabled={recipientSaving} className="mt-5 w-full rounded-lg bg-[#4d3bd5] py-3 text-[12px] font-semibold text-white disabled:cursor-wait disabled:opacity-60">{recipientSaving ? '저장 중...' : '추가하기'}</button>
           </div>
         </div>
       )}
