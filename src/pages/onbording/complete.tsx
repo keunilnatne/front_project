@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import completeImage from '../../images/onboarding-complete.png'
+import { getUserProfile, completeOnboarding } from '../../users/userProfile'
 
 const summaryItems = [
   { key: 'profile', label: '내 프로필 설정 완료' },
@@ -57,6 +58,12 @@ function SummaryIcon({ name }: { name: SummaryKey }) {
 function Complete() {
   const navigate = useNavigate()
 
+  const handleFinish = () => {
+    const profile = getUserProfile()
+    completeOnboarding(profile.email)
+    navigate('/dashboard')
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-white px-4 pb-16 pt-32 text-[#241912]" style={{ fontFamily: 'Pretendard Variable, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-20 [background:radial-gradient(circle_at_42%_45%,#a5b4fc_0%,transparent_28%),radial-gradient(circle_at_60%_52%,#a7f3d0_0%,transparent_27%)]" />
@@ -88,12 +95,13 @@ function Complete() {
           </ul>
         </section>
 
-        <button type="button" onClick={() => navigate('/dashboard')} className="mt-10 flex h-[58px] w-full items-center justify-center gap-2 rounded-lg bg-white px-6 py-4 text-lg leading-[26px] text-[#5d5d5d] shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition hover:bg-[#fafafa] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#4338ca]/15">
+        <button type="button" onClick={handleFinish} className="mt-10 flex h-[58px] w-full items-center justify-center gap-2 rounded-lg bg-white px-6 py-4 text-lg leading-[26px] text-[#5d5d5d] shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition hover:bg-[#fafafa] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#4338ca]/15">
           첫 메시지 작성하기 <span aria-hidden="true" className="text-xl leading-none">→</span>
         </button>
       </div>
     </main>
   )
 }
+
 
 export default Complete

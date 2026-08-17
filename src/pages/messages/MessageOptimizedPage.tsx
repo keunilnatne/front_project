@@ -595,7 +595,7 @@ export default function MessageOptimizedPage() {
         ================================================= */}
 
         <main className="min-w-0 px-8 py-10">
-          <div className="mx-auto w-full max-w-[900px]">
+          <div className="mx-auto w-full max-w-225">
             {/* TITLE */}
             <div className="mb-8">
               <h1 className="text-[25px] font-bold text-[#2d282c]">

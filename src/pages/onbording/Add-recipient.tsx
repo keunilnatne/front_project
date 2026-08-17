@@ -38,16 +38,22 @@ function ProfileAvatar() {
 function AddRecipient() {
   const navigate = useNavigate()
 
+  const getNextPath = () => {
+    const isGoogle = localStorage.getItem('auth.isGoogleLogin') === 'true' || localStorage.getItem('onboarding.gmail') === 'true'
+    return isGoogle ? '/complete' : '/integrations'
+  }
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     localStorage.setItem('onboarding.recipient', 'true')
-    navigate('/integrations')
+    navigate(getNextPath())
   }
 
   const skipRecipient = () => {
     localStorage.setItem('onboarding.recipient', 'false')
-    navigate('/integrations')
+    navigate(getNextPath())
   }
+
 
   return (
     <main className="relative min-h-screen bg-[#f8f9fc] px-4 pb-16 pt-26.5 text-[#241912]" 

@@ -528,7 +528,7 @@ export default function MessagesPage() {
 
               {/* RECIPIENT */}
               <div className="relative mb-5 flex items-center">
-                <span className="w-[115px] shrink-0 text-[13px] text-[#5e5960]">
+                <span className="w-28.75 shrink-0 text-[13px] text-[#5e5960]">
                   받는 사람
                 </span>
 
