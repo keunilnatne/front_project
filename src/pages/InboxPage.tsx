@@ -286,9 +286,9 @@ export default function InboxPage() {
                   메일을 선택하면 상세 내용이 표시됩니다.
                 </div>
               ) : (
-                <div className="flex flex-1 flex-col">
+                <div className="flex min-h-0 flex-1 flex-col">
                   {/* Detail Header */}
-                  <div className="border-b border-[#ededf0] p-6">
+                  <div className="shrink-0 border-b border-[#ededf0] p-6">
                     <div className="flex items-start justify-between gap-4">
                       <h2 className="text-[20px] font-bold text-[#1f1e24] leading-snug">
                         {selectedDetail.subject}
@@ -344,7 +344,7 @@ export default function InboxPage() {
                   </div>
 
                   {/* Detail Body */}
-                  <div className="flex-1 p-8 overflow-y-auto">
+                  <div className="min-h-0 flex-1 overflow-y-auto p-8">
                     {detailLoading ? (
                       <div className="space-y-3">
                         <div className="h-4 w-full animate-pulse rounded bg-[#f0f0f5]" />
@@ -361,7 +361,7 @@ export default function InboxPage() {
                   </div>
 
                   {/* Bottom Action Footer */}
-                  <div className="border-t border-[#ededf0] bg-[#fafafc] p-4 flex items-center justify-between">
+                  <div className="shrink-0 border-t border-[#ededf0] bg-[#fafafc] p-4 flex items-center justify-between">
                     <span className="text-[11px] text-[#888]">
                       이 메일에 답장하려면 [AI 답장 작성]을 눌러 이음의 맞춤형 톤앤매너로 작성하세요.
                     </span>
