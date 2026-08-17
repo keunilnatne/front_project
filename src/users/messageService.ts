@@ -16,10 +16,19 @@ function authorizationHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+export type MessageAttachment = {
+  id?: string
+  name: string
+  size: number
+  type: string
+  data: string
+}
+
 export type MessagePayload = {
   recipients: Recipient[]
   subject: string
   body: string
+  attachments?: MessageAttachment[]
 }
 
 export type OptimizedMessage = {

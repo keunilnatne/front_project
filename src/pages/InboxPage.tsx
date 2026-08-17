@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchInboxMessages, fetchInboxMessageDetail, getGmailStatus, type InboxMessage, type GmailStatus } from '../users/inbox'
+import MarkdownViewer from '../components/MarkdownViewer'
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return ''
@@ -351,9 +352,10 @@ export default function InboxPage() {
                         <div className="h-4 w-4/6 animate-pulse rounded bg-[#f0f0f5]" />
                       </div>
                     ) : (
-                      <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-[#2f2e34]">
-                        {selectedDetail.body || selectedDetail.snippet || '(본문 내용이 없습니다.)'}
-                      </div>
+                      <MarkdownViewer
+                        content={selectedDetail.body || selectedDetail.snippet || ''}
+                        className="text-[13px] leading-relaxed text-[#2f2e34]"
+                      />
                     )}
                   </div>
 

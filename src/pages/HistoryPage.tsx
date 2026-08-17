@@ -1,10 +1,9 @@
-// src/pages/HistoryPage.tsx
-
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
 import { useSearchParams } from 'react-router-dom'
 import { fetchHistory, type HistoryItem } from '../users/history'
 import { analyzeHistory, type HistoryAIInsight } from '../ai/aiInsights'
+import MarkdownViewer from '../components/MarkdownViewer'
 
 type TabType = '전체' | '변환 기록' | '전송 기록'
 
@@ -474,7 +473,7 @@ export default function HistoryPage() {
                   </p>
 
                   <div className="rounded-lg bg-[#f8f9fc] p-4 leading-6">
-                    {selectedItem.content}
+                    <MarkdownViewer content={selectedItem.content} />
                   </div>
                 </div>
               )}

@@ -7,6 +7,7 @@ import { createHistoryItem } from '../../users/history'
 import { analyzeMessageMetadata } from '../../ai/aiInsights'
 import { fetchConversations, type Conversation } from '../../users/conversationArchive'
 import { detectMessageLanguage, translateAndSpellCheck } from '../../ai/freeLanguageTools'
+import AttachmentPicker, { type AttachmentItem } from '../../components/AttachmentPicker'
 
 type Recipient = {
   id: string
@@ -28,6 +29,7 @@ type MessagePageState = {
   recipient?: Recipient
   subject?: string
   body?: string
+  attachments?: AttachmentItem[]
 }
 
 /* -------------------------------------------------------
@@ -230,6 +232,9 @@ export default function MessagesPage() {
   const [body, setBody] =
     useState(pageState?.body || '')
 
+  const [attachments, setAttachments] =
+    useState<AttachmentItem[]>(pageState?.attachments || [])
+
   const [loading, setLoading] = useState(false)
 
   const [draftSaved, setDraftSaved] = useState(false)
@@ -246,6 +251,7 @@ export default function MessagesPage() {
 
       if (typeof pageState?.subject === 'string') setSubject(pageState.subject)
       if (typeof pageState?.body === 'string') setBody(pageState.body)
+      if (Array.isArray(pageState?.attachments)) setAttachments(pageState.attachments)
     }
     void applyPageState()
   }, [pageState])
@@ -470,6 +476,7 @@ export default function MessagesPage() {
           body: optimized.body,
           originalSubject: subject,
           originalBody: body,
+          attachments,
           score: optimized.score,
           explanation: optimized.explanation,
           aiContext: optimizedMetadata,
@@ -487,6 +494,7 @@ export default function MessagesPage() {
             body: fallback.translatedText,
             originalSubject: subject,
             originalBody: body,
+            attachments,
             fallbackMode: true,
             fallbackMessage: 'AI 연결에 실패해서 맞춤법 검사만 진행했습니다.',
             spellCorrections: fallback.corrections,
@@ -775,6 +783,11 @@ export default function MessagesPage() {
                   className="h-70 w-full resize-none px-6 py-6 text-[15px] leading-10 text-[#454049] outline-none"
                   placeholder="메시지를 입력하세요"
                 />
+
+                {/* ATTACHMENT PICKER */}
+                <div className="border-t border-[#eeeeef] bg-[#fdfdff] p-4">
+                  <AttachmentPicker attachments={attachments} onChange={setAttachments} />
+                </div>
 
                 {/* TIME INFO */}
                 <div className="flex items-center gap-2 border-t border-[#eeeeef] px-5 py-3 text-[12px] text-[#a2a0a7]">

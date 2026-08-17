@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { sendMessage as sendMessageRequest } from '../../users/messageService'
 import { createHistoryItem } from '../../users/history'
 import { saveConversation } from '../../users/conversationArchive'
+import MarkdownViewer from '../../components/MarkdownViewer'
+import AttachmentPicker, { type AttachmentItem } from '../../components/AttachmentPicker'
 
 type Recipient = {
   id: string
@@ -33,6 +35,7 @@ type OptimizedState = {
 
   originalSubject: string
   originalBody: string
+  attachments?: AttachmentItem[]
   aiContext?: { tags?: string[]; terms?: string[]; rules?: string[]; priority?: string; sourceLanguage?: string; targetLanguage?: string }
   fallbackMode?: boolean
   fallbackMessage?: string
@@ -502,6 +505,7 @@ export default function MessageOptimizedPage() {
         body,
         originalSubject,
         originalBody,
+        attachments: state?.attachments || [],
       })
       await saveConversation({
         id: `conversation-${Date.now()}`,
@@ -543,6 +547,7 @@ export default function MessageOptimizedPage() {
         recipient: primaryRecipient,
         subject: originalSubject,
         body: originalBody,
+        attachments: state?.attachments || [],
       },
     })
   }
@@ -646,9 +651,7 @@ export default function MessageOptimizedPage() {
                     {originalSubject}
                   </p>
 
-                  <p className="whitespace-pre-wrap text-[14px] leading-8 text-[#454049]">
-                    {originalBody}
-                  </p>
+                  <MarkdownViewer content={originalBody} className="text-[14px] leading-8 text-[#454049]" />
                 </div>
 
                 {/* FOOTER */}
@@ -691,9 +694,15 @@ export default function MessageOptimizedPage() {
                     {subject}
                   </p>
 
-                  <p className="whitespace-pre-wrap text-[14px] leading-8 text-[#454049]">
-                    {body}
-                  </p>
+                  <MarkdownViewer content={body} className="text-[14px] leading-8 text-[#454049]" />
+
+                  {/* ATTACHMENTS PREVIEW */}
+                  {state?.attachments && state.attachments.length > 0 && (
+                    <div className="mt-6 border-t border-[#f0f0f5] pt-4">
+                      <p className="mb-2 text-[12px] font-semibold text-[#666]">첨부된 파일 ({state.attachments.length}개)</p>
+                      <AttachmentPicker attachments={state.attachments} onChange={() => {}} readOnly={true} />
+                    </div>
+                  )}
                 </div>
 
                 {/* FOOTER */}
