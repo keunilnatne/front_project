@@ -938,6 +938,34 @@ function RecipientsPage() {
   const [aiProfile, setAiProfile] = useState<RecipientAIProfile | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
 
+  const resetAddRecipientState = () => {
+    setNewRecipient({
+      name: '',
+      email: '',
+      role: '',
+      company: '',
+      country: 'South Korea',
+      language: 'Korean',
+      timezone: 'Asia/Seoul',
+      organizationRelation: '팀원',
+      customStyle: '명확하고 간결하게',
+    })
+    setSelectedStyles(['명확하고 간결하게'])
+    setLookupEmail('')
+    setLookupMessage(null)
+    setFormErrorMessage('')
+  }
+
+  const closeAddRecipientModal = () => {
+    setShowAddRecipient(false)
+    resetAddRecipientState()
+  }
+
+  const openAddRecipientModal = () => {
+    resetAddRecipientState()
+    setShowAddRecipient(true)
+  }
+
   useEffect(() => {
     const controller = new AbortController()
     void fetchRecipients(controller.signal)
@@ -1167,7 +1195,7 @@ function RecipientsPage() {
 
           <div className="flex items-end justify-between gap-4">
             <p className="mt-1 text-[13px] text-[#87888f]">자주 소통하는 상대의 커뮤니케이션 성향을 확인하고 관리하세요</p>
-            <button type="button" onClick={() => setShowAddRecipient(true)} className="shrink-0 rounded-lg bg-[#4d3bd5] px-4 py-2.5 text-[12px] font-semibold text-white">+ 수신자 추가</button>
+            <button type="button" onClick={openAddRecipientModal} className="shrink-0 rounded-lg bg-[#4d3bd5] px-4 py-2.5 text-[12px] font-semibold text-white">+ 수신자 추가</button>
           </div>
         </div>
 
@@ -1596,14 +1624,14 @@ function RecipientsPage() {
       </section>
 
       {showAddRecipient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 overflow-y-auto" onMouseDown={() => setShowAddRecipient(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 overflow-y-auto" onMouseDown={closeAddRecipientModal}>
           <div className="my-8 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-[18px] font-semibold text-[#282328]">수신자 추가</h2>
                 <p className="text-[12px] text-[#716b78] mt-0.5">이음 연결 프로필을 가져오거나 직접 입력할 수 있습니다.</p>
               </div>
-              <button type="button" onClick={() => setShowAddRecipient(false)} className="text-xl text-[#888] hover:text-[#333]">×</button>
+              <button type="button" onClick={closeAddRecipientModal} className="text-xl text-[#888] hover:text-[#333]">×</button>
             </div>
 
             {/* 1. 이음에 연결된 프로필 가져오기 */}
