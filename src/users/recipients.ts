@@ -24,12 +24,24 @@ export type Recipient = {
 const API_URL = import.meta.env.VITE_API_URL || ''
 const STORAGE_KEY = 'recipients-data'
 
+function getAuthToken(): string | null {
+  return (
+    localStorage.getItem('ieum.token') ||
+    localStorage.getItem('ieum.accessToken') ||
+    localStorage.getItem('token') ||
+    localStorage.getItem('accessToken')
+  )
+}
+
 function authorizationHeaders(): Record<string, string> {
-  const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken')
+  const token = getAuthToken()
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 async function apiError(response: Response, fallback: string) {
+  if (response.status === 401) {
+    return new Error('로그인이 필요합니다. 먼저 로그인해주세요.')
+  }
   const data = await response.json().catch(() => null) as { message?: string; error?: { message?: string } } | null
   return new Error(data?.message || data?.error?.message || fallback)
 }
