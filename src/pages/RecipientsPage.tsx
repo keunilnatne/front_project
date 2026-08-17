@@ -900,7 +900,7 @@ function CollaborationModal({
 
 function RecipientsPage() {
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
 
   const [recipientList, setRecipientList] = useState<Recipient[]>([])
 

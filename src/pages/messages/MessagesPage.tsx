@@ -5,7 +5,7 @@ import { fetchRecipients, type Recipient as UserRecipient } from '../../users/re
 import { optimizeMessage } from '../../users/messageService'
 import { createHistoryItem } from '../../users/history'
 import { analyzeMessageMetadata } from '../../ai/aiInsights'
-import { addNotification } from '../../users/notifications'
+import { fetchConversations, type Conversation } from '../../users/conversationArchive'
 import { detectMessageLanguage, translateAndSpellCheck } from '../../ai/freeLanguageTools'
 
 type Recipient = {
@@ -223,7 +223,6 @@ export default function MessagesPage() {
 
   const [draftSaved, setDraftSaved] = useState(false)
   const [aiMetadata, setAiMetadata] = useState<{ priority?: string; tags?: string[]; terms?: string[]; rules?: string[]; sourceLanguage?: string; targetLanguage?: string } | null>(null)
-  const [aiMetadataLoading, setAiMetadataLoading] = useState(false)
 
   /* 수정하기로 돌아온 경우 기존 데이터 유지 */
   useEffect(() => {
@@ -304,7 +303,6 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!subject.trim() && !body.trim()) { setAiMetadata(null); return }
     const timer = window.setTimeout(() => {
-      setAiMetadataLoading(true)
       void analyzeMessageMetadata({
         recipients: selectedRecipients,
         subject,
@@ -314,7 +312,7 @@ export default function MessagesPage() {
       }).then((metadata) => {
         if (!metadata) { setAiMetadata(null); return }
         setAiMetadata(metadata)
-      }).finally(() => setAiMetadataLoading(false))
+      })
     }, 450)
     return () => window.clearTimeout(timer)
   }, [selectedRecipients, subject, body])

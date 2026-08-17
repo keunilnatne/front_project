@@ -446,16 +446,11 @@ export default function MessageOptimizedPage() {
     originalSubject,
     originalBody,
     aiContext,
-    fallbackMode,
-    fallbackMessage,
-    spellCorrections,
     detectedSourceLanguage,
     targetLanguage,
   } = state
 
   const primaryRecipient = recipients[0]
-
-  const fallbackNotice = fallbackMode ? (fallbackMessage || 'AI 연결에 실패해서 맞춤법 검사만 진행했습니다.') : ''
 
   async function copyMessage() {
     try {
