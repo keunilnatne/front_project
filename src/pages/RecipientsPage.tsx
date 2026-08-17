@@ -132,7 +132,7 @@ function Avatar({
     <div
       className={[
         'relative flex shrink-0 items-center justify-center overflow-hidden rounded-full',
-        'bg-linear-to-br from-[#e8e5ff] to-[#d8d4ff]',
+        'bg-gradient-to-br from-[#e8e5ff] to-[#d8d4ff]',
         'font-semibold text-[#5145cd]',
         large
           ? 'h-20 w-20 text-[25px]'
@@ -535,7 +535,7 @@ function CollaborationModal({
       }}
     >
       <div
-        className="flex h-180 w-155 max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="flex h-[720px] w-[620px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         onMouseDown={(event) =>
           event.stopPropagation()
         }
@@ -917,10 +917,18 @@ function RecipientsPage() {
   ] = useState<Recipient | null>(null)
 
   const [showAddRecipient, setShowAddRecipient] = useState(false)
-  const [newRecipient, setNewRecipient] = useState({ name: '', email: '', role: '', company: '', country: 'South Korea', language: 'Korean', timezone: 'Asia/Seoul', organizationRelation: '팀원' })
-  const [googleEmail, setGoogleEmail] = useState('')
-  const [googleLookupLoading, setGoogleLookupLoading] = useState(false)
-  const [googleLookupMessage, setGoogleLookupMessage] = useState('')
+  const [newRecipient, setNewRecipient] = useState({
+    name: '',
+    email: '',
+    role: '',
+    company: '',
+    country: 'South Korea',
+    language: 'Korean',
+    timezone: 'Asia/Seoul',
+    organizationRelation: '팀원',
+  })
+  const [formErrorMessage, setFormErrorMessage] = useState('')
+  const [recipientSaving, setRecipientSaving] = useState(false)
   const [aiProfile, setAiProfile] = useState<RecipientAIProfile | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
 
@@ -930,11 +938,8 @@ function RecipientsPage() {
       .then((data) => {
         setRecipientList(data)
         const requestedId = Number(searchParams.get('member'))
-        setSelectedId((current) => {
-          if (requestedId && data.some((item) => item.id === requestedId)) return requestedId
-          if (data.length && !data.some((item) => item.id === current)) return data[0].id
-          return current
-        })
+        if (requestedId && data.some((item) => item.id === requestedId)) setSelectedId(requestedId)
+        else if (data.length && !data.some((item) => item.id === selectedId)) setSelectedId(data[0].id)
       })
       .catch(() => {})
     return () => controller.abort()
@@ -946,61 +951,66 @@ function RecipientsPage() {
     ) || recipientList[0]
 
   useEffect(() => {
+    if (!selectedRecipient) { setAiProfile(null); return }
     let active = true
-    const loadProfile = async () => {
-      if (!selectedRecipient) {
-        if (active) { setAiProfile(null); setAiLoading(false) }
-        return
-      }
-      if (active) setAiLoading(true)
-      const profile = await analyzeRecipient(selectedRecipient)
-      if (active) { setAiProfile(profile); setAiLoading(false) }
-    }
-    void loadProfile()
+    setAiLoading(true)
+    void analyzeRecipient(selectedRecipient).then((profile) => {
+      if (active) setAiProfile(profile)
+    }).finally(() => { if (active) setAiLoading(false) })
     return () => { active = false }
   }, [selectedRecipient])
 
-  async function lookupGoogleRecipient() {
-    const email = googleEmail.trim()
-    if (!email || !email.includes('@')) { setGoogleLookupMessage('구글 이메일 주소를 입력해주세요.'); return }
-    setGoogleLookupLoading(true); setGoogleLookupMessage('Google 계정 정보를 불러오는 중...')
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/recipients/google?email=${encodeURIComponent(email)}`)
-      if (!response.ok) throw new Error('Google 계정 정보를 찾지 못했습니다.')
-      const data = await response.json() as Partial<Recipient> & { email?: string }
-      if (!data.name || !data.role) throw new Error('해당 이메일에 연결된 프로필 정보가 없습니다.')
-      setNewRecipient((current) => ({ ...current, email: data.email || email, name: data.name || '', role: data.role || '', company: data.company || '', country: data.country || current.country, language: data.language || current.language, timezone: data.timezone || current.timezone, organizationRelation: data.organizationRelation || current.organizationRelation }))
-      setGoogleLookupMessage('Google 계정 정보를 불러왔습니다. 확인 후 추가해주세요.')
-    } catch (error) {
-      setGoogleLookupMessage(error instanceof Error ? error.message : 'Google 계정 정보를 불러오지 못했습니다.')
-    } finally { setGoogleLookupLoading(false) }
-  }
-
   async function addRecipient() {
+    const name = newRecipient.name.trim()
     const email = newRecipient.email.trim()
-    if (!newRecipient.name.trim() || !newRecipient.role.trim()) {
-      setGoogleLookupMessage('이름과 직무를 입력해주세요.')
-      return
+    const role = newRecipient.role.trim()
+
+    if (!name) { setFormErrorMessage('이름을 입력해주세요.'); return }
+    if (!email || !email.includes('@')) { setFormErrorMessage('올바른 이메일 주소를 입력해주세요.'); return }
+    if (!role) { setFormErrorMessage('직무를 입력해주세요.'); return }
+
+    setRecipientSaving(true)
+    setFormErrorMessage('')
+    try {
+      const created = await createRecipient({
+        email,
+        name,
+        role,
+        company: newRecipient.company.trim(),
+        country: newRecipient.country.trim() || 'South Korea',
+        language: newRecipient.language.trim() || 'Korean',
+        timezone: newRecipient.timezone.trim() || 'Asia/Seoul',
+        organizationRelation: newRecipient.organizationRelation.trim() || '팀원',
+        responseSpeed: '보통',
+        averageResponseMinutes: 0,
+        collaborationActivity: 'Medium',
+        isOnline: false,
+        isFavorite: false,
+        isRecent: true,
+        verifiedExpert: false,
+        fullTime: true,
+        avatar: name.slice(0, 1) || '?',
+      })
+      const refreshed = await fetchRecipients()
+      setRecipientList(refreshed)
+      setSelectedId(created.id)
+      setShowAddRecipient(false)
+      setNewRecipient({
+        name: '',
+        email: '',
+        role: '',
+        company: '',
+        country: 'South Korea',
+        language: 'Korean',
+        timezone: 'Asia/Seoul',
+        organizationRelation: '팀원',
+      })
+      setFormErrorMessage('')
+    } catch (error) {
+      setFormErrorMessage(error instanceof Error ? error.message : '수신자 저장에 실패했습니다.')
+    } finally {
+      setRecipientSaving(false)
     }
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
-      setGoogleLookupMessage('올바른 이메일 주소를 입력해주세요.')
-      return
-    }
-    if (recipientList.some((recipient) => recipient.email?.toLowerCase() === email.toLowerCase())) {
-      setGoogleLookupMessage('이미 등록된 이메일입니다.')
-      return
-    }
-    const nextId = recipientList.reduce((max, item) => Math.max(max, item.id), 0) + 1
-    const created: Recipient = {
-      id: nextId, name: newRecipient.name.trim(), email, role: newRecipient.role.trim(), company: newRecipient.company.trim(),
-      country: newRecipient.country.trim() || 'South Korea', language: newRecipient.language.trim() || 'Korean', timezone: newRecipient.timezone.trim() || 'Asia/Seoul',
-      organizationRelation: newRecipient.organizationRelation.trim() || '팀원', responseSpeed: '보통', averageResponseMinutes: 0, collaborationActivity: 'Medium',
-      isOnline: false, isFavorite: false, isRecent: true, verifiedExpert: false, fullTime: true, avatar: newRecipient.name.trim().slice(0, 1),
-    }
-    const saved = await createRecipient(created)
-    const next = [saved, ...recipientList.filter((recipient) => recipient.id !== saved.id)]
-    persistRecipients(next); setRecipientList(next); setSelectedId(saved.id); setShowAddRecipient(false)
-    setNewRecipient({ name: '', email: '', role: '', company: '', country: 'South Korea', language: 'Korean', timezone: 'Asia/Seoul', organizationRelation: '팀원' }); setGoogleEmail(''); setGoogleLookupMessage('')
   }
 
   const toggleFavorite = (id: number) => {
@@ -1075,7 +1085,6 @@ function RecipientsPage() {
 
       return [
         recipient.name,
-        recipient.email || '',
         recipient.role,
         recipient.company,
         recipient.country,
@@ -1114,7 +1123,7 @@ function RecipientsPage() {
 
         <div className="grid grid-cols-[298px_minmax(0,1fr)] items-stretch gap-7">
           {/* Left */}
-          <div className="flex min-h-190 flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div className="flex min-h-[760px] flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
             <div className="border-b border-[#ededf0] p-4">
               <div className="flex h-9 items-center rounded-full bg-[#f1f1f4] px-4">
                 <input
@@ -1171,7 +1180,7 @@ function RecipientsPage() {
                     <div
                       key={recipient.id}
                       className={[
-                        'group mb-1 flex w-full items-center gap-3 rounded-2xl px-3 py-3 transition',
+                        'group mb-1 flex w-full items-center gap-3 rounded-[16px] px-3 py-3 transition',
                         selected
                           ? 'bg-[#f0edff]'
                           : 'hover:bg-[#f7f7f9]',
@@ -1271,7 +1280,7 @@ function RecipientsPage() {
 
           {/* Right */}
           {!selectedRecipient ? (
-            <div className="flex min-h-190 items-center justify-center rounded-[22px] border border-[#e7e7eb] bg-white p-10 text-center">
+            <div className="flex min-h-[760px] items-center justify-center rounded-[22px] border border-[#e7e7eb] bg-white p-10 text-center">
               <div>
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f0edff] text-2xl text-[#5143d1]">+</div>
                 <h2 className="mt-4 text-[18px] font-semibold text-[#29292d]">등록된 수신자가 없습니다</h2>
@@ -1280,7 +1289,7 @@ function RecipientsPage() {
               </div>
             </div>
           ) : (
-          <div className="flex min-h-190 flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div className="flex min-h-[760px] flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-5 px-6 py-5">
               <Avatar
                 recipient={selectedRecipient}
@@ -1435,14 +1444,6 @@ function RecipientsPage() {
                 </span>
 
                 <span className="text-[#7b7b84]">
-                  이메일
-                </span>
-
-                <span className="font-medium text-[#555662]">
-                  {selectedRecipient.email || '-'}
-                </span>
-
-                <span className="text-[#7b7b84]">
                   조직 관계
                 </span>
 
@@ -1454,7 +1455,7 @@ function RecipientsPage() {
               </div>
             </div>
 
-            <div className="min-h-78.75 flex-1" />
+            <div className="min-h-[315px] flex-1" />
 
             {/* AI-generated communication profile */}
             <div className="border-t border-[#ededf0] px-6 py-6">
@@ -1484,7 +1485,7 @@ function RecipientsPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-5">
-                <div className="flex h-23 flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
+                <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#4c3ddd]">
                     {
                       selectedRecipient.averageResponseMinutes
@@ -1500,7 +1501,7 @@ function RecipientsPage() {
                   </p>
                 </div>
 
-                <div className="flex h-23 flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
+                <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#7a57ee]">
                     {selectedRecipient.responseSpeed ===
                     '빠름'
@@ -1516,7 +1517,7 @@ function RecipientsPage() {
                   </p>
                 </div>
 
-                <div className="flex h-23 flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
+                <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#9a58ed]">
                     {
                       selectedRecipient.collaborationActivity
@@ -1547,20 +1548,131 @@ function RecipientsPage() {
       {showAddRecipient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4" onMouseDown={() => setShowAddRecipient(false)}>
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between"><h2 className="text-[18px] font-semibold">수신자 추가</h2><button type="button" onClick={() => setShowAddRecipient(false)} className="text-xl text-[#888]">×</button></div>
-            <div className="mt-5 rounded-xl border border-[#e6e2f4] bg-[#faf9ff] p-4">
-              <label className="block text-[11px] text-[#777]"><span className="mb-1 block font-semibold text-[#5d5565]">Google 이메일로 불러오기</span><div className="flex gap-2"><input type="email" value={googleEmail} onChange={(e) => setGoogleEmail(e.target.value)} placeholder="example@gmail.com" className="h-10 min-w-0 flex-1 rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]" /><button type="button" onClick={lookupGoogleRecipient} disabled={googleLookupLoading} className="rounded-lg bg-[#4d3bd5] px-3 text-[11px] font-semibold text-white disabled:opacity-50">{googleLookupLoading ? '조회 중' : '불러오기'}</button></div></label>
-              {googleLookupMessage && <p className="mt-2 text-[10px] text-[#756e79]">{googleLookupMessage}</p>}
+            <div className="flex items-center justify-between">
+              <h2 className="text-[18px] font-semibold text-[#282328]">수신자 추가</h2>
+              <button type="button" onClick={() => setShowAddRecipient(false)} className="text-xl text-[#888] hover:text-[#333]">×</button>
             </div>
+
             <div className="mt-5 grid grid-cols-2 gap-3">
-              {([['name','이름'],['role','직무'],['company','회사']] as const).map(([key,label]) => <label key={key} className="text-[11px] text-[#777]"><span className="mb-1 block">{label}</span><input value={newRecipient[key]} onChange={(e) => setNewRecipient((v) => ({...v,[key]:e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]" /></label>)}
-              <label className="text-[11px] text-[#777]"><span className="mb-1 block">이메일</span><input type="email" value={newRecipient.email} onChange={(e) => setNewRecipient((v) => ({ ...v, email: e.target.value }))} placeholder="name@company.com" className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]" /></label>
-              <label className="text-[11px] text-[#777]"><span className="mb-1 block">국가</span><select value={newRecipient.country} onChange={(e) => setNewRecipient((v) => ({...v, country: e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"><option>South Korea</option><option>Indonesia</option><option>United States</option><option>Japan</option><option>China</option><option>Germany</option><option>Spain</option><option>United Kingdom</option><option>Singapore</option></select></label>
-              <label className="text-[11px] text-[#777]"><span className="mb-1 block">언어</span><select value={newRecipient.language} onChange={(e) => setNewRecipient((v) => ({...v, language: e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"><option>Korean</option><option>English</option><option>Indonesian</option><option>Japanese</option><option>Chinese</option><option>German</option><option>Spanish</option></select></label>
-              <label className="text-[11px] text-[#777]"><span className="mb-1 block">시간대</span><select value={newRecipient.timezone} onChange={(e) => setNewRecipient((v) => ({...v, timezone: e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"><option value="Asia/Seoul">KST · Asia/Seoul</option><option value="Asia/Jakarta">WIB · Asia/Jakarta</option><option value="Asia/Makassar">WITA · Asia/Makassar</option><option value="Asia/Jayapura">WIT · Asia/Jayapura</option><option value="Asia/Tokyo">JST · Asia/Tokyo</option><option value="America/New_York">ET · America/New_York</option><option value="America/Los_Angeles">PT · America/Los_Angeles</option><option value="Europe/London">GMT · Europe/London</option><option value="Europe/Berlin">CET · Europe/Berlin</option></select></label>
+              <label className="text-[11px] text-[#777]">
+                <span className="mb-1 block font-semibold text-[#5d5565]">이름 *</span>
+                <input
+                  value={newRecipient.name}
+                  onChange={(e) => setNewRecipient((v) => ({ ...v, name: e.target.value }))}
+                  placeholder="예: 김민수"
+                  className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                />
+              </label>
+
+              <label className="text-[11px] text-[#777]">
+                <span className="mb-1 block font-semibold text-[#5d5565]">이메일 *</span>
+                <input
+                  type="email"
+                  value={newRecipient.email}
+                  onChange={(e) => setNewRecipient((v) => ({ ...v, email: e.target.value }))}
+                  placeholder="example@company.com"
+                  className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                />
+              </label>
+
+              <label className="text-[11px] text-[#777]">
+                <span className="mb-1 block font-semibold text-[#5d5565]">직무 *</span>
+                <input
+                  value={newRecipient.role}
+                  onChange={(e) => setNewRecipient((v) => ({ ...v, role: e.target.value }))}
+                  placeholder="예: Product Designer"
+                  className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                />
+              </label>
+
+              <label className="text-[11px] text-[#777]">
+                <span className="mb-1 block font-semibold text-[#5d5565]">회사</span>
+                <input
+                  value={newRecipient.company}
+                  onChange={(e) => setNewRecipient((v) => ({ ...v, company: e.target.value }))}
+                  placeholder="예: ABC Corp"
+                  className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                />
+              </label>
+
+              <label className="text-[11px] text-[#777]">
+                <span className="mb-1 block font-semibold text-[#5d5565]">국가</span>
+                <select
+                  value={newRecipient.country}
+                  onChange={(e) => setNewRecipient((v) => ({ ...v, country: e.target.value }))}
+                  className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"
+                >
+                  <option>South Korea</option>
+                  <option>Indonesia</option>
+                  <option>United States</option>
+                  <option>Japan</option>
+                  <option>China</option>
+                  <option>Germany</option>
+                  <option>Spain</option>
+                  <option>United Kingdom</option>
+                  <option>Singapore</option>
+                </select>
+              </label>
+
+              <label className="text-[11px] text-[#777]">
+                <span className="mb-1 block font-semibold text-[#5d5565]">언어</span>
+                <select
+                  value={newRecipient.language}
+                  onChange={(e) => setNewRecipient((v) => ({ ...v, language: e.target.value }))}
+                  className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"
+                >
+                  <option>Korean</option>
+                  <option>English</option>
+                  <option>Indonesian</option>
+                  <option>Japanese</option>
+                  <option>Chinese</option>
+                  <option>German</option>
+                  <option>Spanish</option>
+                </select>
+              </label>
+
+              <label className="text-[11px] text-[#777]">
+                <span className="mb-1 block font-semibold text-[#5d5565]">시간대</span>
+                <select
+                  value={newRecipient.timezone}
+                  onChange={(e) => setNewRecipient((v) => ({ ...v, timezone: e.target.value }))}
+                  className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"
+                >
+                  <option value="Asia/Seoul">KST · Asia/Seoul</option>
+                  <option value="Asia/Jakarta">WIB · Asia/Jakarta</option>
+                  <option value="Asia/Makassar">WITA · Asia/Makassar</option>
+                  <option value="Asia/Jayapura">WIT · Asia/Jayapura</option>
+                  <option value="Asia/Tokyo">JST · Asia/Tokyo</option>
+                  <option value="America/New_York">ET · America/New_York</option>
+                  <option value="America/Los_Angeles">PT · America/Los_Angeles</option>
+                  <option value="Europe/London">GMT · Europe/London</option>
+                  <option value="Europe/Berlin">CET · Europe/Berlin</option>
+                </select>
+              </label>
+
+              <label className="text-[11px] text-[#777]">
+                <span className="mb-1 block font-semibold text-[#5d5565]">조직 관계</span>
+                <input
+                  value={newRecipient.organizationRelation}
+                  onChange={(e) => setNewRecipient((v) => ({ ...v, organizationRelation: e.target.value }))}
+                  placeholder="예: 팀원, 외부 파트너"
+                  className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                />
+              </label>
             </div>
-            <label className="mt-3 block text-[11px] text-[#777]"><span className="mb-1 block">조직 관계</span><input value={newRecipient.organizationRelation} onChange={(e) => setNewRecipient((v) => ({...v,organizationRelation:e.target.value}))} className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px]" /></label>
-            <button type="button" onClick={() => void addRecipient()} className="mt-5 w-full rounded-lg bg-[#4d3bd5] py-3 text-[12px] font-semibold text-white">추가하기</button>
+
+            {formErrorMessage && (
+              <p className="mt-3 text-[11px] font-medium text-[#dc2626]">{formErrorMessage}</p>
+            )}
+
+            <button
+              type="button"
+              onClick={addRecipient}
+              disabled={recipientSaving}
+              className="mt-5 w-full rounded-lg bg-[#4d3bd5] py-3 text-[12px] font-semibold text-white transition hover:bg-[#4331cb] disabled:cursor-wait disabled:opacity-60"
+            >
+              {recipientSaving ? '저장 중...' : '추가하기'}
+            </button>
           </div>
         </div>
       )}

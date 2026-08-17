@@ -29,14 +29,15 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>(fallbackStats)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [openGuide, setOpenGuide] = useState<number | null>(null)
+  const [showNews, setShowNews] = useState(false)
   const { conversations } = useConversations(true)
   const analytics = useProfileAnalytics()
-  const [openGuide, setOpenGuide] = useState<number | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
     void fetchRecipients(controller.signal)
-      .then((data) => setStats((current) => ({ ...current, recipients: data.length })))
+      .then((data: { length: number }) => setStats((current) => ({ ...current, recipients: data.length })))
       .catch(() => undefined)
     return () => controller.abort()
   }, [])
@@ -102,7 +103,7 @@ export default function DashboardPage() {
         {/* 왼쪽 메인 */}
         <section className="min-w-0">
           {/* Hero */}
-          <div className="relative h-67 overflow-hidden rounded-xl border border-[#ded9ed] bg-[#f5f2ff]">
+          <div className="relative h-[268px] overflow-hidden rounded-xl border border-[#ded9ed] bg-[#f5f2ff]">
             <div className="absolute left-9 top-11">
               <h1 className="text-[28px] font-bold leading-[1.45] tracking-[-0.02em] text-[#282328]">
                 AI가 당신의 메시지를
@@ -288,6 +289,31 @@ export default function DashboardPage() {
           </div>
         </aside>
       </main>
+
+      {/* 새 소식 모달 */}
+      {showNews && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-[16px] font-bold text-[#282328]">
+              더 편리해진 이음이를 만나보세요 🎉
+            </h3>
+            <p className="mt-3 text-[13px] leading-6 text-[#666]">
+              • 실시간 비즈니스 메시지 AI 최적화 지원<br />
+              • 조직 맞춤형 Company DNA 자동 분석 탑재<br />
+              • 수신자별 맞춤형 문체 및 어조 조율 강화
+            </p>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowNews(false)}
+                className="rounded-lg bg-[#5035dc] px-5 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#432ec4]"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

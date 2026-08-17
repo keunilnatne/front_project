@@ -4,6 +4,8 @@ import { getUserProfile } from '../users/userProfile'
 import { analyzeCompanyDNA, type RecipientAIProfile } from '../ai/aiInsights'
 import { emptyCompanyDNA, saveCompanyDNA, fetchCompanyDNA, type CompanyDNA, type CommunicationRule } from '../users/companyDna'
 
+const API_URL = import.meta.env.VITE_API_URL || ''
+
 type IconName =
   | 'search'
   | 'bell'
@@ -260,6 +262,12 @@ export default function CompanyDnaPage() {
     emptyCompanyDNA.rules,
   )
 
+  // ── AI 자동 분석 State ──
+  const [extracting, setExtracting] = useState(false)
+  const [extractSource, setExtractSource] = useState<'file' | 'gmail' | null>(null)
+  const [extractResult, setExtractResult] = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+
   useEffect(() => {
     const controller = new AbortController()
     void fetchCompanyDNA(controller.signal)
@@ -305,6 +313,129 @@ export default function CompanyDnaPage() {
     setAIEnabled(true)
     void saveDNA(emptyCompanyDNA)
     setSaved(false)
+  }
+
+  // ── AI 자동 추출 핸들러 ──
+
+  async function handleFileExtract(file: File) {
+    const allowedExtensions = ['.pdf', '.docx', '.txt', '.md']
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase()
+    if (!allowedExtensions.includes(ext)) {
+      alert(`지원하지 않는 파일 형식입니다: ${ext}\n지원: PDF, DOCX, TXT, MD`)
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('파일 크기가 10MB를 초과합니다.')
+      return
+    }
+
+    setExtracting(true)
+    setExtractSource('file')
+    setExtractResult(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch(`${API_URL}/api/company-dna/extract/file`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        const errorMsg =
+          (typeof data?.error === 'object' ? data?.error?.message : data?.error) ||
+          data?.message ||
+          '문서 기반 Company DNA 추출에 실패했습니다.'
+        throw new Error(errorMsg)
+      }
+
+      // 추출 결과로 DNA 업데이트
+      if (data.dna) {
+        setDNA({
+          ...dna,
+          ...data.dna,
+          terms: Array.isArray(data.dna.terms) ? data.dna.terms : dna.terms,
+          rules: Array.isArray(data.dna.rules) ? data.dna.rules : dna.rules,
+        })
+        if (typeof data.dna.aiEnabled === 'boolean') {
+          setAIEnabled(data.dna.aiEnabled)
+        }
+      }
+
+      setExtractResult(`✅ "${file.name}"에서 Company DNA가 자동 생성되었습니다! (텍스트 ${data.textLength?.toLocaleString()}자 분석)`)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Company DNA 추출에 실패했습니다.'
+      setExtractResult(`❌ ${message}`)
+    } finally {
+      setExtracting(false)
+    }
+  }
+
+  async function handleGmailExtract() {
+    setExtracting(true)
+    setExtractSource('gmail')
+    setExtractResult(null)
+
+    try {
+      const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken')
+      if (!token) {
+        throw new Error('로그인이 필요합니다. 먼저 로그인해 주세요.')
+      }
+
+      const response = await fetch(`${API_URL}/api/company-dna/extract/gmail`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ maxResults: 25 }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        const errorMsg =
+          (typeof data?.error === 'object' ? data?.error?.message : data?.error) ||
+          data?.message ||
+          'Gmail 기반 Company DNA 추출에 실패했습니다.'
+        throw new Error(errorMsg)
+      }
+
+      if (data.dna) {
+        setDNA({
+          ...dna,
+          ...data.dna,
+          terms: Array.isArray(data.dna.terms) ? data.dna.terms : dna.terms,
+          rules: Array.isArray(data.dna.rules) ? data.dna.rules : dna.rules,
+        })
+        if (typeof data.dna.aiEnabled === 'boolean') {
+          setAIEnabled(data.dna.aiEnabled)
+        }
+      }
+
+      setExtractResult(`✅ Gmail 이메일 ${data.emailCount}건을 분석하여 Company DNA가 자동 생성되었습니다!`)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Gmail 기반 추출에 실패했습니다.'
+      setExtractResult(`❌ ${message}`)
+    } finally {
+      setExtracting(false)
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) handleFileExtract(file)
+  }
+
+  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) handleFileExtract(file)
+    e.target.value = ''
   }
 
   function addNewRule() {
@@ -430,6 +561,97 @@ export default function CompanyDnaPage() {
               새로운 DNA 규칙 추가
             </button>
           </div>
+
+          {/* =====================================================
+              AI 자동 분석 섹션
+          ===================================================== */}
+          <section className="mb-5 rounded-xl border border-dashed border-[#b4a7f0] bg-gradient-to-r from-[#f8f5ff] to-[#f0edff] p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Icon name="robot" size={20} stroke="#5035dc" />
+              <h2 className="text-[14px] font-semibold text-[#5035dc]">
+                AI 자동 분석으로 Company DNA 생성
+              </h2>
+            </div>
+
+            <p className="mb-4 text-[12px] leading-5 text-[#6d6662]">
+              회사 문서를 업로드하거나 Gmail 이메일을 연동하면, AI가 조직의 소통 패턴을 자동 분석하여 Company DNA를 생성합니다.
+            </p>
+
+            <div className="flex gap-4">
+              {/* 파일 업로드 영역 */}
+              <div
+                className={`flex flex-1 flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors ${
+                  dragOver
+                    ? 'border-[#5035dc] bg-[#ede8ff]'
+                    : 'border-[#c9c0f0] bg-white hover:border-[#5035dc] hover:bg-[#faf8ff]'
+                }`}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+              >
+                <Icon name="simulation" size={28} stroke="#8b7bd4" />
+                <p className="mt-2 text-[13px] font-medium text-[#5035dc]">
+                  문서를 여기에 드래그하거나
+                </p>
+                <label className="mt-2 cursor-pointer rounded-md bg-[#5035dc] px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-[#452bc9]">
+                  파일 선택
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,.txt,.md"
+                    className="hidden"
+                    onChange={handleFileInput}
+                    disabled={extracting}
+                  />
+                </label>
+                <p className="mt-2 text-[11px] text-[#9d95b8]">
+                  PDF, DOCX, TXT, MD (최대 10MB)
+                </p>
+              </div>
+
+              {/* Gmail 분석 버튼 */}
+              <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-[#dddce2] bg-white p-6">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8b7bd4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3.5" y="5" width="17" height="14" rx="2" />
+                  <path d="m4 7 8 6 8-6" />
+                </svg>
+                <p className="mt-2 text-[13px] font-medium text-[#393438]">
+                  Gmail 이메일로 분석하기
+                </p>
+                <p className="mb-3 text-[11px] text-[#9d95b8]">
+                  최근 보낸 이메일 25건을 AI가 분석합니다
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGmailExtract}
+                  disabled={extracting}
+                  className="rounded-md border border-[#5035dc] px-4 py-2 text-[12px] font-semibold text-[#5035dc] transition hover:bg-[#f0edff] disabled:opacity-50"
+                >
+                  {extracting && extractSource === 'gmail' ? '분석 중...' : 'Gmail 이메일 분석'}
+                </button>
+              </div>
+            </div>
+
+            {/* 분석 진행 중 */}
+            {extracting && (
+              <div className="mt-4 flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#5035dc] border-t-transparent" />
+                <span className="text-[13px] text-[#5035dc]">
+                  {extractSource === 'file' ? '문서를 분석하고 있습니다...' : 'Gmail 이메일을 분석하고 있습니다...'} (약 10~30초 소요)
+                </span>
+              </div>
+            )}
+
+            {/* 분석 결과 메시지 */}
+            {extractResult && !extracting && (
+              <div className={`mt-4 rounded-lg px-4 py-3 text-[13px] ${
+                extractResult.startsWith('✅')
+                  ? 'bg-[#ecfdf5] text-[#065f46]'
+                  : 'bg-[#fef2f2] text-[#991b1b]'
+              }`}>
+                {extractResult}
+              </div>
+            )}
+          </section>
 
           {/* =====================================================
               FIRST ROW

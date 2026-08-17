@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUserProfile, saveUserProfile } from '../../users/userProfile'
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 const PASSWORD_STORAGE_KEY = 'ieum.accountPassword'
 
 function AccountSection() {
@@ -10,18 +11,25 @@ function AccountSection() {
 
   const [name, setName] = useState(profile.name || '홍길동')
   const [email, setEmail] = useState(profile.email || 'jungmin@company.com')
+  const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [passwordCheck, setPasswordCheck] = useState('')
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
   const [saved, setSaved] = useState(false)
 
   const handleLogout = () => {
     if (!window.confirm('로그아웃 하시겠습니까?')) return
 
+    localStorage.removeItem('ieum.token')
+    localStorage.removeItem('ieum.accessToken')
+    localStorage.removeItem('auth.isGoogleLogin')
     navigate('/login', { replace: true })
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setErrorMessage('')
     if (!name.trim() || !email.trim()) {
       window.alert('이름과 이메일 주소를 모두 입력해주세요.')
       return
@@ -39,17 +47,48 @@ function AccountSection() {
 
     if (!window.confirm('회원 정보를 변경하시겠습니까?')) return
 
-    saveUserProfile({ name: name.trim(), email: email.trim() })
+    setIsSubmitting(true)
+    const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken') || ''
 
-    if (isChangingPassword) {
-      savePassword(newPassword)
-      closePasswordForm()
+    try {
+      // 1. 프로필 정보 백엔드 저장
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+
+      await fetch(`${API_URL}/api/users/me`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ name: name.trim(), email: email.trim() }),
+      }).catch(() => null)
+
+      // 2. 비밀번호 변경 요청
+      if (isChangingPassword) {
+        const passRes = await fetch(`${API_URL}/api/auth/password`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ oldPassword: oldPassword.trim(), newPassword: newPassword.trim() }),
+        }).catch(() => null)
+
+        if (passRes && !passRes.ok) {
+          const passData = await passRes.json().catch(() => ({}))
+          setErrorMessage(passData.message || '비밀번호 변경 중 오류가 발생했습니다.')
+        } else {
+          savePassword(newPassword)
+          closePasswordForm()
+        }
+      }
+
+      saveUserProfile({ name: name.trim(), email: email.trim() })
+      showSavedMessage()
+    } catch (err: any) {
+      setErrorMessage(err.message || '저장 중 오류가 발생했습니다.')
+    } finally {
+      setIsSubmitting(false)
     }
-
-    showSavedMessage()
   }
 
   const closePasswordForm = () => {
+    setOldPassword('')
     setNewPassword('')
     setPasswordCheck('')
     setIsChangingPassword(false)
@@ -96,6 +135,17 @@ function AccountSection() {
 
         {isChangingPassword && (
           <>
+            <label htmlFor="old-password" className="text-right text-[#676971] max-sm:text-left">기존 비밀번호</label>
+            <input
+              id="old-password"
+              type="password"
+              autoComplete="current-password"
+              value={oldPassword}
+              onChange={(event) => setOldPassword(event.target.value)}
+              placeholder="현재 비밀번호 (선택)"
+              className="h-10 rounded-md border border-[#dedee3] px-3 outline-none focus:border-[#5146e5] focus:ring-2 focus:ring-[#5146e5]/10"
+            />
+
             <label htmlFor="new-password" className="text-right text-[#676971] max-sm:text-left">새 비밀번호</label>
             <input
               id="new-password"
@@ -121,12 +171,25 @@ function AccountSection() {
         )}
       </div>
 
+      {errorMessage && (
+        <p role="alert" className="mt-4 text-center text-[12px] text-[#c23e3e]">
+          {errorMessage}
+        </p>
+      )}
+
       <div className="mt-8 flex items-center justify-between border-t border-[#eeeeef] pt-5">
         <button type="button" onClick={handleLogout} className="text-[12px] font-medium text-[#e04b4b] hover:underline">로그아웃</button>
 
         <div className="flex items-center gap-3">
           {saved && <span className="text-[11px] text-[#56845e]">저장되었습니다.</span>}
-          <button type="button" onClick={handleSave} className="h-9 rounded-lg bg-[#5146e5] px-5 text-[12px] font-semibold text-white hover:bg-[#4338ca]">변경사항 저장</button>
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={handleSave}
+            className="h-9 rounded-lg bg-[#5146e5] px-5 text-[12px] font-semibold text-white hover:bg-[#4338ca] disabled:opacity-50"
+          >
+            {isSubmitting ? '저장 중...' : '변경사항 저장'}
+          </button>
         </div>
       </div>
     </section>
@@ -134,8 +197,6 @@ function AccountSection() {
 }
 
 function savePassword(password: string) {
-  // 현재 프로젝트에는 계정 API가 없어 로컬에 저장
-  // 서버가 연결되면 이 함수만 비밀번호 변경 API 호출로 교체
   localStorage.setItem(PASSWORD_STORAGE_KEY, password)
 }
 

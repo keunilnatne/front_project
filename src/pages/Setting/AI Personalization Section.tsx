@@ -71,11 +71,26 @@ function AiPersonalizationSection() {
   const [settings, setSettings] = useState(initialSettings)
   const [showTagOptions, setShowTagOptions] = useState(false)
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+
   const updateSettings = (changes: Partial<AiSettings>) => {
     const nextSettings = { ...settings, ...changes }
     setSettings(nextSettings)
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(nextSettings))
+
+    const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken') || ''
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+
+    fetch(`${API_URL}/api/users/me/ai-settings`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        aiAutoSuggestion: nextSettings.autoLearn,
+      }),
+    }).catch(() => null)
   }
+
 
   const removePreference = (preference: PreferenceId) => {
     const nextPreferences = preferences.filter((item) => item !== preference)

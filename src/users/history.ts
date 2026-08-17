@@ -5,8 +5,8 @@ export type HistoryItem = {
   purpose: string
   score: number
   status: string
-  type: string
-  createdAt: string
+  type?: '변환' | '전송' | string
+  createdAt?: string
   content?: string
 }
 
@@ -16,11 +16,12 @@ const STORAGE_KEY = 'ieum.history'
 function isHistoryItem(value: unknown): value is HistoryItem {
   if (!value || typeof value !== 'object') return false
   const item = value as Partial<HistoryItem>
-  return typeof item.id === 'string' && typeof item.date === 'string'
-    && typeof item.recipient === 'string' && typeof item.purpose === 'string'
-    && typeof item.score === 'number' && typeof item.status === 'string'
-    && typeof item.type === 'string' && typeof item.createdAt === 'string'
-    && (item.content === undefined || typeof item.content === 'string')
+  return typeof item.id === 'string'
+    && typeof item.date === 'string'
+    && typeof item.recipient === 'string'
+    && typeof item.purpose === 'string'
+    && typeof item.score === 'number'
+    && typeof item.status === 'string'
 }
 
 function readLocalHistory(): HistoryItem[] {
@@ -57,13 +58,15 @@ export async function createHistoryItem(item: HistoryItem): Promise<HistoryItem>
   let saved = item
   try {
     const response = await fetch(`${API_URL}/api/history`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item),
     })
     if (!response.ok) throw new Error()
     const data: unknown = await response.json()
     if (isHistoryItem(data)) saved = data
   } catch {
-    // API가 없는 환경에서는 로컬 기록을 유지한다.
+    // API 연결 전에는 로컬 기록 유지
   }
   persistHistory([saved, ...readLocalHistory().filter((entry) => entry.id !== saved.id)])
   return saved

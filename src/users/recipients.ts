@@ -1,16 +1,18 @@
+import { useCallback, useEffect, useState } from 'react'
+
 export type Recipient = {
   id: number
-  name: string
   email?: string
+  name: string
   role: string
   company: string
   country: string
   language: string
   timezone: string
   organizationRelation: string
-  responseSpeed: string
+  responseSpeed: '빠름' | '보통' | '느림' | string
   averageResponseMinutes: number
-  collaborationActivity: string
+  collaborationActivity: 'High' | 'Medium' | 'Low' | string
   isOnline: boolean
   isFavorite: boolean
   isRecent: boolean
@@ -20,23 +22,42 @@ export type Recipient = {
 }
 
 const API_URL = import.meta.env.VITE_API_URL || ''
-const STORAGE_KEY = 'ieum.recipients'
+const STORAGE_KEY = 'recipients-data'
+
+function getAuthToken(): string | null {
+  return (
+    localStorage.getItem('ieum.token') ||
+    localStorage.getItem('ieum.accessToken') ||
+    localStorage.getItem('token') ||
+    localStorage.getItem('accessToken')
+  )
+}
+
+function authorizationHeaders(): Record<string, string> {
+  const token = getAuthToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+async function apiError(response: Response, fallback: string) {
+  if (response.status === 401) {
+    return new Error('로그인이 필요합니다. 먼저 로그인해주세요.')
+  }
+  const data = await response.json().catch(() => null) as { message?: string; error?: { message?: string } } | null
+  return new Error(data?.message || data?.error?.message || fallback)
+}
 
 function isRecipient(value: unknown): value is Recipient {
   if (!value || typeof value !== 'object') return false
   const item = value as Partial<Recipient>
   return typeof item.id === 'number'
     && typeof item.name === 'string'
-    && (item.email === undefined || typeof item.email === 'string')
     && typeof item.role === 'string'
     && typeof item.company === 'string'
     && typeof item.country === 'string'
     && typeof item.language === 'string'
     && typeof item.timezone === 'string'
     && typeof item.organizationRelation === 'string'
-    && typeof item.responseSpeed === 'string'
     && typeof item.averageResponseMinutes === 'number'
-    && typeof item.collaborationActivity === 'string'
     && typeof item.isOnline === 'boolean'
     && typeof item.isFavorite === 'boolean'
     && typeof item.isRecent === 'boolean'
@@ -47,8 +68,8 @@ function isRecipient(value: unknown): value is Recipient {
 
 function readLocalRecipients(): Recipient[] {
   try {
-    const data: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-    return Array.isArray(data) ? data.filter(isRecipient) : []
+    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+    return Array.isArray(parsed) ? parsed.filter(isRecipient) : []
   } catch {
     return []
   }
@@ -61,36 +82,87 @@ export function persistRecipients(recipients: Recipient[]) {
 export async function fetchRecipients(signal?: AbortSignal): Promise<Recipient[]> {
   signal?.throwIfAborted()
   try {
-    const response = await fetch(`${API_URL}/api/recipients`, { signal })
-    if (!response.ok) throw new Error()
+    const response = await fetch(`${API_URL}/api/recipients`, {
+      signal,
+      headers: authorizationHeaders(),
+    })
+    if (!response.ok) throw await apiError(response, '수신자 조회 실패')
     const data: unknown = await response.json()
-    if (Array.isArray(data)) {
-      const recipients = data.filter(isRecipient)
+    if (!Array.isArray(data)) throw new Error('수신자 응답 형식 오류')
+    const recipients = data.filter(isRecipient)
+    if (recipients.length) {
       persistRecipients(recipients)
       return recipients
     }
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error
   }
+
   return readLocalRecipients()
 }
 
-export async function createRecipient(recipient: Recipient): Promise<Recipient> {
-  let saved = recipient
-  try {
-    const response = await fetch(`${API_URL}/api/recipients`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(recipient),
-    })
-    if (!response.ok) throw new Error()
-    const data: unknown = await response.json()
-    if (isRecipient(data)) saved = data
-  } catch {
-    // 백엔드가 준비되지 않은 환경에서는 로컬 저장소를 사용한다.
-  }
+export type CreateRecipientInput = Omit<Recipient, 'id'> & { email: string }
 
-  const recipients = readLocalRecipients()
-  persistRecipients([saved, ...recipients.filter((item) => item.id !== saved.id)])
-  return saved
+export async function createRecipient(recipient: CreateRecipientInput): Promise<Recipient> {
+  const response = await fetch(`${API_URL}/api/recipients`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
+    body: JSON.stringify(recipient),
+  })
+  if (!response.ok) throw await apiError(response, '수신자 저장에 실패했습니다.')
+  const data: unknown = await response.json()
+  if (!isRecipient(data)) throw new Error('수신자 응답 형식 오류')
+  const current = readLocalRecipients().filter((item) => item.id !== data.id)
+  persistRecipients([data, ...current])
+  return data
+}
+
+export async function fetchRecipientByEmail(email: string): Promise<Recipient> {
+  const response = await fetch(
+    `${API_URL}/api/recipients/email-lookup?email=${encodeURIComponent(email.trim())}`,
+    { headers: authorizationHeaders() },
+  )
+  if (!response.ok) throw await apiError(response, '등록된 이메일 정보를 불러오지 못했습니다.')
+  const data: unknown = await response.json()
+  if (!isRecipient(data)) throw new Error('수신자 응답 형식 오류')
+  return data
+}
+
+export async function updateRecipient(recipient: Recipient): Promise<Recipient> {
+  const response = await fetch(`${API_URL}/api/recipients/${recipient.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
+    body: JSON.stringify(recipient),
+  })
+  if (!response.ok) throw new Error('수신자 수정에 실패했습니다.')
+  const data: unknown = await response.json()
+  if (!isRecipient(data)) throw new Error('수신자 응답 형식 오류')
+  persistRecipients(readLocalRecipients().map((item) => item.id === data.id ? data : item))
+  return data
+}
+
+export function useRecipients() {
+  const [recipients, setRecipients] = useState<Recipient[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    const controller = new AbortController()
+    void fetchRecipients(controller.signal)
+      .then(setRecipients)
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setErrorMessage('수신자 목록을 불러오지 못했습니다.')
+        }
+      })
+      .finally(() => setIsLoading(false))
+    return () => controller.abort()
+  }, [])
+
+  const replaceRecipients = useCallback((next: Recipient[]) => {
+    setRecipients(next)
+    persistRecipients(next)
+  }, [])
+
+  return { recipients, setRecipients: replaceRecipients, isLoading, errorMessage }
 }

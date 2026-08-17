@@ -1,10 +1,17 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import gmailLogo from '../../images/gmail.png'
 
 const TOTAL_STEPS = 6
 const CURRENT_STEP = 4
 const BUTTON_CLASS = 'flex h-[58px] w-full items-center justify-center rounded-lg text-lg leading-[25.2px] transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#5b3df5]/20'
+const GOOGLE_AUTH_URL = import.meta.env.VITE_GOOGLE_AUTH_URL || '/api/auth/google'
+
+type GoogleAuthMessage = {
+  type: 'google-auth-success' | 'google-auth-error'
+  email?: string
+  message?: string
+}
 
 function ProgressIndicator() {
   return (
@@ -19,6 +26,9 @@ function ProgressIndicator() {
 function Integrations() {
   const navigate = useNavigate()
   const [showGmailLogin, setShowGmailLogin] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [googleError, setGoogleError] = useState('')
+
   const finishIntegration = (connected: boolean) => {
     localStorage.setItem('onboarding.gmail', String(connected))
     navigate('/complete')
@@ -28,8 +38,49 @@ function Integrations() {
     localStorage.setItem('onboarding.gmailEmail', email)
     localStorage.setItem('onboarding.gmail', 'true')
     setShowGmailLogin(false)
-    window.alert('Gmail이 연동되었습니다.')
+    setIsConnecting(false)
     navigate('/complete')
+  }
+
+  useEffect(() => {
+    if (localStorage.getItem('auth.isGoogleLogin') === 'true' || localStorage.getItem('onboarding.gmail') === 'true') {
+      navigate('/complete', { replace: true })
+      return
+    }
+
+    const handleGoogleAuthMessage = (event: MessageEvent<GoogleAuthMessage>) => {
+      if (event.origin !== window.location.origin) return
+
+      if (event.data?.type === 'google-auth-success' && event.data.email) {
+        completeGmailConnection(event.data.email)
+        return
+      }
+
+      if (event.data?.type === 'google-auth-error') {
+        setIsConnecting(false)
+        setGoogleError(event.data.message || 'Google 계정 연결에 실패했습니다.')
+      }
+    }
+
+    window.addEventListener('message', handleGoogleAuthMessage)
+    return () => window.removeEventListener('message', handleGoogleAuthMessage)
+  }, [navigate])
+
+  const openGoogleLogin = () => {
+    setGoogleError('')
+    const popup = window.open(
+      GOOGLE_AUTH_URL,
+      'google-login',
+      'popup=yes,width=520,height=680,left=200,top=80',
+    )
+
+    if (!popup) {
+      setGoogleError('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해 주세요.')
+      return
+    }
+
+    setIsConnecting(true)
+    popup.focus()
   }
 
   return (
@@ -55,13 +106,21 @@ function Integrations() {
         </section>
 
         <div className="flex h-37 flex-col gap-2 px-6 pb-6">
-          <button type="button" onClick={() => setShowGmailLogin(true)} className={`${BUTTON_CLASS} gap-1 bg-[linear-gradient(90deg,#5b3df5_0%,#35248f_100%)] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:brightness-110`}>
-            <span aria-hidden="true" className="text-base leading-none">↪</span> Gmail 연결하기
+          <button
+            type="button"
+            onClick={openGoogleLogin}
+            disabled={isConnecting}
+            className={`${BUTTON_CLASS} gap-1 bg-[linear-gradient(90deg,#5b3df5_0%,#35248f_100%)] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:brightness-110 disabled:opacity-60`}
+          >
+            <span aria-hidden="true" className="text-base leading-none">↪</span>
+            {isConnecting ? 'Gmail 계정 연결 중...' : 'Gmail 연결하기'}
           </button>
           <button type="button" onClick={() => finishIntegration(false)} className={`${BUTTON_CLASS} border border-[#cecece] bg-white font-normal hover:bg-[#fafafa]`}>
             나중에 연결하기
           </button>
         </div>
+
+        {googleError && <p role="alert" className="mt-2 text-center text-sm text-[#c23e3e]">{googleError}</p>}
 
         <p className="flex h-[16.8px] items-center justify-center gap-1 px-6 text-center text-xs leading-[16.8px] tracking-[0.12px] text-[#5d5d5d]/80">
           <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3 w-3 shrink-0 fill-current"><path d="M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v9h14v-9a2 2 0 0 0-2-2Zm-7-2a2 2 0 1 1 4 0v2h-4V6Z" /></svg>
@@ -78,6 +137,7 @@ function Integrations() {
     </main>
   )
 }
+
 
 function GmailConnectionDialog({ onClose, onConnect }: {
   onClose: () => void

@@ -5,8 +5,8 @@ import { createRecipient, fetchRecipients, type Recipient as UserRecipient } fro
 import { optimizeMessage } from '../../users/messageService'
 import { createHistoryItem } from '../../users/history'
 import { analyzeMessageMetadata } from '../../ai/aiInsights'
-import { detectMessageLanguage, translateAndSpellCheck } from '../../ai/freeLanguageTools'
 import { fetchConversations, type Conversation } from '../../users/conversationArchive'
+import { detectMessageLanguage, translateAndSpellCheck } from '../../ai/freeLanguageTools'
 
 type Recipient = {
   id: string
@@ -234,7 +234,6 @@ export default function MessagesPage() {
 
   const [draftSaved, setDraftSaved] = useState(false)
   const [aiMetadata, setAiMetadata] = useState<{ priority?: string; tags?: string[]; terms?: string[]; rules?: string[]; sourceLanguage?: string; targetLanguage?: string } | null>(null)
-  const [aiMetadataLoading, setAiMetadataLoading] = useState(false)
 
   /* 수정하기로 돌아온 경우 기존 데이터 유지 */
   useEffect(() => {
@@ -312,13 +311,23 @@ export default function MessagesPage() {
     setQuickRecipientError('')
     const emailName = email.split('@')[0]
     const company = email.split('@')[1]?.split('.')[0] || ''
-    const recipient: UserRecipient = {
-      id: Date.now(), name: emailName, email, role, company,
-      country: 'South Korea', language: 'Korean', timezone: 'Asia/Seoul',
-      organizationRelation: '외부 수신자', responseSpeed: '보통',
-      averageResponseMinutes: 0, collaborationActivity: 'Medium',
-      isOnline: false, isFavorite: false, isRecent: true,
-      verifiedExpert: false, fullTime: false,
+    const recipient = {
+      name: emailName,
+      email,
+      role,
+      company,
+      country: 'South Korea',
+      language: 'Korean',
+      timezone: 'Asia/Seoul',
+      organizationRelation: '외부 수신자',
+      responseSpeed: '보통',
+      averageResponseMinutes: 0,
+      collaborationActivity: 'Medium',
+      isOnline: false,
+      isFavorite: false,
+      isRecent: true,
+      verifiedExpert: false,
+      fullTime: false,
       avatar: emailName.slice(0, 1).toUpperCase(),
     }
 
@@ -348,9 +357,8 @@ export default function MessagesPage() {
   }, [showRecipientList])
 
   useEffect(() => {
+    if (!subject.trim() && !body.trim()) { setAiMetadata(null); return }
     const timer = window.setTimeout(() => {
-      if (!subject.trim() && !body.trim()) { setAiMetadata(null); return }
-      setAiMetadataLoading(true)
       void analyzeMessageMetadata({
         recipients: selectedRecipients,
         subject,
@@ -360,7 +368,7 @@ export default function MessagesPage() {
       }).then((metadata) => {
         if (!metadata) { setAiMetadata(null); return }
         setAiMetadata(metadata)
-      }).finally(() => setAiMetadataLoading(false))
+      })
     }, 450)
     return () => window.clearTimeout(timer)
   }, [selectedRecipients, subject, body])
@@ -845,7 +853,7 @@ export default function MessagesPage() {
                   </p>
 
                   <p className="mt-2 text-[11px] leading-5 text-[#8a8494]">
-                    {aiMetadataLoading ? 'AI가 메시지와 수신자 정보를 분석 중입니다.' : aiMetadata?.terms?.length ? `자주 사용하는 용어: ${aiMetadata.terms.join(', ')}` : 'AI가 메시지와 수신자 정보를 분석합니다.'}<br />AI 최적화를 실행하면 수신자 Context를 반영한
+                    {aiMetadata?.terms?.length ? `자주 사용하는 용어: ${aiMetadata.terms.join(', ')}` : 'AI가 메시지와 수신자 정보를 분석합니다.'}<br />AI 최적화를 실행하면 수신자 Context를 반영한
                     메시지를 생성합니다.
                   </p>
                 </div>

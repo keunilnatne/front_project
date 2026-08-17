@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import googleIcon from '../../images/google.png'
 import logo from '../../images/ieum-logo.png'
 import { authenticateAccount } from '../../users/auth'
-import { startOnboarding } from '../../users/userProfile'
+import { startOnboarding, isOnboardingCompleted } from '../../users/userProfile'
 
 const INPUT_CLASS = [
   'h-12 w-full rounded-lg border-2 border-black/20 px-5 text-sm outline-none',
@@ -55,8 +55,15 @@ function SignInPage() {
     }
 
     setIsSubmitting(false)
-    startOnboarding(email)
-    navigate('/welcome')
+    localStorage.removeItem('auth.isGoogleLogin')
+    localStorage.removeItem('onboarding.gmail')
+
+    if (isOnboardingCompleted(email)) {
+      navigate('/dashboard')
+    } else {
+      startOnboarding(email)
+      navigate('/welcome')
+    }
   }
 
   const savedEmail = localStorage.getItem('ieum.savedLoginEmail') || ''
@@ -154,6 +161,7 @@ function SignInPage() {
 type GoogleAuthMessage = {
   type: 'google-auth-success' | 'google-auth-error'
   email?: string
+  token?: string
   message?: string
 }
 
@@ -168,8 +176,21 @@ function SocialLoginSection() {
 
       if (event.data?.type === 'google-auth-success' && event.data.email) {
         setIsConnecting(false)
-        startOnboarding(event.data.email)
-        navigate('/welcome')
+        const email = event.data.email
+        localStorage.setItem('auth.isGoogleLogin', 'true')
+        localStorage.setItem('onboarding.gmail', 'true')
+        localStorage.setItem('onboarding.gmailEmail', email)
+        if (event.data.token) {
+          localStorage.setItem('ieum.accessToken', event.data.token)
+          localStorage.setItem('ieum.token', event.data.token)
+        }
+
+        if (isOnboardingCompleted(email)) {
+          navigate('/dashboard')
+        } else {
+          startOnboarding(email)
+          navigate('/welcome')
+        }
         return
       }
 
@@ -182,6 +203,7 @@ function SocialLoginSection() {
     window.addEventListener('message', handleGoogleAuthMessage)
     return () => window.removeEventListener('message', handleGoogleAuthMessage)
   }, [navigate])
+
 
   const openGoogleLogin = () => {
     setGoogleError('')

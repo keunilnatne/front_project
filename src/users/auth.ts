@@ -4,89 +4,47 @@ export type RegisterInput = {
   password: string
 }
 
-type StoredAccount = {
-  id: string
-  name: string
-  email: string
-  passwordHash: string
-  createdAt: string
+type AuthResponse = {
+  accessToken?: string
+  token?: string
 }
 
-const ACCOUNTS_STORAGE_KEY = 'ieum.accounts'
-
-export async function registerAccount(input: RegisterInput): Promise<void> {
-  // 백엔드 연동(회원가입): 실제 서비스에서는 이곳에서 회원가입 API를 호출해 주세요.
-  // 비밀번호 해시와 사용자 계정은 브라우저가 아니라 백엔드에서 안전하게 관리해야 합니다.
-  const accounts = getStoredAccounts()
-  const email = normalizeEmail(input.email)
-  const alreadyExists = accounts.some((account) => account.email === email)
-
-  if (alreadyExists) {
-    throw new Error('이미 가입된 이메일입니다.')
-  }
-
-  const newAccount: StoredAccount = {
-    id: crypto.randomUUID(),
-    name: input.name.trim(),
-    email,
-    passwordHash: await hashPassword(input.password),
-    createdAt: new Date().toISOString(),
-  }
-
-  localStorage.setItem(
-    ACCOUNTS_STORAGE_KEY,
-    JSON.stringify([...accounts, newAccount]),
-  )
-}
-
-export async function authenticateAccount(
-  email: string,
-  password: string,
-): Promise<boolean> {
-  // 백엔드 연동(로그인): 실제 서비스에서는 로그인 API를 호출하고 인증 토큰을 받아 주세요.
-  const normalizedEmail = normalizeEmail(email)
-  const passwordHash = await hashPassword(password)
-
-  return getStoredAccounts().some((account) => (
-    account.email === normalizedEmail
-    && account.passwordHash === passwordHash
-  ))
-}
-
-function getStoredAccounts(): StoredAccount[] {
-  try {
-    const storedData: unknown = JSON.parse(
-      localStorage.getItem(ACCOUNTS_STORAGE_KEY) || '[]',
-    )
-
-    return Array.isArray(storedData)
-      ? storedData.filter(isStoredAccount)
-      : []
-  } catch {
-    return []
-  }
-}
-
-function isStoredAccount(value: unknown): value is StoredAccount {
-  if (!value || typeof value !== 'object') return false
-  const account = value as Partial<StoredAccount>
-
-  return typeof account.id === 'string'
-    && typeof account.name === 'string'
-    && typeof account.email === 'string'
-    && typeof account.passwordHash === 'string'
-    && typeof account.createdAt === 'string'
-}
+const API_URL = import.meta.env.VITE_API_URL || ''
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase()
 }
 
-async function hashPassword(password: string) {
-  const encodedPassword = new TextEncoder().encode(password)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encodedPassword)
+async function responseError(response: Response, fallback: string) {
+  const data = await response.json().catch(() => null) as {
+    message?: string
+    error?: { message?: string }
+  } | null
+  return new Error(data?.message || data?.error?.message || fallback)
+}
 
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')
+export async function registerAccount(input: RegisterInput): Promise<void> {
+  const response = await fetch(`${API_URL}/api/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...input, email: normalizeEmail(input.email) }),
+  })
+  if (!response.ok) throw await responseError(response, '회원가입에 실패했습니다.')
+}
+
+export async function authenticateAccount(email: string, password: string): Promise<boolean> {
+  const response = await fetch(`${API_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: normalizeEmail(email), password }),
+  })
+  if (!response.ok) return false
+
+  const data = await response.json() as AuthResponse
+  const token = data.accessToken || data.token
+  if (!token) throw new Error('로그인 응답에 인증 토큰이 없습니다.')
+
+  localStorage.setItem('ieum.accessToken', token)
+  localStorage.setItem('ieum.token', token)
+  return true
 }
