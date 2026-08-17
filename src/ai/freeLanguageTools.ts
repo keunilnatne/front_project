@@ -41,10 +41,15 @@ export async function translateAndSpellCheck(text: string, targetLanguage: strin
   ])
 
   const spellingData = spelling.status === 'fulfilled' ? spelling.value : undefined
+  const rawTranslated = translation.status === 'fulfilled' ? translation.value : undefined
+  const validTranslation = rawTranslated && !rawTranslated.includes('QUERY LENGTH LIMIT EXCEEDED') && !rawTranslated.includes('MYMEMORY WARNING')
+    ? rawTranslated
+    : text
+
   return {
     sourceLanguage: source,
     targetLanguage: target,
-    translatedText: translation.status === 'fulfilled' && translation.value ? translation.value : text,
+    translatedText: validTranslation,
     corrections: spellingData?.matches?.slice(0, 5).map((match) => ({
       message: match.message || '',
       replacement: match.replacements?.[0]?.value || '',
