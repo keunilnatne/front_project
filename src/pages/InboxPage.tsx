@@ -197,9 +197,9 @@ export default function InboxPage() {
           </div>
         ) : (
           /* 2-Column Split Pane */
-          <div className="grid grid-cols-[360px_minmax(0,1fr)] items-stretch gap-7">
+          <div className="grid grid-cols-[360px_minmax(0,1fr)] items-stretch gap-7" style={{ height: 'calc(100vh - 136px)' }}>
             {/* Left: Email List */}
-            <div className="flex min-h-[760px] flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            <div className="flex flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
               {/* Search Bar */}
               <div className="border-b border-[#ededf0] p-4">
                 <div className="flex h-10 items-center rounded-full bg-[#f1f1f4] px-4">
@@ -280,7 +280,7 @@ export default function InboxPage() {
             </div>
 
             {/* Right: Detail View */}
-            <div className="flex min-h-[760px] flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            <div className="flex flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
               {!selectedDetail ? (
                 <div className="flex flex-1 items-center justify-center p-12 text-center text-[#888]">
                   메일을 선택하면 상세 내용이 표시됩니다.
@@ -354,6 +354,7 @@ export default function InboxPage() {
                     ) : (
                       <MarkdownViewer
                         content={selectedDetail.body || selectedDetail.snippet || ''}
+                        htmlContent={selectedDetail.htmlBody || ''}
                         className="text-[13px] leading-relaxed text-[#2f2e34]"
                       />
                     )}

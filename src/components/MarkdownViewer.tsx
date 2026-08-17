@@ -1,17 +1,228 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 
 type MarkdownViewerProps = {
   content: string
   className?: string
+  htmlContent?: string
 }
 
-export default function MarkdownViewer({ content, className = '' }: MarkdownViewerProps) {
+/**
+ * Sanitize HTML email content:
+ * - Strip <script>, <style>, <head> tags and their contents
+ * - Strip conditional comments (<!--[if ...]> ... <![endif]-->)
+ * - Strip all HTML comments
+ * - Strip unsafe attributes (on*, style with expression/url)
+ * - Convert <img> tags to safe versions
+ * - Convert <a> tags to safe links
+ */
+function sanitizeHtmlToSafeHtml(html: string): string {
+  let cleaned = html
+
+  // Remove everything between <head> and </head>
+  cleaned = cleaned.replace(/<head[\s\S]*?<\/head>/gi, '')
+
+  // Remove <script> blocks
+  cleaned = cleaned.replace(/<script[\s\S]*?<\/script>/gi, '')
+
+  // Remove <style> blocks
+  cleaned = cleaned.replace(/<style[\s\S]*?<\/style>/gi, '')
+
+  // Remove conditional comments: <!--[if ...]> ... <![endif]-->
+  cleaned = cleaned.replace(/<!--\[if[\s\S]*?<!\[endif\]-->/gi, '')
+
+  // Remove any remaining conditional comment syntax
+  cleaned = cleaned.replace(/<!--\[if[^\]]*\]>/gi, '')
+  cleaned = cleaned.replace(/<!\[endif\]-->/gi, '')
+  cleaned = cleaned.replace(/<!--\[if[^>]*><!--|<!\[endif\]-->/gi, '')
+
+  // Remove XML/XHTML namespace declarations
+  cleaned = cleaned.replace(/<o:p[\s\S]*?<\/o:p>/gi, '')
+  cleaned = cleaned.replace(/<v:[^>]*\/>/gi, '')
+  cleaned = cleaned.replace(/<v:[^>]*>[\s\S]*?<\/v:[^>]*>/gi, '')
+
+  // Remove HTML comments
+  cleaned = cleaned.replace(/<!--[\s\S]*?-->/g, '')
+
+  // Remove all event handler attributes (onclick, onload, etc.)
+  cleaned = cleaned.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+
+  // Remove javascript: URLs from href/src
+  cleaned = cleaned.replace(/(href|src)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, '$1=""')
+
+  return cleaned
+}
+
+/**
+ * Check if a string looks like HTML content.
+ */
+function isHtmlContent(text: string): boolean {
+  // Check for common HTML patterns
+  const htmlPatterns = [
+    /<\/?(?:div|span|p|br|table|tr|td|th|a|img|ul|ol|li|h[1-6]|html|body|head|meta|style|link|center|font|b|i|u|strong|em)\b/i,
+    /<!--\[if/i,
+    /&(?:nbsp|lt|gt|amp|quot);/i,
+    /<![A-Z]/i,
+  ]
+  return htmlPatterns.some((pattern) => pattern.test(text))
+}
+
+/**
+ * Convert plain-text body to cleaned readable text when it contains
+ * HTML artifacts like conditional comments but is fundamentally text.
+ */
+function cleanPlainTextWithHtmlArtifacts(text: string): string {
+  let cleaned = text
+
+  // Remove conditional comments
+  cleaned = cleaned.replace(/<!--\[if[\s\S]*?<!\[endif\]-->/gi, '')
+  cleaned = cleaned.replace(/<!--\[if[^\]]*\]>/gi, '')
+  cleaned = cleaned.replace(/<!\[endif\]-->/gi, '')
+  cleaned = cleaned.replace(/<!--[\s\S]*?-->/g, '')
+
+  // Remove XML namespace tags
+  cleaned = cleaned.replace(/<o:p[\s\S]*?<\/o:p>/gi, '')
+
+  // Clean multiple blank lines
+  cleaned = cleaned.replace(/\n{4,}/g, '\n\n\n')
+
+  return cleaned.trim()
+}
+
+export default function MarkdownViewer({ content, className = '', htmlContent }: MarkdownViewerProps) {
   const [zoomImage, setZoomImage] = useState<string | null>(null)
 
-  if (!content) {
+  // Determine if we should render as HTML
+  const renderMode = useMemo<'html' | 'markdown'>(() => {
+    if (htmlContent && htmlContent.trim().length > 0) return 'html'
+    if (content && isHtmlContent(content)) return 'html'
+    return 'markdown'
+  }, [content, htmlContent])
+
+  const sanitizedHtml = useMemo(() => {
+    if (renderMode !== 'html') return ''
+    const raw = htmlContent && htmlContent.trim().length > 0 ? htmlContent : content
+    return sanitizeHtmlToSafeHtml(raw)
+  }, [renderMode, content, htmlContent])
+
+  const cleanedContent = useMemo(() => {
+    if (renderMode !== 'markdown') return content
+    if (isHtmlContent(content)) {
+      return cleanPlainTextWithHtmlArtifacts(content)
+    }
+    return content
+  }, [renderMode, content])
+
+  if (!content && !htmlContent) {
     return <div className={`text-[#888] italic ${className}`}>내용이 없습니다.</div>
   }
 
+  // ======== HTML RENDERING MODE ========
+  if (renderMode === 'html') {
+    return (
+      <div className={`markdown-body ${className}`}>
+        <div
+          className="email-html-content"
+          style={{
+            lineHeight: '1.6',
+            wordBreak: 'break-word',
+            overflowWrap: 'break-word',
+            fontSize: '14px',
+            color: '#2c2b33',
+          }}
+          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+        />
+
+        {/* Global styles for HTML email content */}
+        <style>{`
+          .email-html-content {
+            max-width: 100%;
+            overflow-x: auto;
+          }
+          .email-html-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            cursor: pointer;
+          }
+          .email-html-content a {
+            color: #4f46e5;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            word-break: break-all;
+          }
+          .email-html-content a:hover {
+            color: #4338ca;
+          }
+          .email-html-content table {
+            border-collapse: collapse;
+            max-width: 100%;
+            overflow-x: auto;
+            display: block;
+          }
+          .email-html-content td,
+          .email-html-content th {
+            padding: 6px 10px;
+            vertical-align: top;
+          }
+          .email-html-content p {
+            margin: 0.4em 0;
+          }
+          .email-html-content h1,
+          .email-html-content h2,
+          .email-html-content h3 {
+            margin: 0.6em 0 0.3em;
+            font-weight: 700;
+          }
+          .email-html-content blockquote {
+            border-left: 3px solid #e2e2ea;
+            padding-left: 12px;
+            margin: 8px 0;
+            color: #555;
+          }
+          .email-html-content pre,
+          .email-html-content code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            background: #f5f5fa;
+            border-radius: 4px;
+            padding: 2px 4px;
+          }
+          .email-html-content hr {
+            border: none;
+            border-top: 1px solid #e5e5eb;
+            margin: 16px 0;
+          }
+          /* Hide tracking pixels and invisible images */
+          .email-html-content img[width="1"],
+          .email-html-content img[height="1"],
+          .email-html-content img[style*="display:none"],
+          .email-html-content img[style*="display: none"] {
+            display: none !important;
+          }
+        `}</style>
+
+        {zoomImage && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+            onClick={() => setZoomImage(null)}
+          >
+            <div className="relative max-h-[90vh] max-w-[90vw] overflow-hidden rounded-2xl bg-white p-2 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setZoomImage(null)}
+                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+              >
+                ✕
+              </button>
+              <img src={zoomImage} alt="확대 이미지" className="max-h-[85vh] max-w-[85vw] object-contain rounded-xl" />
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ======== MARKDOWN RENDERING MODE ========
   // Parse lines and blocks
   const parseMarkdown = (text: string) => {
     const lines = text.split('\n')
@@ -68,13 +279,9 @@ export default function MarkdownViewer({ content, className = '' }: MarkdownView
     // Inline formatting: bold, italic, inline code, links, images
     const formatInline = (lineText: string): React.ReactNode[] => {
       const parts: React.ReactNode[] = []
-      // Match markdown images: ![alt](url)
-      // Match markdown links: [text](url)
-      // Match inline code: `code`
-      // Match bold: **text** or __text__
-      // Match italic: *text* or _text_
 
-      const regex = /(!?\[([^\]]*)\]\(([^)]+)\))|(`([^`]+)`)|(\*\*([^*]+)\*\*)|(\*([^*]+)\*)/g
+      // Also match standalone URLs: https://... or http://...
+      const regex = /(!?\[([^\]]*)\]\(([^)]+)\))|(`([^`]+)`)|(https?:\/\/[^\s<>"{}|\\^`\[\]]+)|(\*\*([^*]+)\*\*)|(\*([^*]+)\*)/g
       let lastIndex = 0
       let match: RegExpExecArray | null
 
@@ -83,10 +290,12 @@ export default function MarkdownViewer({ content, className = '' }: MarkdownView
           parts.push(lineText.slice(lastIndex, match.index))
         }
 
-        const [full, , linkText, linkUrl, , inlineCode, , boldText, , italicText] = match
+        const full = match[0]
 
         if (full.startsWith('![')) {
           // Markdown Image
+          const linkText = match[2]
+          const linkUrl = match[3]
           parts.push(
             <span key={`img-${match.index}`} className="my-2 inline-block max-w-full">
               <img
@@ -101,6 +310,8 @@ export default function MarkdownViewer({ content, className = '' }: MarkdownView
           )
         } else if (full.startsWith('[')) {
           // Markdown Link
+          const linkText = match[2]
+          const linkUrl = match[3]
           parts.push(
             <a
               key={`link-${match.index}`}
@@ -112,22 +323,52 @@ export default function MarkdownViewer({ content, className = '' }: MarkdownView
               {linkText || linkUrl}
             </a>
           )
-        } else if (inlineCode) {
+        } else if (match[5]) {
           // Inline Code
           parts.push(
             <code
               key={`code-${match.index}`}
               className="rounded bg-[#f0edff] px-1.5 py-0.5 text-[11px] font-mono font-medium text-[#4f46e5]"
             >
-              {inlineCode}
+              {match[5]}
             </code>
           )
-        } else if (boldText) {
+        } else if (full.startsWith('http')) {
+          // Standalone URL
+          // Check if it's an image URL
+          if (/\.(png|jpe?g|gif|webp|svg)(\?[^\s]*)?$/i.test(full)) {
+            parts.push(
+              <span key={`img-url-${match.index}`} className="my-2 inline-block max-w-full">
+                <img
+                  src={full}
+                  alt="이미지"
+                  onClick={() => setZoomImage(full)}
+                  className="max-h-96 max-w-full rounded-lg border border-[#e5e5eb] object-contain shadow-sm cursor-zoom-in transition hover:opacity-95"
+                  loading="lazy"
+                />
+              </span>
+            )
+          } else {
+            // Regular URL → clickable link
+            const displayUrl = full.length > 80 ? full.slice(0, 77) + '...' : full
+            parts.push(
+              <a
+                key={`url-${match.index}`}
+                href={full}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-[#4f46e5] underline underline-offset-2 hover:text-[#4338ca] break-all"
+              >
+                {displayUrl}
+              </a>
+            )
+          }
+        } else if (match[8]) {
           // Bold
-          parts.push(<strong key={`bold-${match.index}`} className="font-semibold text-[#1a1a20]">{boldText}</strong>)
-        } else if (italicText) {
+          parts.push(<strong key={`bold-${match.index}`} className="font-semibold text-[#1a1a20]">{match[8]}</strong>)
+        } else if (match[10]) {
           // Italic
-          parts.push(<em key={`italic-${match.index}`} className="italic">{italicText}</em>)
+          parts.push(<em key={`italic-${match.index}`} className="italic">{match[10]}</em>)
         }
 
         lastIndex = regex.lastIndex
@@ -251,7 +492,7 @@ export default function MarkdownViewer({ content, className = '' }: MarkdownView
 
   return (
     <div className={`markdown-body space-y-1 ${className}`}>
-      {parseMarkdown(content)}
+      {parseMarkdown(cleanedContent)}
 
       {/* Image Zoom Lightbox Modal */}
       {zoomImage && (

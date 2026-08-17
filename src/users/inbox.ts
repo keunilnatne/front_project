@@ -24,6 +24,7 @@ export type InboxMessage = {
   date: string
   snippet: string
   body?: string
+  htmlBody?: string
 }
 
 export type GmailStatus = {
@@ -59,7 +60,7 @@ export async function getGmailStatus(): Promise<GmailStatus> {
 export async function fetchInboxMessages(q?: string): Promise<InboxMessage[]> {
   const params = new URLSearchParams()
   if (q) params.set('q', q)
-  params.set('maxResults', '25')
+  params.set('maxResults', '50')
 
   const url = `${API_URL}/api/gmail/messages${params.toString() ? `?${params.toString()}` : ''}`
   const response = await fetch(url, {
@@ -114,5 +115,6 @@ export async function fetchInboxMessageDetail(messageId: string): Promise<InboxM
     date: item.date || '',
     snippet: item.snippet || '',
     body: item.body || item.snippet || '',
+    htmlBody: item.htmlBody || '',
   }
 }
