@@ -17,6 +17,7 @@ import ProfileSetup from './pages/onbording/profile_setup'
 import Communication from './pages/onbording/communication'
 import AddRecipient from './pages/onbording/Add-recipient'
 import Integrations from './pages/onbording/integrations'
+import InboxPage from './pages/InboxPage'
 import Complete from './pages/onbording/complete'
 
 function App() {
@@ -38,6 +39,7 @@ function App() {
       {/* 메인 서비스 */}
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/inbox" element={<InboxPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route
           path="/messages/optimized"
