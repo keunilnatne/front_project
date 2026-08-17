@@ -4,6 +4,8 @@ import { getUserProfile } from '../users/userProfile'
 import { analyzeCompanyDNA, type RecipientAIProfile } from '../ai/aiInsights'
 import { emptyCompanyDNA, saveCompanyDNA, fetchCompanyDNA, type CompanyDNA, type CommunicationRule } from '../users/companyDna'
 
+const API_URL = import.meta.env.VITE_API_URL || ''
+
 type IconName =
   | 'search'
   | 'bell'
