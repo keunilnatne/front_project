@@ -119,15 +119,18 @@ export async function createRecipient(recipient: CreateRecipientInput): Promise<
   return data
 }
 
-export async function fetchRecipientByEmail(email: string): Promise<Recipient> {
+export async function fetchIeumUserProfile(email: string): Promise<Recipient> {
   const response = await fetch(
-    `${API_URL}/api/recipients/email-lookup?email=${encodeURIComponent(email.trim())}`,
+    `${API_URL}/api/users/lookup?email=${encodeURIComponent(email.trim())}`,
     { headers: authorizationHeaders() },
   )
-  if (!response.ok) throw await apiError(response, '등록된 이메일 정보를 불러오지 못했습니다.')
+  if (!response.ok) throw await apiError(response, '이음에 가입된 회원을 찾을 수 없습니다.')
   const data: unknown = await response.json()
-  if (!isRecipient(data)) throw new Error('수신자 응답 형식 오류')
-  return data
+  return data as Recipient
+}
+
+export async function fetchRecipientByEmail(email: string): Promise<Recipient> {
+  return fetchIeumUserProfile(email)
 }
 
 export async function updateRecipient(recipient: Recipient): Promise<Recipient> {

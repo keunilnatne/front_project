@@ -932,6 +932,7 @@ function RecipientsPage() {
     organizationRelation: '팀원',
     customStyle: '명확하고 간결하게',
   })
+  const [selectedStyles, setSelectedStyles] = useState<string[]>(['명확하고 간결하게'])
   const [formErrorMessage, setFormErrorMessage] = useState('')
   const [recipientSaving, setRecipientSaving] = useState(false)
   const [aiProfile, setAiProfile] = useState<RecipientAIProfile | null>(null)
@@ -985,11 +986,14 @@ function RecipientsPage() {
         language: found.language || curr.language,
         timezone: found.timezone || curr.timezone,
         organizationRelation: found.organizationRelation || curr.organizationRelation,
-        customStyle: Array.isArray(found.communicationStyle) && found.communicationStyle.length
-          ? found.communicationStyle.join(', ')
-          : (found.preferredStyle || curr.customStyle),
+        customStyle: found.preferredStyle || curr.customStyle,
       }))
-      setLookupMessage({ text: `✓ 이음에 등록된 [${found.name || email}] 님의 프로필을 불러왔습니다.` })
+      if (Array.isArray(found.communicationStyle) && found.communicationStyle.length) {
+        setSelectedStyles(found.communicationStyle)
+      } else if (found.preferredStyle) {
+        setSelectedStyles([found.preferredStyle])
+      }
+      setLookupMessage({ text: `✓ 이음에 가입된 [${found.name || email}] 님의 유저 프로필을 불러왔습니다.` })
     } catch {
       setLookupMessage({ text: '이음에 가입된 회원이 아닙니다. 아래 폼에 직접 입력하여 추가하실 수 있습니다.', isError: true })
       setNewRecipient((curr) => ({ ...curr, email }))
@@ -1010,9 +1014,7 @@ function RecipientsPage() {
     setRecipientSaving(true)
     setFormErrorMessage('')
     try {
-      const styles = newRecipient.customStyle.trim()
-        ? newRecipient.customStyle.split(',').map((s) => s.trim()).filter(Boolean)
-        : ['명확하고 간결하게']
+      const styles = selectedStyles.length ? selectedStyles : ['명확하고 간결하게']
 
       const created = await createRecipient({
         email,
@@ -1033,7 +1035,7 @@ function RecipientsPage() {
         fullTime: true,
         avatar: name.slice(0, 1) || '?',
         communicationStyle: styles,
-        preferredStyle: newRecipient.customStyle.trim(),
+        preferredStyle: styles.join(', '),
       })
       const refreshed = await fetchRecipients()
       setRecipientList(refreshed)
@@ -1050,6 +1052,7 @@ function RecipientsPage() {
         organizationRelation: '팀원',
         customStyle: '명확하고 간결하게',
       })
+      setSelectedStyles(['명확하고 간결하게'])
       setLookupEmail('')
       setLookupMessage(null)
       setFormErrorMessage('')
@@ -1743,40 +1746,50 @@ function RecipientsPage() {
               </div>
             </div>
 
-            {/* 3. 추구하는 스타일 직접 입력 및 빠른 선택 */}
+            {/* 3. 추구하는 소통 스타일 (태그 선택) */}
             <div className="mt-4">
-              <label className="text-[11px] text-[#777]">
-                <span className="mb-1 block font-semibold text-[#5d5565]">추구하는 소통 스타일 (직접 입력)</span>
-                <input
-                  value={newRecipient.customStyle}
-                  onChange={(e) => setNewRecipient((v) => ({ ...v, customStyle: e.target.value }))}
-                  placeholder="예: 편안하게, 명확하고 간결하게, 핵심 요약 위주"
-                  className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
-                />
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-semibold text-[#5d5565]">
+                  추구하는 소통 스타일 (태그 선택)
+                </span>
+                <span className="text-[10px] text-[#716b78]">
+                  {selectedStyles.length}개 선택됨
+                </span>
+              </div>
 
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {[
                   '편안하고 친근하게',
                   '명확하고 간결하게',
                   '격식 있고 정중하게',
                   '핵심 요약 위주',
                   '상세한 설명 선호',
-                ].map((styleTag) => (
-                  <button
-                    key={styleTag}
-                    type="button"
-                    onClick={() => {
-                      setNewRecipient((v) => ({
-                        ...v,
-                        customStyle: v.customStyle ? `${v.customStyle}, ${styleTag}` : styleTag,
-                      }))
-                    }}
-                    className="rounded-full border border-[#d6d3f8] bg-[#f8f7ff] px-2.5 py-1 text-[10px] font-medium text-[#4f46e5] transition hover:bg-[#eceaff]"
-                  >
-                    + {styleTag}
-                  </button>
-                ))}
+                  '빠른 피드백 선호',
+                  '논리적/데이터 중심',
+                ].map((styleTag) => {
+                  const isSelected = selectedStyles.includes(styleTag)
+                  return (
+                    <button
+                      key={styleTag}
+                      type="button"
+                      onClick={() => {
+                        setSelectedStyles((prev) =>
+                          prev.includes(styleTag)
+                            ? prev.filter((t) => t !== styleTag)
+                            : [...prev, styleTag]
+                        )
+                      }}
+                      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition cursor-pointer ${
+                        isSelected
+                          ? 'border border-[#4f46e5] bg-[#4f46e5] text-white shadow-sm'
+                          : 'border border-[#d8d5f5] bg-[#f8f7ff] text-[#4f46e5] hover:bg-[#eceaff]'
+                      }`}
+                    >
+                      <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
+                      <span>{styleTag}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
