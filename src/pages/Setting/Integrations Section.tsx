@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import googleLogo from '../../images/google.png'
 import slackLogo from '../../images/slack.png'
 import teamsLogo from '../../images/teams.png'
+import { getGmailStatus } from '../../users/inbox'
 
 type ServiceId = 'google' | 'slack' | 'teams'
 
@@ -16,6 +17,7 @@ type Service = {
 type Connections = Partial<Record<ServiceId, string>>
 
 const STORAGE_KEY = 'ieum.integrations'
+const API_URL = import.meta.env.VITE_API_URL || ''
 
 const services: Service[] = [
   {
@@ -44,6 +46,36 @@ const services: Service[] = [
 function IntegrationsSection() {
   const [connections, setConnections] = useState<Connections>(getConnections)
   const [selectedService, setSelectedService] = useState<Service | null>(null)
+  const [googleStatus, setGoogleStatus] = useState<{ connected: boolean; email: string | null }>({
+    connected: false,
+    email: null,
+  })
+
+  useEffect(() => {
+    let active = true
+    const checkStatus = async () => {
+      try {
+        const status = await getGmailStatus()
+        if (active) {
+          const localEmail =
+            localStorage.getItem('onboarding.gmailEmail') ||
+            (localStorage.getItem('auth.isGoogleLogin') === 'true' ? 'Google 계정' : null)
+          if (status.connected || localEmail || connections.google) {
+            setGoogleStatus({
+              connected: true,
+              email: status.email || localEmail || connections.google || 'Google 계정',
+            })
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    void checkStatus()
+    return () => {
+      active = false
+    }
+  }, [connections])
 
   const connectService = (serviceId: ServiceId, account: string) => {
     const updatedConnections = { ...connections, [serviceId]: account }
@@ -62,6 +94,20 @@ function IntegrationsSection() {
     saveConnections(updatedConnections)
   }
 
+  const handleConnectClick = (service: Service) => {
+    if (service.id === 'google') {
+      const token =
+        localStorage.getItem('ieum.token') ||
+        localStorage.getItem('ieum.accessToken') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('accessToken') ||
+        ''
+      window.location.href = `${API_URL}/api/auth/google${token ? `?state=${encodeURIComponent(token)}` : ''}`
+      return
+    }
+    setSelectedService(service)
+  }
+
   return (
     <section id="integrations" className="min-h-94.75 scroll-mt-8 rounded-xl border border-[#e1e1e1] bg-white p-6 shadow-sm">
       <h2 className="text-[16px] font-semibold">연동</h2>
@@ -69,8 +115,12 @@ function IntegrationsSection() {
 
       <div className="mt-6 space-y-3">
         {services.map((service) => {
-          const connectedAccount = connections[service.id]
-          const isConnected = Boolean(connectedAccount)
+          const isGoogle = service.id === 'google'
+          const isGoogleConnected = isGoogle && googleStatus.connected
+          const connectedAccount = isGoogle
+            ? googleStatus.email || connections[service.id]
+            : connections[service.id]
+          const isConnected = isGoogle ? isGoogleConnected : Boolean(connectedAccount)
 
           return (
             <div key={service.id} className="flex min-h-17 items-center gap-4 rounded-lg border border-[#e1e1e5] px-4 py-3">
@@ -80,16 +130,32 @@ function IntegrationsSection() {
                 <p className="truncate text-[13px] font-medium">{service.name}</p>
                 <p className="mt-0.5 flex items-center gap-1 text-[10px] text-[#777981]">
                   <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-[#3dbb67]' : 'bg-[#b7b8be]'}`} />
-                  {isConnected ? `연결됨 · ${connectedAccount}` : '미연결'}
+                  {isConnected ? `연동됨 · ${connectedAccount}` : '미연결'}
                 </p>
               </div>
 
-              {isConnected ? (
-                <button type="button" onClick={() => disconnectService(service)} className="h-8 rounded-md border border-[#d9d9df] px-3 text-[10px] font-semibold hover:bg-[#f7f7f9]">
+              {isGoogle && isConnected ? (
+                <button
+                  type="button"
+                  disabled
+                  className="h-8 cursor-not-allowed rounded-md border border-[#e1e1e5] bg-[#f5f5f7] px-3 text-[10px] font-semibold text-[#8e8e93]"
+                >
+                  연동됨
+                </button>
+              ) : isConnected ? (
+                <button
+                  type="button"
+                  onClick={() => disconnectService(service)}
+                  className="h-8 rounded-md border border-[#d9d9df] px-3 text-[10px] font-semibold hover:bg-[#f7f7f9]"
+                >
                   연결 해제
                 </button>
               ) : (
-                <button type="button" onClick={() => setSelectedService(service)} className="h-8 rounded-md bg-[#5146e5] px-3 text-[10px] font-semibold text-white hover:bg-[#4338ca]">
+                <button
+                  type="button"
+                  onClick={() => handleConnectClick(service)}
+                  className="h-8 rounded-md bg-[#5146e5] px-3 text-[10px] font-semibold text-white transition hover:bg-[#4338ca]"
+                >
                   계정 연결하기
                 </button>
               )}
