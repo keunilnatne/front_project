@@ -46,6 +46,13 @@ async function apiError(response: Response, fallback: string) {
   return new Error(data?.message || data?.error?.message || fallback)
 }
 
+export function sanitizeResponseSpeed(value: unknown): '빠름' | '보통' | '느림' {
+  const str = String(value || '').trim()
+  if (str.includes('빠') || str.toLowerCase().includes('fast')) return '빠름'
+  if (str.includes('느') || str.toLowerCase().includes('slow')) return '느림'
+  return '보통'
+}
+
 function normalizeRecipient(item: any): Recipient {
   return {
     id: Number(item.id),
@@ -57,8 +64,8 @@ function normalizeRecipient(item: any): Recipient {
     language: item.language || 'Korean',
     timezone: item.timezone || 'Asia/Seoul',
     organizationRelation: item.organizationRelation || item.relationship || '팀원',
-    responseSpeed: item.responseSpeed || '보통',
-    averageResponseMinutes: Number(item.averageResponseMinutes || 0),
+    responseSpeed: sanitizeResponseSpeed(item.responseSpeed),
+    averageResponseMinutes: Number(item.averageResponseMinutes || 30),
     collaborationActivity: item.collaborationActivity || 'Medium',
     isOnline: Boolean(item.isOnline),
     isFavorite: Boolean(item.isFavorite),

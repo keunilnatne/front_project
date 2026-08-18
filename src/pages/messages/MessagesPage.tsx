@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import PageHeader from '../../components/PageHeader'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { createRecipient, fetchRecipients, type Recipient as UserRecipient } from '../../users/recipients'
-import { optimizeMessage } from '../../users/messageService'
+import { optimizeMessage, sendMessage } from '../../users/messageService'
 import { createHistoryItem } from '../../users/history'
 import { analyzeMessageMetadata } from '../../ai/aiInsights'
-import { fetchConversations, type Conversation } from '../../users/conversationArchive'
+import { fetchConversations, saveConversation, type Conversation } from '../../users/conversationArchive'
 import { detectMessageLanguage, translateAndSpellCheck } from '../../ai/freeLanguageTools'
 import { type AttachmentItem } from '../../components/AttachmentPicker'
 import { saveDraftToServer } from '../../users/drafts'
@@ -238,6 +238,7 @@ export default function MessagesPage() {
     useState<AttachmentItem[]>(pageState?.attachments || [])
 
   const [loading, setLoading] = useState(false)
+  const [sendingDirect, setSendingDirect] = useState(false)
 
   const [draftSaved, setDraftSaved] = useState(false)
   const [aiMetadata, setAiMetadata] = useState<{ priority?: string; tags?: string[]; terms?: string[]; rules?: string[]; sourceLanguage?: string; targetLanguage?: string } | null>(null)
@@ -506,6 +507,96 @@ export default function MessagesPage() {
       }
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleDirectSendGmail() {
+    if (!selectedRecipients.length) {
+      alert('받는 사람을 1명 선택해주세요.')
+      return
+    }
+    if (!subject.trim()) {
+      alert('메시지 제목을 입력해주세요.')
+      return
+    }
+    if (!body.trim()) {
+      alert('메시지 본문을 입력해주세요.')
+      return
+    }
+
+    const recipient = selectedRecipients[0]
+    if (!window.confirm(`[${recipient.name}] 님에게 Gmail로 메시지를 바로 발송하시겠습니까?`)) {
+      return
+    }
+
+    setSendingDirect(true)
+    try {
+      await sendMessage({
+        recipients: selectedRecipients.map((item) => ({
+          id: Number(item.id),
+          name: item.name,
+          email: item.email || '',
+          role: item.position,
+          company: item.company,
+          country: item.country || '',
+          language: item.language,
+          timezone: item.timezone,
+          organizationRelation: item.relationship,
+          responseSpeed: item.speed === '빠름' || item.speed === '느림' ? item.speed : '보통',
+          averageResponseMinutes: item.responseTime || 0,
+          collaborationActivity: item.collaboration === 'High' || item.collaboration === 'Low' ? item.collaboration : 'Medium',
+          isOnline: false,
+          isFavorite: false,
+          isRecent: false,
+          verifiedExpert: false,
+          fullTime: false,
+          avatar: item.name.slice(0, 1),
+        })),
+        subject,
+        body,
+        originalSubject: subject,
+        originalBody: body,
+        attachments,
+      })
+
+      await saveConversation({
+        id: `conversation-${Date.now()}`,
+        title: subject || '메시지',
+        updatedAt: new Date().toISOString(),
+        messages: [
+          {
+            role: 'user',
+            content: body,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+        analysisStatus: 'completed',
+      })
+
+      void createHistoryItem({
+        id: `send-${Date.now()}`,
+        date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+        recipient: selectedRecipients.map((item) => item.name).join(', '),
+        purpose: subject,
+        score: 0,
+        status: '전송 완료',
+        type: '전송',
+        createdAt: new Date().toISOString(),
+        content: body,
+      })
+
+      alert('Gmail을 통해 메시지가 성공적으로 발송되었습니다!')
+      navigate('/history')
+    } catch (error) {
+      console.error(error)
+      const raw = error instanceof Error ? error.message : String(error)
+      if (raw.includes('GMAIL_NOT_CONNECTED') || raw.includes('연동되지 않았습니다') || raw.includes('Gmail')) {
+        alert('Gmail 계정이 연동되지 않았습니다. [설정] 메뉴 또는 구글 로그인으로 계정을 연동해주세요.')
+      } else {
+        alert(raw || '메시지 전송에 실패했습니다. 백엔드 연결 상태를 확인해주세요.')
+      }
+    } finally {
+      setSendingDirect(false)
     }
   }
 
@@ -899,18 +990,33 @@ export default function MessagesPage() {
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleOptimizeMessage}
-                    disabled={loading}
-                    className="flex items-center gap-2 rounded-lg bg-[#4f2ee0] px-6 py-4 text-[14px] font-semibold text-white transition hover:bg-[#4525d0] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <SparkleIcon />
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleDirectSendGmail}
+                      disabled={loading || sendingDirect}
+                      className="flex items-center gap-2 rounded-lg border border-[#dedde5] bg-white px-5 py-4 text-[14px] font-semibold text-[#37353f] transition hover:bg-[#f6f6f9] hover:border-[#c5c3d4] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer shadow-xs"
+                      title="AI 변환 단계 없이 작성한 내용을 바로 Gmail로 발송합니다"
+                    >
+                      <svg className="h-4 w-4 text-[#ea4335]" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
+                      </svg>
+                      {sendingDirect ? '발송 중...' : 'Gmail로 보내기'}
+                    </button>
 
-                    {loading
-                      ? '최적화 중...'
-                      : 'AI로 최적화하기'}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={handleOptimizeMessage}
+                      disabled={loading || sendingDirect}
+                      className="flex items-center gap-2 rounded-lg bg-[#4f2ee0] px-6 py-4 text-[14px] font-semibold text-white transition hover:bg-[#4525d0] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+                    >
+                      <SparkleIcon />
+
+                      {loading
+                        ? '최적화 중...'
+                        : 'AI로 최적화하기'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -11,6 +11,9 @@ function AccountSection() {
 
   const [name, setName] = useState(profile.name || '홍길동')
   const [email, setEmail] = useState(profile.email || 'jungmin@company.com')
+  const [company, setCompany] = useState(profile.company || '')
+  const [position, setPosition] = useState(profile.position || '')
+  const [workHours, setWorkHours] = useState(profile.workHours || '09:00 - 18:00')
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [passwordCheck, setPasswordCheck] = useState('')
@@ -58,7 +61,15 @@ function AccountSection() {
       await fetch(`${API_URL}/api/users/me`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ name: name.trim(), email: email.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          company: company.trim(),
+          companyName: company.trim(),
+          position: position.trim(),
+          jobTitle: position.trim(),
+          workHours: workHours.trim() || '09:00 - 18:00',
+        }),
       }).catch(() => null)
 
       // 2. 비밀번호 변경 요청
@@ -78,7 +89,13 @@ function AccountSection() {
         }
       }
 
-      saveUserProfile({ name: name.trim(), email: email.trim() })
+      await saveUserProfile({
+        name: name.trim(),
+        email: email.trim(),
+        company: company.trim(),
+        position: position.trim(),
+        workHours: workHours.trim() || '09:00 - 18:00',
+      })
       showSavedMessage()
     } catch (err: any) {
       setErrorMessage(err.message || '저장 중 오류가 발생했습니다.')
@@ -122,12 +139,39 @@ function AccountSection() {
           className="h-10 rounded-md border border-[#dedee3] px-3 outline-none focus:border-[#5146e5] focus:ring-2 focus:ring-[#5146e5]/10"
         />
 
+        <label htmlFor="settings-company" className="text-right text-[#676971] max-sm:text-left">소속 회사</label>
+        <input
+          id="settings-company"
+          value={company}
+          onChange={(event) => setCompany(event.target.value)}
+          placeholder="예: ABC Company"
+          className="h-10 rounded-md border border-[#dedee3] px-3 outline-none focus:border-[#5146e5] focus:ring-2 focus:ring-[#5146e5]/10"
+        />
+
+        <label htmlFor="settings-position" className="text-right text-[#676971] max-sm:text-left">직급</label>
+        <input
+          id="settings-position"
+          value={position}
+          onChange={(event) => setPosition(event.target.value)}
+          placeholder="예: 책임, 팀장, 매니저"
+          className="h-10 rounded-md border border-[#dedee3] px-3 outline-none focus:border-[#5146e5] focus:ring-2 focus:ring-[#5146e5]/10"
+        />
+
+        <label htmlFor="settings-workhours" className="text-right text-[#676971] max-sm:text-left">업무 시간</label>
+        <input
+          id="settings-workhours"
+          value={workHours}
+          onChange={(event) => setWorkHours(event.target.value)}
+          placeholder="예: 09:00 - 18:00"
+          className="h-10 rounded-md border border-[#dedee3] px-3 outline-none focus:border-[#5146e5] focus:ring-2 focus:ring-[#5146e5]/10"
+        />
+
         <span className="text-right text-[#676971] max-sm:text-left">비밀번호</span>
         <div>
           <button
             type="button"
             onClick={() => setIsChangingPassword(!isChangingPassword)}
-            className="h-9 rounded-md bg-[#f2f2f4] px-4 font-medium hover:bg-[#e9e9ed]"
+            className="h-9 rounded-md bg-[#f2f2f4] px-4 font-medium hover:bg-[#e9e9ed] cursor-pointer"
           >
             {isChangingPassword ? '비밀번호 변경 취소' : '비밀번호 변경'}
           </button>

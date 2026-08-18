@@ -1516,7 +1516,7 @@ function RecipientsPage() {
 
                 <div className="flex items-center gap-2">
                   <span className="w-16 shrink-0 text-[12px] font-medium text-[#7b7b84]">응답 속도</span>
-                  <span className="font-medium text-[#3b3c48]">{selectedRecipient.responseSpeed} (평균 {selectedRecipient.averageResponseMinutes}분)</span>
+                  <span className="font-medium text-[#3b3c48]">{selectedRecipient.responseSpeed} (평균 {selectedRecipient.averageResponseMinutes || 30}분)</span>
                 </div>
               </div>
 
@@ -1535,7 +1535,7 @@ function RecipientsPage() {
                     ))
                   ) : (
                     <span className="rounded-md bg-white border border-[#d8d2f5] px-2.5 py-1 text-[11px] font-medium text-[#5143d1] shadow-xs">
-                      {selectedRecipient.preferredStyle || '명확과 표현 선호'}
+                      {selectedRecipient.preferredStyle || '명확한 표현 선호'}
                     </span>
                   )}
                 </div>
@@ -1573,7 +1573,7 @@ function RecipientsPage() {
                 <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#4c3ddd]">
                     {
-                      selectedRecipient.averageResponseMinutes
+                      selectedRecipient.averageResponseMinutes || 30
                     }
 
                     <span className="ml-1 text-[14px]">
@@ -1588,13 +1588,11 @@ function RecipientsPage() {
 
                 <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#7a57ee]">
-                    {selectedRecipient.responseSpeed ===
-                    '빠름'
+                    {selectedRecipient.responseSpeed === '빠름'
                       ? 'Fast'
-                      : selectedRecipient.responseSpeed ===
-                          '보통'
-                        ? 'Normal'
-                        : 'Slow'}
+                      : selectedRecipient.responseSpeed === '느림'
+                        ? 'Slow'
+                        : 'Normal'}
                   </div>
 
                   <p className="mt-1 text-[11px] text-[#8d8e96]">
@@ -1605,7 +1603,7 @@ function RecipientsPage() {
                 <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#9a58ed]">
                     {
-                      selectedRecipient.collaborationActivity
+                      selectedRecipient.collaborationActivity || 'Medium'
                     }
                   </div>
 
@@ -1616,13 +1614,11 @@ function RecipientsPage() {
               </div>
 
               <div className="mt-5 rounded-full bg-[#f6f7f9] px-5 py-3 text-center text-[11px] text-[#777880]">
-                {selectedRecipient.responseSpeed ===
-                '빠름'
+                {selectedRecipient.responseSpeed === '빠름'
                   ? '업무시간 중 메시지를 확인하면 비교적 빠르게 응답하는 편입니다.'
-                  : selectedRecipient.responseSpeed ===
-                      '보통'
-                    ? '일반적인 업무시간 내에 응답하는 편입니다.'
-                    : '응답까지 시간이 걸릴 수 있어 미리 일정을 공유하는 것이 좋습니다.'}
+                  : selectedRecipient.responseSpeed === '느림'
+                    ? '응답까지 시간이 걸릴 수 있어 미리 일정을 공유하는 것이 좋습니다.'
+                    : '일반적인 업무시간 내에 응답하는 편입니다.'}
               </div>
             </div>
           </div>

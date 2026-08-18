@@ -37,7 +37,14 @@ function ProfileSetup() {
     const role = selectedRole === '기타'
       ? String(form.get('customRole')).trim()
       : selectedRole || profile.role
-    await saveUserProfile({ name: String(form.get('name')), company: String(form.get('company')), position: String(form.get('position')), role })
+    const workHours = String(form.get('workHours') || '').trim() || '09:00 - 18:00'
+    await saveUserProfile({
+      name: String(form.get('name')),
+      company: String(form.get('company')),
+      position: String(form.get('position')),
+      role,
+      workHours,
+    })
     localStorage.setItem('onboarding.profile', 'true')
     navigate('/communication')
   }
@@ -57,7 +64,10 @@ function ProfileSetup() {
               <Field label="이름"><input name="name" required defaultValue={profile.name} className={inputClass} /></Field>
               <Field label="소속 회사"><input name="company" required defaultValue={profile.company} placeholder="회사명" className={inputClass} /></Field>
             </div>
-            <div className="mt-4"><Field label="직급"><input name="position" defaultValue={profile.position} placeholder="예: 책임, 매니저, 팀장" className={inputClass} /></Field></div>
+            <div className="mt-4 grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+              <Field label="직급"><input name="position" defaultValue={profile.position} placeholder="예: 책임, 매니저, 팀장" className={inputClass} /></Field>
+              <Field label="업무 시간"><input name="workHours" defaultValue={profile.workHours || '09:00 - 18:00'} placeholder="예: 09:00 - 18:00" className={inputClass} /></Field>
+            </div>
 
             <fieldset className="mt-8 border-y border-[#ececf1] py-4">
               <legend className="sr-only">직무 선택</legend>

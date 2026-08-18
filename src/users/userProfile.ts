@@ -4,6 +4,7 @@ export type UserProfile = {
   company: string
   position: string
   role: string
+  workHours: string
   tools: string[]
   communicationPreferences: string[]
   customStyle: string
@@ -15,6 +16,7 @@ export const defaultUserProfile: UserProfile = {
   company: '',
   position: '',
   role: '',
+  workHours: '09:00 - 18:00',
   tools: [],
   communicationPreferences: [],
   customStyle: '',
@@ -70,6 +72,7 @@ export async function fetchUserProfile(): Promise<UserProfile> {
         company: data.companyName || data.company?.name || '',
         position: data.position || data.jobTitle || '',
         role: data.jobRole || data.role || '',
+        workHours: data.workHours || '09:00 - 18:00',
         tools: data.tools || ['Slack', 'Notion', 'Gmail'],
         communicationPreferences: data.communicationPreferences || [],
         customStyle: data.customStyle || data.preferredStyle || '',
@@ -106,6 +109,7 @@ export async function saveUserProfile(profile: Partial<UserProfile>): Promise<Us
           jobTitle: updated.position,
           role: updated.role,
           jobRole: updated.role,
+          workHours: updated.workHours,
           tools: updated.tools,
           communicationPreferences: updated.communicationPreferences,
           customStyle: updated.customStyle,
