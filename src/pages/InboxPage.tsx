@@ -1,7 +1,21 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchInboxMessages, fetchInboxMessageDetail, getGmailStatus, type InboxMessage, type GmailStatus } from '../users/inbox'
+import {
+  fetchInboxMessages,
+  fetchInboxMessageDetail,
+  downloadInboxAttachment,
+  getGmailStatus,
+  type InboxMessage,
+  type GmailStatus,
+} from '../users/inbox'
 import MarkdownViewer from '../components/MarkdownViewer'
+
+function formatFileSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return '0 B'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return ''
@@ -352,11 +366,65 @@ export default function InboxPage() {
                         <div className="h-4 w-4/6 animate-pulse rounded bg-[#f0f0f5]" />
                       </div>
                     ) : (
-                      <MarkdownViewer
-                        content={selectedDetail.body || selectedDetail.snippet || ''}
-                        htmlContent={selectedDetail.htmlBody || ''}
-                        className="text-[13px] leading-relaxed text-[#2f2e34]"
-                      />
+                      <>
+                        <MarkdownViewer
+                          content={selectedDetail.body || selectedDetail.snippet || ''}
+                          htmlContent={selectedDetail.htmlBody || ''}
+                          className="text-[13px] leading-relaxed text-[#2f2e34]"
+                        />
+
+                        {/* Attachments Section */}
+                        {selectedDetail.attachments && selectedDetail.attachments.length > 0 && (
+                          <div className="mt-8 border-t border-[#ededf0] pt-6">
+                            <div className="flex items-center gap-2 mb-3">
+                              <svg className="h-4 w-4 text-[#4f46e5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                              </svg>
+                              <span className="text-[13px] font-bold text-[#222]">
+                                첨부파일 ({selectedDetail.attachments.length}개)
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {selectedDetail.attachments.map((att, idx) => (
+                                <div
+                                  key={att.id || idx}
+                                  className="group flex items-center justify-between gap-3 rounded-xl border border-[#e5e5eb] bg-[#fbfbfe] p-3.5 transition hover:border-[#cfc7ff] hover:bg-white hover:shadow-sm"
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#eeeaff] text-[#4f46e5]">
+                                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                                        <polyline points="14 2 14 8 20 8" />
+                                      </svg>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="truncate text-[12px] font-semibold text-[#29272c] group-hover:text-[#4f46e5]">
+                                        {att.name || att.filename || '첨부파일'}
+                                      </p>
+                                      <p className="text-[10px] text-[#888]">
+                                        {formatFileSize(att.size)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => downloadInboxAttachment(selectedDetail.id, att)}
+                                    className="flex shrink-0 items-center gap-1 rounded-lg border border-[#d9d9df] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#4f46e5] shadow-xs transition hover:bg-[#f5f3ff] hover:border-[#c4b5fd]"
+                                    title="다운로드"
+                                  >
+                                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                      <polyline points="7 10 12 15 17 10" />
+                                      <line x1="12" y1="15" x2="12" y2="3" />
+                                    </svg>
+                                    <span>다운로드</span>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 

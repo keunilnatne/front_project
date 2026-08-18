@@ -14,6 +14,16 @@ function authorizationHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+export type InboxAttachment = {
+  id: string
+  name: string
+  filename?: string
+  mimeType: string
+  size: number
+  attachmentId?: string
+  messageId: string
+}
+
 export type InboxMessage = {
   id: string
   threadId?: string
@@ -25,6 +35,7 @@ export type InboxMessage = {
   snippet: string
   body?: string
   htmlBody?: string
+  attachments?: InboxAttachment[]
 }
 
 export type GmailStatus = {
@@ -89,6 +100,7 @@ export async function fetchInboxMessages(q?: string): Promise<InboxMessage[]> {
       date: item.date || '',
       snippet: item.snippet || '',
       body: item.body || '',
+      attachments: item.attachments || [],
     }
   })
 }
@@ -116,5 +128,51 @@ export async function fetchInboxMessageDetail(messageId: string): Promise<InboxM
     snippet: item.snippet || '',
     body: item.body || item.snippet || '',
     htmlBody: item.htmlBody || '',
+    attachments: (item.attachments || []).map((att: any) => ({
+      id: String(att.id || att.attachmentId || ''),
+      name: att.name || att.filename || '첨부파일',
+      filename: att.filename || att.name || '첨부파일',
+      mimeType: att.mimeType || 'application/octet-stream',
+      size: Number(att.size) || 0,
+      attachmentId: att.attachmentId || att.id,
+      messageId: String(item.id),
+    })),
+  }
+}
+
+export async function downloadInboxAttachment(messageId: string, attachment: InboxAttachment): Promise<void> {
+  const token = getAuthToken()
+  const params = new URLSearchParams()
+  if (attachment.name || attachment.filename) {
+    params.set('filename', attachment.name || attachment.filename || 'attachment')
+  }
+  if (attachment.mimeType) {
+    params.set('mimeType', attachment.mimeType)
+  }
+
+  const attachmentId = attachment.attachmentId || attachment.id
+  const url = `${API_URL}/api/gmail/messages/${messageId}/attachments/${attachmentId}?${params.toString()}`
+
+  try {
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+
+    if (!response.ok) {
+      alert('첨부파일을 다운로드할 수 없습니다.')
+      return
+    }
+
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = attachment.name || attachment.filename || 'download'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(blobUrl)
+  } catch {
+    alert('첨부파일 다운로드 중 오류가 발생했습니다.')
   }
 }
