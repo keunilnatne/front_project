@@ -234,14 +234,19 @@ function parseDeadline(
   }
 }
 
+function getColorForPattern(pattern: Pattern): CalendarEvent['color'] {
+  if (pattern.attachmentName === 'blue' || pattern.attachmentName === 'green' || pattern.attachmentName === 'purple') {
+    return pattern.attachmentName
+  }
+  const str = String(pattern.id || pattern.title || '')
+  const hash = str.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  const colors: CalendarEvent['color'][] = ['blue', 'purple', 'green']
+  return colors[hash % colors.length]
+}
+
 /**
- * 기존 Team Memory의 Pattern만
+ * 기존 Team Memory의 Pattern을
  * 캘린더 데이터로 변환합니다.
- *
- * 일정은 하드코딩하지 않습니다.
- *
- * 현재 프로젝트에서 실제 날짜 정보가 들어있는
- * Pattern.deadline만 캘린더에 표시합니다.
  */
 function patternsToCalendarEvents(
   patterns: Pattern[],
@@ -249,7 +254,7 @@ function patternsToCalendarEvents(
   const events: CalendarEvent[] = []
 
   patterns.forEach(
-    (pattern, index) => {
+    (pattern) => {
       const parsed = parseDeadline(
         pattern.deadline,
       )
@@ -259,7 +264,7 @@ function patternsToCalendarEvents(
       }
 
       const event: CalendarEvent = {
-        id: pattern.id,
+        id: String(pattern.id),
         date: parsed.date,
         start: parsed.start,
         end: parsed.end,
@@ -267,22 +272,13 @@ function patternsToCalendarEvents(
         title:
           pattern.title.trim() ||
           pattern.request.trim() ||
-          'AI 학습 일정',
+          '팀 일정',
 
-        /*
-         * 현재 Pattern 모델에는 장소 필드가 없으므로
-         * 없는 장소를 임의로 생성하지 않습니다.
-         */
-        place: 'AI 학습',
+        place: pattern.reason?.trim() || '온라인',
 
-        color:
-          index % 3 === 0
-            ? 'blue'
-            : index % 3 === 1
-              ? 'green'
-              : 'purple',
+        color: getColorForPattern(pattern),
 
-        source: 'ai',
+        source: 'manual',
       }
 
       events.push(event)
@@ -700,7 +696,7 @@ export default function TeamMemoryPage() {
           !controller.signal.aborted
         ) {
           setErrorMessage(
-            'AI 학습 데이터를 불러오지 못했습니다.',
+            '일정 데이터를 불러오지 못했습니다.',
           )
         }
       } finally {
@@ -839,17 +835,16 @@ export default function TeamMemoryPage() {
   const addEvent = async (
     event: EventDraft,
   ) => {
-    const deadline =
-      `${event.date} ${event.start}`
+    const deadline = event.end ? `${event.date} ${event.start} - ${event.end}` : `${event.date} ${event.start}`
 
     const pattern: Pattern = {
-      id: `team-memory-${Date.now()}`,
+      id: `team-schedule-${Date.now()}`,
       title: event.title,
       purpose: event.title,
-      reason:
-        '팀 일정에서 직접 추가',
+      reason: event.place?.trim() || '온라인',
       request: event.title,
       deadline,
+      attachmentName: event.color || 'blue',
       updatedAt:
         new Date().toISOString(),
       unread: false,
@@ -912,8 +907,7 @@ export default function TeamMemoryPage() {
             </h1>
 
             <p className="mt-1 text-[13px] text-[#7a8395]">
-              AI가 팀 커뮤니케이션에서
-              학습한 일정 정보를 한눈에
+              팀원들의 주요 미팅 및 협업 일정을 한눈에
               확인하세요.
             </p>
           </div>
@@ -1135,8 +1129,7 @@ export default function TeamMemoryPage() {
             <div className="mt-7 space-y-6">
               {loading ? (
                 <div className="py-8 text-center text-[12px] text-[#9aa1b0]">
-                  AI 학습 데이터를
-                  불러오는 중입니다.
+                  일정 데이터를 불러오는 중입니다.
                 </div>
               ) : errorMessage ? (
                 <div className="py-8 text-center text-[12px] leading-5 text-[#d44c4c]">
@@ -1147,7 +1140,7 @@ export default function TeamMemoryPage() {
                 <div className="py-8 text-center text-[12px] leading-5 text-[#9aa1b0]">
                   이 날짜에 등록된
                   <br />
-                  AI 일정이 없습니다.
+                  일정이 없습니다.
                 </div>
               ) : (
                 selectedEvents.map(
