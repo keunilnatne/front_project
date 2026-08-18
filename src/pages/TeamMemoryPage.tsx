@@ -15,7 +15,7 @@ type CalendarEvent = {
   title: string
   place: string
   color: 'blue' | 'green' | 'purple'
-  source: 'ai' | 'manual'
+  source: 'manual' | 'email'
 }
 
 type EventDraft = {
@@ -234,6 +234,15 @@ function parseDeadline(
   }
 }
 
+function getEventSource(pattern: Pattern): 'manual' | 'email' {
+  const reason = (pattern.reason || '').toLowerCase()
+  const att = (pattern.attachmentName || '').toLowerCase()
+  if (reason.includes('이메일') || reason.includes('email') || att.includes('email') || att === 'green' || (pattern as any).type === 'log') {
+    return 'email'
+  }
+  return 'manual'
+}
+
 function getColorForPattern(pattern: Pattern): CalendarEvent['color'] {
   if (pattern.attachmentName === 'blue' || pattern.attachmentName === 'green' || pattern.attachmentName === 'purple') {
     return pattern.attachmentName
@@ -242,6 +251,21 @@ function getColorForPattern(pattern: Pattern): CalendarEvent['color'] {
   const hash = str.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
   const colors: CalendarEvent['color'][] = ['blue', 'purple', 'green']
   return colors[hash % colors.length]
+}
+
+function cleanPlace(raw?: string): string {
+  if (!raw) return ''
+  const trimmed = raw.trim()
+  if (
+    trimmed === '팀 일정에서 직접 추가' ||
+    trimmed === 'AI 학습' ||
+    trimmed === 'AI 학습 데이터' ||
+    trimmed === '수동 추가' ||
+    trimmed === '이메일 연동'
+  ) {
+    return ''
+  }
+  return trimmed
 }
 
 /**
@@ -263,6 +287,7 @@ function patternsToCalendarEvents(
         return
       }
 
+      const source = getEventSource(pattern)
       const event: CalendarEvent = {
         id: String(pattern.id),
         date: parsed.date,
@@ -274,11 +299,11 @@ function patternsToCalendarEvents(
           pattern.request.trim() ||
           '팀 일정',
 
-        place: pattern.reason?.trim() || '온라인',
+        place: cleanPlace(pattern.reason),
 
         color: getColorForPattern(pattern),
 
-        source: 'manual',
+        source,
       }
 
       events.push(event)
@@ -334,20 +359,6 @@ function colorClass(
   }
 
   return 'bg-[#4385f5]'
-}
-
-function colorTextClass(
-  color: CalendarEvent['color'],
-) {
-  if (color === 'green') {
-    return 'text-[#16a971]'
-  }
-
-  if (color === 'purple') {
-    return 'text-[#8050ee]'
-  }
-
-  return 'text-[#4385f5]'
 }
 
 function PlusIcon() {
@@ -1164,19 +1175,21 @@ export default function TeamMemoryPage() {
                           )}
                         </p>
 
-                        <div className="mt-1.5 flex items-start justify-between gap-2">
-                          <p className="text-[15px] font-medium leading-5 text-[#323847]">
+                        <div className="mt-1 flex items-center justify-between gap-2">
+                          <p className="text-[15px] font-semibold leading-5 text-[#292f3e] truncate">
                             {event.title}
                           </p>
 
-                          <div className="flex items-center gap-1 shrink-0">
-                            <span
-                              className={`rounded-md bg-[#f5f6fa] px-2 py-1 text-[10px] font-medium ${colorTextClass(
-                                event.color,
-                              )}`}
-                            >
-                              {event.place}
-                            </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {event.source === 'email' ? (
+                              <span className="rounded-md bg-[#ecfdf5] border border-[#a7f3d0] px-2 py-0.5 text-[10px] font-semibold text-[#059669]">
+                                이메일 추가
+                              </span>
+                            ) : (
+                              <span className="rounded-md bg-[#fef2f2] border border-[#fecaca] px-2 py-0.5 text-[10px] font-semibold text-[#dc2626]">
+                                직접 추가
+                              </span>
+                            )}
                             <button
                               type="button"
                               onClick={(e) => handleDeleteEvent(event.id, e)}
@@ -1187,6 +1200,16 @@ export default function TeamMemoryPage() {
                             </button>
                           </div>
                         </div>
+
+                        {event.place && (
+                          <div className="mt-1 flex items-center gap-1 text-[11px] text-[#717b8f]">
+                            <svg className="w-3 h-3 text-[#94a3b8] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                              <circle cx="12" cy="10" r="3" />
+                            </svg>
+                            <span className="truncate">{event.place}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ),
