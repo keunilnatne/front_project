@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getNotifications, markNotificationsRead, type NotificationItem } from '../users/notifications'
+import { getNotifications, markNotificationsRead, parseTimestamp, type NotificationItem } from '../users/notifications'
 import { fetchRecipients, type Recipient } from '../users/recipients'
 import { fetchHistory, type HistoryItem } from '../users/history'
 import { fetchConversations, type Conversation } from '../users/conversationArchive'
@@ -153,11 +153,11 @@ export default function PageHeader({
           const inboxMessages = await fetchInboxMessages()
           if (active && Array.isArray(inboxMessages)) {
             const current = getNotifications()
-            let hasNew = false
-            for (const msg of inboxMessages.slice(0, 10)) {
+            const newItems: NotificationItem[] = []
+            for (const msg of inboxMessages.slice(0, 15)) {
               const notifId = `mail-${msg.id}`
               if (!current.some((notification) => notification.id === notifId)) {
-                current.unshift({
+                newItems.push({
                   id: notifId,
                   type: 'mail',
                   title: `[새 메일] ${msg.fromName || msg.fromEmail || '알 수 없음'}`,
@@ -165,11 +165,13 @@ export default function PageHeader({
                   createdAt: msg.date || new Date().toISOString(),
                   read: false,
                 })
-                hasNew = true
               }
             }
-            if (hasNew) {
-              localStorage.setItem('ieum-notifications', JSON.stringify(current.slice(0, 50)))
+            if (newItems.length > 0) {
+              const merged = [...newItems, ...current]
+                .sort((a, b) => parseTimestamp(b.createdAt) - parseTimestamp(a.createdAt))
+                .slice(0, 50)
+              localStorage.setItem('ieum-notifications', JSON.stringify(merged))
               window.dispatchEvent(new Event('notifications-updated'))
             }
           }
@@ -213,7 +215,11 @@ export default function PageHeader({
     void updateSearchResults()
   }, [searchValue, searchData])
 
-  const unreadCount = useMemo(() => notifications.filter((item) => !item.read).length, [notifications])
+  const sortedNotifications = useMemo(() => {
+    return [...notifications].sort((a, b) => parseTimestamp(b.createdAt) - parseTimestamp(a.createdAt))
+  }, [notifications])
+
+  const unreadCount = useMemo(() => sortedNotifications.filter((item) => !item.read).length, [sortedNotifications])
 
   const submitSearch = (value: string) => {
     if (onSearchSubmit) {
@@ -300,10 +306,10 @@ export default function PageHeader({
                 <span>알림</span>
                 <span style={{ fontSize: 10, color: '#888', fontWeight: 'normal' }}>최신순</span>
               </div>
-              {notifications.length === 0 ? (
+              {sortedNotifications.length === 0 ? (
                 <div style={{ padding: 24, color: '#999', fontSize: 12, textAlign: 'center' }}>새로운 알림이 없습니다.</div>
               ) : (
-                notifications.map((item) => (
+                sortedNotifications.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => {

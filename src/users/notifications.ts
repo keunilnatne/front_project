@@ -9,10 +9,20 @@ export type NotificationItem = {
 
 const STORAGE_KEY = 'ieum-notifications'
 
+export function parseTimestamp(dateStr?: string): number {
+  if (!dateStr) return 0
+  const parsed = Date.parse(dateStr)
+  if (!isNaN(parsed)) return parsed
+  const clean = dateStr.replace(/\./g, '-').trim()
+  const p2 = Date.parse(clean)
+  return isNaN(p2) ? 0 : p2
+}
+
 function read(): NotificationItem[] {
   try {
     const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-    return Array.isArray(value) ? value : []
+    if (!Array.isArray(value)) return []
+    return value.sort((a, b) => parseTimestamp(b.createdAt) - parseTimestamp(a.createdAt))
   } catch {
     return []
   }
@@ -29,7 +39,9 @@ export function addNotification(item: Omit<NotificationItem, 'id' | 'createdAt' 
     createdAt: new Date().toISOString(),
     read: false,
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([next, ...read()].slice(0, 50)))
+  const current = read().filter((n) => n.id !== next.id)
+  const merged = [next, ...current].sort((a, b) => parseTimestamp(b.createdAt) - parseTimestamp(a.createdAt)).slice(0, 50)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
   window.dispatchEvent(new Event('notifications-updated'))
   return next
 }
@@ -37,11 +49,14 @@ export function addNotification(item: Omit<NotificationItem, 'id' | 'createdAt' 
 export function addNotificationIfAbsent(item: NotificationItem) {
   const current = read()
   if (current.some((n) => n.id === item.id)) return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([item, ...current].slice(0, 50)))
+  const merged = [item, ...current].sort((a, b) => parseTimestamp(b.createdAt) - parseTimestamp(a.createdAt)).slice(0, 50)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
   window.dispatchEvent(new Event('notifications-updated'))
 }
 
 export function markNotificationsRead() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(read().map((item) => ({ ...item, read: true }))))
+  const current = read()
+  const updated = current.map((item) => ({ ...item, read: true }))
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
   window.dispatchEvent(new Event('notifications-updated'))
 }
