@@ -172,9 +172,9 @@ function SocialLoginSection() {
 
   useEffect(() => {
     const handleGoogleAuthMessage = (event: MessageEvent<GoogleAuthMessage>) => {
-      if (event.origin !== window.location.origin) return
+      if (!event.data || typeof event.data !== 'object') return
 
-      if (event.data?.type === 'google-auth-success' && event.data.email) {
+      if (event.data.type === 'google-auth-success' && event.data.email) {
         setIsConnecting(false)
         const email = event.data.email
         localStorage.setItem('auth.isGoogleLogin', 'true')
@@ -194,7 +194,7 @@ function SocialLoginSection() {
         return
       }
 
-      if (event.data?.type === 'google-auth-error') {
+      if (event.data.type === 'google-auth-error') {
         setIsConnecting(false)
         setGoogleError(event.data.message || 'Google 로그인에 실패했습니다.')
       }
