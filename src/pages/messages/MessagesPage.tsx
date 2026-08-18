@@ -482,20 +482,22 @@ export default function MessagesPage() {
       console.error(error)
       try {
         const detectedSource = aiMetadata?.sourceLanguage || detectMessageLanguage(`${subject} ${body}`)
-        const fallback = await translateAndSpellCheck(body, selectedRecipients[0]?.language || 'en', detectedSource)
+        const targetLang = selectedRecipients[0]?.language || 'en'
+        const fallbackSub = await translateAndSpellCheck(subject, targetLang, detectedSource)
+        const fallbackBody = await translateAndSpellCheck(body, targetLang, detectedSource)
         navigate('/messages/optimized', {
           state: {
             recipients: selectedRecipients,
-            subject,
-            body: fallback.translatedText,
+            subject: fallbackSub.translatedText || subject,
+            body: fallbackBody.translatedText || body,
             originalSubject: subject,
             originalBody: body,
             attachments,
             fallbackMode: true,
-            fallbackMessage: 'AI 연결에 실패해서 맞춤법 검사만 진행했습니다.',
-            spellCorrections: fallback.corrections,
-            detectedSourceLanguage: fallback.sourceLanguage,
-            targetLanguage: fallback.targetLanguage,
+            fallbackMessage: 'AI 연결에 실패해서 맞춤법 및 언어 변환만 진행했습니다.',
+            spellCorrections: [...(fallbackSub.corrections || []), ...(fallbackBody.corrections || [])],
+            detectedSourceLanguage: fallbackBody.sourceLanguage,
+            targetLanguage: fallbackBody.targetLanguage,
             aiContext: { tags: [], terms: [], rules: [] },
           },
         })

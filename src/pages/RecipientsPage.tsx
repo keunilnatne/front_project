@@ -1196,9 +1196,9 @@ function RecipientsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-[298px_minmax(0,1fr)] items-start gap-7">
+        <div className="grid grid-cols-[298px_minmax(0,1fr)] items-stretch gap-7">
           {/* Left */}
-          <div className="flex max-h-[calc(100vh-140px)] min-h-[500px] flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)] sticky top-6">
+          <div className="flex h-full min-h-[600px] max-h-[calc(100vh-140px)] flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
             <div className="border-b border-[#ededf0] p-4 shrink-0">
               <div className="flex h-9 items-center rounded-full bg-[#f1f1f4] px-4">
                 <input
@@ -1355,7 +1355,7 @@ function RecipientsPage() {
 
           {/* Right */}
           {!selectedRecipient ? (
-            <div className="flex min-h-[500px] items-center justify-center rounded-[22px] border border-[#e7e7eb] bg-white p-10 text-center">
+            <div className="flex h-full min-h-[600px] items-center justify-center rounded-[22px] border border-[#e7e7eb] bg-white p-10 text-center">
               <div>
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f0edff] text-2xl text-[#5143d1]">+</div>
                 <h2 className="mt-4 text-[18px] font-semibold text-[#29292d]">등록된 수신자가 없습니다</h2>
@@ -1364,7 +1364,7 @@ function RecipientsPage() {
               </div>
             </div>
           ) : (
-          <div className="flex flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div className="flex h-full min-h-[600px] flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-5 px-6 py-5">
               <Avatar
                 recipient={selectedRecipient}

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
 import { useSearchParams } from 'react-router-dom'
 import { fetchHistory, type HistoryItem } from '../users/history'
-import { analyzeHistory, type HistoryAIInsight } from '../ai/aiInsights'
 import MarkdownViewer from '../components/MarkdownViewer'
 
 type TabType = '전체' | '변환 기록' | '전송 기록'
@@ -69,8 +68,6 @@ export default function HistoryPage() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [aiInsight, setAiInsight] = useState<HistoryAIInsight | null>(null)
-  const [aiInsightLoading, setAiInsightLoading] = useState(false)
 
   const loadHistory = useCallback(async () => {
     try {
@@ -95,21 +92,6 @@ export default function HistoryPage() {
     const load = async () => { await loadHistory() }
     void load()
   }, [loadHistory])
-
-  useEffect(() => {
-    let active = true
-    const loadInsight = async () => {
-      if (!history.length) {
-        if (active) setAiInsight(null)
-        return
-      }
-      if (active) setAiInsightLoading(true)
-      const insight = await analyzeHistory(history)
-      if (active) { setAiInsight(insight); setAiInsightLoading(false) }
-    }
-    void loadInsight()
-    return () => { active = false }
-  }, [history])
 
   const filtered = useMemo(() => {
     const keyword = search.trim().toLowerCase()
@@ -223,12 +205,13 @@ export default function HistoryPage() {
     <div className="min-h-screen bg-[#f8f9fc]">
       <PageHeader searchValue={search} onSearchChange={setSearch} onSearchSubmit={setSearch} searchPlaceholder="기록 검색..." />
 
-      <main className="grid grid-cols-[1fr_320px] gap-6 px-8 pb-12 pt-8">
-        <div className="col-span-full mb-0">
+      <main className="max-w-7xl mx-auto px-8 pb-12 pt-8">
+        <div className="mb-6">
           <h1 className="ieum-page-title">기록</h1>
+          <p className="mt-1 text-[13px] text-[#777]">AI 변환 및 발송된 모든 커뮤니케이션 기록을 확인하세요</p>
         </div>
         <section>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               ['▥', '총 기록 수', history.length, '전체 누적 기록'],
               ['⌁', '평균 적합도', `${average}%`, '전체 평균 점수'],
@@ -277,8 +260,8 @@ export default function HistoryPage() {
                 onClick={() => setActiveTab(tab)}
                 className={
                   activeTab === tab
-                    ? 'border-b-2 border-[#5033df] px-4 pb-4 text-[13px] font-semibold text-[#5033df]'
-                    : 'px-4 pb-4 text-[13px] text-[#777]'
+                    ? 'border-b-2 border-[#5033df] px-4 pb-4 text-[13px] font-semibold text-[#5033df] cursor-pointer'
+                    : 'px-4 pb-4 text-[13px] text-[#777] cursor-pointer'
                 }
               >
                 {tab}
@@ -287,10 +270,10 @@ export default function HistoryPage() {
           </div>
 
           <div className="mt-6 overflow-hidden rounded-xl border border-[#dedee5] bg-white">
-            <div className="grid grid-cols-[150px_120px_1fr_100px_100px] border-b border-[#dddde2] px-5 py-4 text-[11px] text-[#777]">
+            <div className="grid grid-cols-[150px_130px_1fr_100px_100px] border-b border-[#dddde2] px-5 py-4 text-[11px] font-medium text-[#777]">
               <span>일시</span>
               <span>수신자</span>
-              <span>목적</span>
+              <span>제목</span>
               <span>적합도 점수</span>
               <span>상태</span>
             </div>
@@ -309,24 +292,24 @@ export default function HistoryPage() {
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedItem(item)}
-                  className="grid w-full grid-cols-[150px_120px_1fr_100px_100px] items-center border-b border-[#eeeef0] px-5 py-4 text-left text-[12px] last:border-0 hover:bg-[#fafafe]"
+                  className="grid w-full grid-cols-[150px_130px_1fr_100px_100px] items-center border-b border-[#eeeef0] px-5 py-4 text-left text-[12px] last:border-0 hover:bg-[#fafafe] cursor-pointer"
                 >
                   <span className="text-[11px] text-[#666]">{formatDateTime(item.createdAt || item.sentAt || item.date)}</span>
 
                   <span className="flex items-center gap-2">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#f4dcca] text-[9px]">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#f4dcca] text-[9px] font-semibold">
                       {item.recipient.slice(0, 1)}
                     </span>
-                    {item.recipient}
+                    <span className="truncate">{item.recipient}</span>
                   </span>
 
-                  <span className="truncate pr-3">
-                    {item.purpose}
+                  <span className="truncate pr-4 font-medium text-[#2f303b]">
+                    {item.subject || item.purpose || '(제목 없음)'}
                   </span>
 
                   <span>
                     <span
-                      className={`rounded-full px-3 py-1 ${getScoreClass(
+                      className={`rounded-full px-3 py-1 text-[11px] font-medium ${getScoreClass(
                         item.score,
                       )}`}
                     >
@@ -336,7 +319,7 @@ export default function HistoryPage() {
 
                   <span>
                     <span
-                      className={`rounded px-2 py-1 text-[10px] ${getStatusClass(
+                      className={`rounded px-2 py-1 text-[10px] font-medium ${getStatusClass(
                         item.status,
                       )}`}
                     >
@@ -360,7 +343,7 @@ export default function HistoryPage() {
                   type="button"
                   onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="flex h-8 w-8 items-center justify-center rounded border border-[#dedde3] text-[12px] disabled:opacity-30"
+                  className="flex h-8 w-8 items-center justify-center rounded border border-[#dedde3] text-[12px] disabled:opacity-30 cursor-pointer"
                 >
                   ‹
                 </button>
@@ -375,8 +358,8 @@ export default function HistoryPage() {
                     onClick={() => goToPage(page)}
                     className={
                       currentPage === page
-                        ? 'flex h-8 w-8 items-center justify-center rounded bg-[#5033df] text-[12px] text-white'
-                        : 'flex h-8 w-8 items-center justify-center rounded border border-[#dedde3] text-[12px]'
+                        ? 'flex h-8 w-8 items-center justify-center rounded bg-[#5033df] text-[12px] text-white cursor-pointer'
+                        : 'flex h-8 w-8 items-center justify-center rounded border border-[#dedde3] text-[12px] cursor-pointer'
                     }
                   >
                     {page}
@@ -387,7 +370,7 @@ export default function HistoryPage() {
                   type="button"
                   onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="flex h-8 w-8 items-center justify-center rounded border border-[#dedde3] text-[12px] disabled:opacity-30"
+                  className="flex h-8 w-8 items-center justify-center rounded border border-[#dedde3] text-[12px] disabled:opacity-30 cursor-pointer"
                 >
                   ›
                 </button>
@@ -395,35 +378,18 @@ export default function HistoryPage() {
             )}
           </div>
         </section>
-
-        <aside>
-          <div className="rounded-xl border border-[#dedee5] bg-white p-6">
-            <h2 className="text-[16px] font-bold">✦ AI Insight Panel</h2>
-            {aiInsightLoading ? (
-              <div className="mt-5 rounded-xl border border-[#dedee5] p-5 text-[12px] text-[#888]">AI가 최근 기록을 분석하고 있습니다.</div>
-            ) : aiInsight ? (
-              <div className="mt-5 space-y-4">
-                <div className="rounded-xl border border-[#dedee5] p-5"><p className="text-[12px] text-[#6043d9]">주간 분석</p><h3 className="mt-2 text-[17px] font-bold">{aiInsight.summary}</h3><p className="mt-3 text-[12px] leading-5 text-[#777]">{aiInsight.efficiency}</p></div>
-                <div className="rounded-xl border border-[#dedee5] p-5"><p className="text-[12px] text-[#6043d9]">AI 추천</p><p className="mt-2 text-[12px] leading-5 text-[#555]">{aiInsight.recommendation}</p></div>
-                <div className="rounded-xl border border-[#dedee5] p-5"><p className="text-[12px] text-[#6043d9]">다음 집중 영역</p><p className="mt-2 text-[12px] leading-5 text-[#555]">{aiInsight.focus}</p></div>
-              </div>
-            ) : (
-              <div className="mt-5 rounded-xl border border-dashed border-[#dedee5] p-5 text-[12px] leading-5 text-[#888]">기록이 AI 분석 서버에 전달되면 주간 분석과 추천이 표시됩니다.</div>
-            )}
-          </div>
-        </aside>
       </main>
 
       {selectedItem && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-6"
           onClick={() => setSelectedItem(null)}
         >
           <div
-            className="w-full max-w-130 rounded-xl border border-[#dedee5] bg-white p-6"
+            className="w-full max-w-140 max-h-[85vh] flex flex-col rounded-xl border border-[#dedee5] bg-white p-6 shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between shrink-0 pb-4 border-b border-[#eee]">
               <h2 className="text-[17px] font-bold">
                 기록 상세
               </h2>
@@ -431,13 +397,13 @@ export default function HistoryPage() {
               <button
                 type="button"
                 onClick={() => setSelectedItem(null)}
-                className="text-[18px] text-[#777]"
+                className="text-[20px] text-[#777] hover:text-[#333] cursor-pointer"
               >
                 ×
               </button>
             </div>
 
-            <div className="mt-6 space-y-4 text-[13px]">
+            <div className="flex-1 overflow-y-auto mt-4 pr-1 space-y-4 text-[13px]">
               <div className="flex justify-between border-b border-[#eee] pb-3">
                 <span className="text-[#777]">날짜</span>
                 <span>{selectedItem.date}</span>
@@ -445,13 +411,13 @@ export default function HistoryPage() {
 
               <div className="flex justify-between border-b border-[#eee] pb-3">
                 <span className="text-[#777]">수신자</span>
-                <span>{selectedItem.recipient}</span>
+                <span className="font-medium">{selectedItem.recipient} {selectedItem.recipientEmail ? `(${selectedItem.recipientEmail})` : ''}</span>
               </div>
 
               <div className="flex justify-between border-b border-[#eee] pb-3">
-                <span className="text-[#777]">목적</span>
-                <span className="max-w-75 text-right">
-                  {selectedItem.purpose}
+                <span className="text-[#777]">제목</span>
+                <span className="max-w-[320px] text-right font-medium text-[#2d2e36]">
+                  {selectedItem.subject || selectedItem.purpose || '(제목 없음)'}
                 </span>
               </div>
 
@@ -484,24 +450,26 @@ export default function HistoryPage() {
 
               {selectedItem.content && (
                 <div>
-                  <p className="mb-2 text-[#777]">
+                  <p className="mb-2 font-medium text-[#777]">
                     내용
                   </p>
 
-                  <div className="rounded-lg bg-[#f8f9fc] p-4 leading-6">
+                  <div className="rounded-lg bg-[#f8f9fc] p-4 leading-6 border border-[#ededf2]">
                     <MarkdownViewer content={selectedItem.content} />
                   </div>
                 </div>
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setSelectedItem(null)}
-              className="mt-6 h-10 w-full rounded-lg bg-[#5033df] text-[13px] font-semibold text-white"
-            >
-              닫기
-            </button>
+            <div className="pt-4 border-t border-[#eee] shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedItem(null)}
+                className="h-10 w-full rounded-lg bg-[#5033df] text-[13px] font-semibold text-white transition hover:bg-[#432bc6] cursor-pointer"
+              >
+                닫기
+              </button>
+            </div>
           </div>
         </div>
       )}
