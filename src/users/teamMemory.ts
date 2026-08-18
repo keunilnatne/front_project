@@ -24,24 +24,12 @@ export type LearningLog = {
   time: string
 }
 
+import { authorizationHeaders } from './authStorage'
+
 const API_URL = import.meta.env.VITE_API_URL || ''
 const PATTERN_KEY = 'ieum.teamMemory.patterns'
 const CANDIDATE_KEY = 'ieum.teamMemory.candidates'
 const LOG_KEY = 'ieum.teamMemory.logs'
-
-function getAuthToken(): string | null {
-  return (
-    localStorage.getItem('ieum.token') ||
-    localStorage.getItem('ieum.accessToken') ||
-    localStorage.getItem('token') ||
-    localStorage.getItem('accessToken')
-  )
-}
-
-function authorizationHeaders(): Record<string, string> {
-  const token = getAuthToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 
 function read<T>(key: string, guard: (value: unknown) => value is T): T[] {
   try {

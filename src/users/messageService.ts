@@ -1,20 +1,7 @@
 import type { Recipient } from './recipients'
+import { authorizationHeaders } from './authStorage'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
-
-function getAuthToken(): string | null {
-  return (
-    localStorage.getItem('ieum.token') ||
-    localStorage.getItem('ieum.accessToken') ||
-    localStorage.getItem('token') ||
-    localStorage.getItem('accessToken')
-  )
-}
-
-function authorizationHeaders(): Record<string, string> {
-  const token = getAuthToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 
 export type MessageAttachment = {
   id?: string

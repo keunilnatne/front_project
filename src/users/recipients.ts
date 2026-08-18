@@ -21,22 +21,10 @@ export type Recipient = {
   preferredStyle?: string
 }
 
+import { getAuthToken, authorizationHeaders } from './authStorage'
+
 const API_URL = import.meta.env.VITE_API_URL || ''
 const STORAGE_KEY = 'recipients-data'
-
-function getAuthToken(): string | null {
-  return (
-    localStorage.getItem('ieum.token') ||
-    localStorage.getItem('ieum.accessToken') ||
-    localStorage.getItem('token') ||
-    localStorage.getItem('accessToken')
-  )
-}
-
-function authorizationHeaders(): Record<string, string> {
-  const token = getAuthToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 
 async function apiError(response: Response, fallback: string) {
   if (response.status === 401) {

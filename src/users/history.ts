@@ -17,22 +17,10 @@ export type HistoryItem = {
   sentAt?: string | null
 }
 
+import { authorizationHeaders } from './authStorage'
+
 const API_URL = import.meta.env.VITE_API_URL || ''
 const STORAGE_KEY = 'ieum.history'
-
-function getAuthToken(): string | null {
-  return (
-    localStorage.getItem('ieum.token') ||
-    localStorage.getItem('ieum.accessToken') ||
-    localStorage.getItem('token') ||
-    localStorage.getItem('accessToken')
-  )
-}
-
-function authorizationHeaders(): Record<string, string> {
-  const token = getAuthToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 
 function isHistoryItem(value: unknown): value is HistoryItem {
   if (!value || typeof value !== 'object') return false

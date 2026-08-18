@@ -17,6 +17,8 @@ export type Conversation = {
   styleAnalysis?: ConversationStyleAnalysis
 }
 
+import { authorizationHeaders } from './authStorage'
+
 export type ConversationStyleAnalysis = {
   tone: string
   writingStyle: string
@@ -27,20 +29,6 @@ export type ConversationStyleAnalysis = {
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 const CONVERSATIONS_KEY = 'ieum.conversations'
-
-function getAuthToken(): string | null {
-  return (
-    localStorage.getItem('ieum.token') ||
-    localStorage.getItem('ieum.accessToken') ||
-    localStorage.getItem('token') ||
-    localStorage.getItem('accessToken')
-  )
-}
-
-function authorizationHeaders(): Record<string, string> {
-  const token = getAuthToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 
 function isConversation(value: unknown): value is Conversation {
   if (!value || typeof value !== 'object') return false
@@ -72,10 +60,8 @@ export async function fetchConversations(signal?: AbortSignal): Promise<Conversa
       const data: unknown = await response.json()
       if (Array.isArray(data)) {
         const items = data.filter(isConversation)
-        if (items.length) {
-          localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(items))
-          return items.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-        }
+        localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(items))
+        return items.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
       }
     }
   } catch (error) {

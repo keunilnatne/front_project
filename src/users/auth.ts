@@ -1,3 +1,5 @@
+import { setAuthToken } from './authStorage'
+
 export type RegisterInput = {
   name: string
   email: string
@@ -44,7 +46,6 @@ export async function authenticateAccount(email: string, password: string): Prom
   const token = data.accessToken || data.token
   if (!token) throw new Error('로그인 응답에 인증 토큰이 없습니다.')
 
-  localStorage.setItem('ieum.accessToken', token)
-  localStorage.setItem('ieum.token', token)
+  setAuthToken(token)
   return true
 }

@@ -33,19 +33,7 @@ const ONBOARDING_STORAGE_KEYS = [
   'onboarding.skipped',
 ] as const
 
-function getAuthToken(): string | null {
-  return (
-    localStorage.getItem('ieum.token') ||
-    localStorage.getItem('ieum.accessToken') ||
-    localStorage.getItem('token') ||
-    localStorage.getItem('accessToken')
-  )
-}
-
-function authorizationHeaders(): Record<string, string> {
-  const token = getAuthToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
+import { getAuthToken, authorizationHeaders } from './authStorage'
 
 export function getUserProfile(): UserProfile {
   try {

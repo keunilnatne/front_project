@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import googleLogo from '../../images/google.png'
 import { getGmailStatus } from '../../users/inbox'
+import { getAuthToken, authorizationHeaders } from '../../users/authStorage'
 
 type ServiceId = 'google' | 'slack' | 'teams'
 
@@ -37,25 +38,18 @@ function IntegrationsSection() {
 
   useEffect(() => {
     let active = true
-    const checkStatus = async () => {
-      try {
-        const status = await getGmailStatus()
-        if (active) {
-          const localEmail =
-            localStorage.getItem('onboarding.gmailEmail') ||
-            (localStorage.getItem('auth.isGoogleLogin') === 'true' ? 'Google 계정' : null)
-          if (status.connected || localEmail || connections.google) {
-            setGoogleStatus({
-              connected: true,
-              email: status.email || localEmail || connections.google || 'Google 계정',
-            })
-          }
-        }
-      } catch {
-        // ignore
+    void getGmailStatus().then((status) => {
+      if (!active) return
+      setGoogleStatus(status)
+      if (status.connected && status.email) {
+        setConnections((prev) => {
+          if (prev.google === status.email) return prev
+          const next = { ...prev, google: status.email || undefined }
+          saveConnections(next)
+          return next
+        })
       }
-    }
-    void checkStatus()
+    })
     return () => {
       active = false
     }
@@ -68,8 +62,25 @@ function IntegrationsSection() {
     setSelectedService(null)
   }
 
-  const disconnectService = (service: Service) => {
+  const disconnectService = async (service: Service) => {
     if (!window.confirm(`${service.name} 연결을 해제하시겠습니까?`)) return
+
+    if (service.id === 'google') {
+      try {
+        const token = getAuthToken()
+        if (token) {
+          await fetch(`${API_URL}/api/integrations/gmail/disconnect`, {
+            method: 'DELETE',
+            headers: authorizationHeaders(),
+          })
+        }
+      } catch (err) {
+        console.warn('Gmail disconnect API error:', err)
+      }
+      setGoogleStatus({ connected: false, email: null })
+      localStorage.removeItem('onboarding.gmail')
+      localStorage.removeItem('onboarding.gmailEmail')
+    }
 
     const updatedConnections = { ...connections }
     delete updatedConnections[service.id]
@@ -80,12 +91,7 @@ function IntegrationsSection() {
 
   const handleConnectClick = (service: Service) => {
     if (service.id === 'google') {
-      const token =
-        localStorage.getItem('ieum.token') ||
-        localStorage.getItem('ieum.accessToken') ||
-        localStorage.getItem('token') ||
-        localStorage.getItem('accessToken') ||
-        ''
+      const token = getAuthToken() || ''
       window.location.href = `${API_URL}/api/auth/google${token ? `?state=${encodeURIComponent(token)}` : ''}`
       return
     }
