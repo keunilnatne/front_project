@@ -444,18 +444,6 @@ export default function MessagesPage() {
         body,
       })
 
-      void createHistoryItem({
-        id: `conversion-${Date.now()}`,
-        date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
-        recipient: selectedRecipients.map((item) => item.name).join(', '),
-        purpose: subject,
-        score: optimized.score ?? 0,
-        status: 'AI 변환 완료',
-        type: '변환',
-        createdAt: new Date().toISOString(),
-        content: optimized.body,
-      })
-
       const optimizedMetadata = await analyzeMessageMetadata({
         recipients: selectedRecipients,
         subject: optimized.subject,

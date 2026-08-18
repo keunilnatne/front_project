@@ -97,6 +97,10 @@ export default function HistoryPage() {
     const keyword = search.trim().toLowerCase()
 
     return history.filter((item) => {
+      // 변환/전송 된 것만 노출 (내용 없는 실패 더미 제외)
+      const isFailedEmpty = item.status === '실패' && !item.content && !item.subject
+      if (isFailedEmpty) return false
+
       const matchesSearch =
         !keyword ||
         `${item.recipient} ${item.purpose} ${item.date} ${item.status}`
@@ -202,75 +206,116 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fc]">
-      <PageHeader searchValue={search} onSearchChange={setSearch} onSearchSubmit={setSearch} searchPlaceholder="기록 검색..." />
+    <div className="min-h-screen bg-[#f5f6f8] text-[#1c1d22]">
+      <PageHeader
+        searchValue={search}
+        onSearchChange={setSearch}
+        onSearchSubmit={setSearch}
+        searchPlaceholder="수신자, 제목 또는 상태 검색"
+      />
 
-      <main className="max-w-7xl mx-auto px-8 pb-12 pt-8">
-        <div className="mb-6">
-          <h1 className="ieum-page-title">기록</h1>
-          <p className="mt-1 text-[13px] text-[#777]">AI 변환 및 발송된 모든 커뮤니케이션 기록을 확인하세요</p>
-        </div>
-        <section>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              ['▥', '총 기록 수', history.length, '전체 누적 기록'],
-              ['⌁', '평균 적합도', `${average}%`, '전체 평균 점수'],
-              ['⌛', '대기 중', waitingCount, '검토 대기'],
-              ['➤', '이번 주 전송 완료', weekSentCount || sentCount, '전송 성공'],
-            ].map(([icon, title, value, sub]) => (
-              <div
-                key={String(title)}
-                className="rounded-lg border border-[#dedee4] bg-white p-5"
-              >
-                <div className="text-[#6844e2]">{icon}</div>
+      <main className="px-8 pb-12 pt-6">
+        <h1 className="ieum-page-title text-[#24252c]">
+          메시지 기록
+        </h1>
 
-                <p className="mt-4 text-[12px] text-[#777]">
-                  {title}
-                </p>
+        <p className="mt-1 text-[13px] text-[#666]">
+          AI로 최적화하고 발송한 모든 메시지
+          내역입니다.
+        </p>
 
-                <strong className="mt-1 block text-[26px]">
-                  {value}
-                </strong>
+        {error && (
+          <div className="mt-4 rounded-lg bg-[#fff0f0] p-3 text-[12px] text-[#df3340]">
+            {error}
+          </div>
+        )}
 
-                <p className="mt-1 text-[11px] text-[#999]">
-                  {sub}
-                </p>
-              </div>
-            ))}
+        <section className="mt-6 grid grid-cols-4 gap-4">
+          <div className="rounded-xl border border-[#dedde3] bg-white p-5">
+            <p className="text-[11px] text-[#777]">
+              총 기록
+            </p>
+
+            <p className="mt-2 text-[26px] font-bold">
+              {history.length}
+            </p>
+
+            <p className="mt-1 text-[10px] text-[#999]">
+              변환 및 전송 기록 포함
+            </p>
           </div>
 
-          {error && (
-            <div className="mt-4 rounded-lg border border-[#dedee5] bg-white px-4 py-3 text-[12px] text-[#777]">
-              {error}
-              <button
-                type="button"
-                onClick={() => loadHistory()}
-                className="ml-3 font-semibold text-[#5033df]"
-              >
-                다시 시도
-              </button>
-            </div>
-          )}
+          <div className="rounded-xl border border-[#dedde3] bg-white p-5">
+            <p className="text-[11px] text-[#777]">
+              평균 적합도
+            </p>
 
-          <div className="mt-8 flex border-b border-[#dddde3]">
+            <p className="mt-2 text-[26px] font-bold text-[#0086bd]">
+              {average}%
+            </p>
+
+            <p className="mt-1 text-[10px] text-[#999]">
+              전체 메시지 평균 점수
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-[#dedde3] bg-white p-5">
+            <p className="text-[11px] text-[#777]">
+              발송 대기
+            </p>
+
+            <p className="mt-2 text-[26px] font-bold text-[#bc6a00]">
+              {waitingCount}
+            </p>
+
+            <p className="mt-1 text-[10px] text-[#999]">
+              변환 후 미발송 내역
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-[#dedde3] bg-white p-5">
+            <p className="text-[11px] text-[#777]">
+              이번 주 전송
+            </p>
+
+            <p className="mt-2 text-[26px] font-bold text-[#22955c]">
+              {weekSentCount}
+            </p>
+
+            <p className="mt-1 text-[10px] text-[#999]">
+              최근 7일간 전송 건수
+            </p>
+          </div>
+        </section>
+
+        <section className="mt-6">
+          <div className="flex gap-2">
             {tabs.map((tab) => (
               <button
                 key={tab}
                 type="button"
-                onClick={() => setActiveTab(tab)}
+                onClick={() =>
+                  setActiveTab(tab)
+                }
                 className={
                   activeTab === tab
-                    ? 'border-b-2 border-[#5033df] px-4 pb-4 text-[13px] font-semibold text-[#5033df] cursor-pointer'
-                    : 'px-4 pb-4 text-[13px] text-[#777] cursor-pointer'
+                    ? 'rounded-lg bg-[#5033df] px-4 py-2 text-[12px] font-semibold text-white cursor-pointer'
+                    : 'rounded-lg border border-[#dedde3] bg-white px-4 py-2 text-[12px] font-medium text-[#555] hover:bg-[#fafafa] cursor-pointer'
                 }
               >
                 {tab}
+                {tab === '전체' &&
+                  ` (${history.length})`}
+                {tab === '전송 기록' &&
+                  ` (${sentCount})`}
+                {tab === '변환 기록' &&
+                  ` (${history.length - sentCount})`}
               </button>
             ))}
           </div>
 
           <div className="mt-6 overflow-hidden rounded-xl border border-[#dedee5] bg-white">
-            <div className="grid grid-cols-[150px_130px_1fr_100px_100px] border-b border-[#dddde2] px-5 py-4 text-[11px] font-medium text-[#777]">
+            <div className="grid grid-cols-[150px_120px_1fr_150px_90px] border-b border-[#dddde2] px-5 py-4 text-[11px] font-medium text-[#777]">
               <span>일시</span>
               <span>수신자</span>
               <span>제목</span>
@@ -292,12 +337,12 @@ export default function HistoryPage() {
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedItem(item)}
-                  className="grid w-full grid-cols-[150px_130px_1fr_100px_100px] items-center border-b border-[#eeeef0] px-5 py-4 text-left text-[12px] last:border-0 hover:bg-[#fafafe] cursor-pointer"
+                  className="grid w-full grid-cols-[150px_120px_1fr_150px_90px] items-center border-b border-[#eeeef0] px-5 py-4 text-left text-[12px] last:border-0 hover:bg-[#fafafe] cursor-pointer"
                 >
                   <span className="text-[11px] text-[#666]">{formatDateTime(item.createdAt || item.sentAt || item.date)}</span>
 
                   <span className="flex items-center gap-2">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#f4dcca] text-[9px] font-semibold">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#f4dcca] text-[9px] font-semibold shrink-0">
                       {item.recipient.slice(0, 1)}
                     </span>
                     <span className="truncate">{item.recipient}</span>
@@ -308,13 +353,19 @@ export default function HistoryPage() {
                   </span>
 
                   <span>
-                    <span
-                      className={`rounded-full px-3 py-1 text-[11px] font-medium ${getScoreClass(
-                        item.score,
-                      )}`}
-                    >
-                      {item.score}%
-                    </span>
+                    {item.status.includes('실패') || item.score === 0 ? (
+                      <span className="inline-block rounded-full bg-[#ffe4e5] px-2.5 py-0.5 text-[10px] font-medium text-[#df3340]">
+                        오류로 인한 변환 실패
+                      </span>
+                    ) : (
+                      <span
+                        className={`rounded-full px-3 py-1 text-[11px] font-medium ${getScoreClass(
+                          item.score,
+                        )}`}
+                      >
+                        {item.score}%
+                      </span>
+                    )}
                   </span>
 
                   <span>
@@ -421,15 +472,21 @@ export default function HistoryPage() {
                 </span>
               </div>
 
-              <div className="flex justify-between border-b border-[#eee] pb-3">
+              <div className="flex justify-between border-b border-[#eee] pb-3 items-center">
                 <span className="text-[#777]">적합도</span>
-                <span
-                  className={`rounded-full px-3 py-1 ${getScoreClass(
-                    selectedItem.score,
-                  )}`}
-                >
-                  {selectedItem.score}%
-                </span>
+                {selectedItem.status.includes('실패') || selectedItem.score === 0 ? (
+                  <span className="rounded-full bg-[#ffe4e5] px-2.5 py-1 text-[11px] font-medium text-[#df3340]">
+                    오류로 인한 변환 실패
+                  </span>
+                ) : (
+                  <span
+                    className={`rounded-full px-3 py-1 ${getScoreClass(
+                      selectedItem.score,
+                    )}`}
+                  >
+                    {selectedItem.score}%
+                  </span>
+                )}
               </div>
 
               <div className="flex justify-between border-b border-[#eee] pb-3">
