@@ -200,7 +200,7 @@ function AppLayout() {
       <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-[#e5e5e8] bg-white">
         {/* Logo */}
         <div className="flex h-16 items-center px-6">
-          <img src={logo} alt="이음" className="h-8 w-auto object-contain" />
+          <img src={logo} alt="이음" className="h-10 w-auto object-contain" />
         </div>
 
         {/* Navigation */}
