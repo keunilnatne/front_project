@@ -1,11 +1,7 @@
-// src/pages/DashboardPage.tsx
-
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
-import { useConversations } from '../users/useConversations'
-import { useProfileAnalytics } from '../users/useProfileAnalytics'
-import { fetchRecipients } from '../users/recipients'
+import { fetchDashboardSummary } from '../users/dashboard'
 
 import DocumentIcon from '../images/dashboard/DocumentImg.png'
 import DocumentInBox from '../images/dashboard/DocumentInBox.png'
@@ -31,32 +27,28 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('')
   const [openGuide, setOpenGuide] = useState<number | null>(null)
   const [showNews, setShowNews] = useState(false)
-  const { conversations } = useConversations(true)
-  const analytics = useProfileAnalytics()
 
   useEffect(() => {
     const controller = new AbortController()
-    void fetchRecipients(controller.signal)
-      .then((data: { length: number }) => setStats((current) => ({ ...current, recipients: data.length })))
-      .catch(() => undefined)
+    const loadStats = async () => {
+      try {
+        const summary = await fetchDashboardSummary(controller.signal)
+        setStats({
+          sentMessages: summary.sentMessages,
+          aiConversions: summary.aiConversions,
+          recipients: summary.recipients,
+        })
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          console.error(error)
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+    void loadStats()
     return () => controller.abort()
   }, [])
-
-  useEffect(() => {
-    const sentMessages = conversations.reduce((count, conversation) => (
-      count + conversation.messages.filter((message) => message.role === 'user').length
-    ), 0)
-
-    const updateStats = async () => {
-      setStats((current) => ({
-        ...current,
-        sentMessages,
-        aiConversions: analytics.optimizedMessageCount,
-      }))
-      setLoading(false)
-    }
-    void updateStats()
-  }, [conversations, analytics.optimizedMessageCount])
 
   const guideItems = useMemo(
     () => [

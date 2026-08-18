@@ -18,7 +18,9 @@ function read(): NotificationItem[] {
   }
 }
 
-export function getNotifications() { return read() }
+export function getNotifications(): NotificationItem[] {
+  return read()
+}
 
 export function addNotification(item: Omit<NotificationItem, 'id' | 'createdAt' | 'read'>) {
   const next: NotificationItem = {
@@ -30,6 +32,13 @@ export function addNotification(item: Omit<NotificationItem, 'id' | 'createdAt' 
   localStorage.setItem(STORAGE_KEY, JSON.stringify([next, ...read()].slice(0, 50)))
   window.dispatchEvent(new Event('notifications-updated'))
   return next
+}
+
+export function addNotificationIfAbsent(item: NotificationItem) {
+  const current = read()
+  if (current.some((n) => n.id === item.id)) return
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([item, ...current].slice(0, 50)))
+  window.dispatchEvent(new Event('notifications-updated'))
 }
 
 export function markNotificationsRead() {

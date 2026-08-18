@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { getUserProfile } from '../users/userProfile'
+import { getUserProfile, fetchUserProfile } from '../users/userProfile'
 import logo from '../images/logo.png'
 
 type NavigationItem = {
@@ -203,6 +203,7 @@ function SettingsIcon() {
 function AppLayout() {
   const [profile, setProfile] = useState(getUserProfile)
   useEffect(() => {
+    void fetchUserProfile().then((p) => setProfile(p))
     const updateProfile = () => setProfile(getUserProfile())
     window.addEventListener('profile-updated', updateProfile)
     window.addEventListener('storage', updateProfile)

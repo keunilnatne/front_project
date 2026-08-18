@@ -1,5 +1,6 @@
-import { type FormEvent, type ReactNode } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { createRecipient } from '../../users/recipients'
 
 const countries = [
   '대한민국', '미국', '일본', '중국', '영국', '캐나다', '호주', '뉴질랜드',
@@ -40,14 +41,51 @@ function ProfileAvatar() {
 
 function AddRecipient() {
   const navigate = useNavigate()
+  const [submitting, setSubmitting] = useState(false)
 
   const getNextPath = () => {
     const isGoogle = localStorage.getItem('auth.isGoogleLogin') === 'true' || localStorage.getItem('onboarding.gmail') === 'true'
     return isGoogle ? '/complete' : '/integrations'
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    const name = String(form.get('name') || '').trim()
+    const email = String(form.get('email') || '').trim() || `${name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'recipient'}${Date.now().toString().slice(-4)}@example.com`
+    const country = String(form.get('country') || '대한민국').trim()
+    const job = String(form.get('job') || '').trim()
+    const company = String(form.get('company') || '').trim()
+    const relationship = String(form.get('relationship') || '팀원').trim()
+
+    setSubmitting(true)
+    try {
+      await createRecipient({
+        name,
+        email,
+        role: job || '팀원',
+        company: company || '회사 미지정',
+        country,
+        language: country === '대한민국' ? 'Korean' : 'English',
+        timezone: country === '대한민국' ? 'Asia/Seoul' : 'America/New_York',
+        organizationRelation: relationship,
+        responseSpeed: '보통',
+        averageResponseMinutes: 0,
+        collaborationActivity: 'Medium',
+        isOnline: false,
+        isFavorite: false,
+        isRecent: true,
+        verifiedExpert: false,
+        fullTime: true,
+        avatar: name.slice(0, 1) || '?',
+        communicationStyle: ['명확하고 간결하게'],
+      })
+    } catch {
+      // fallback
+    } finally {
+      setSubmitting(false)
+    }
+
     localStorage.setItem('onboarding.recipient', 'true')
     navigate(getNextPath())
   }
@@ -121,9 +159,12 @@ function AddRecipient() {
           </section>
 
           <div className="pt-8 text-center">
-            <button type="submit" className=
-            "flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[linear-gradient(90deg,#5b3df5_0%,#35248f_100%)] text-xs leading-[16.8px] tracking-[0.12px] text-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#5b3df5]/20">
-              추가하기 <span aria-hidden="true" className="text-lg leading-none">→</span>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[linear-gradient(90deg,#5b3df5_0%,#35248f_100%)] text-xs leading-[16.8px] tracking-[0.12px] text-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition hover:brightness-110 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#5b3df5]/20"
+            >
+              {submitting ? '추가 중...' : '추가하기'} <span aria-hidden="true" className="text-lg leading-none">→</span>
             </button>
             <button type="button" onClick={skipRecipient} className="mt-4 h-[17.8px] text-xs leading-[16.8px] text-[#564334] transition hover:text-[#35248f] focus-visible:outline-none focus-visible:underline">
               나중에 추가하기</button>

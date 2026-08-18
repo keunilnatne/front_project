@@ -163,6 +163,33 @@ export async function updateRecipient(recipient: Recipient): Promise<Recipient> 
   return normalized
 }
 
+export async function toggleRecipientFavorite(id: number): Promise<Recipient | null> {
+  try {
+    const response = await fetch(`${API_URL}/api/recipients/${id}/favorite`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
+    })
+    if (response.ok) {
+      const data = await response.json()
+      const normalized = normalizeRecipient(data)
+      const current = readLocalRecipients().map((r) => (r.id === normalized.id ? normalized : r))
+      persistRecipients(current)
+      return normalized
+    }
+  } catch {
+    // offline fallback
+  }
+
+  const current = readLocalRecipients()
+  const target = current.find((r) => r.id === id)
+  if (target) {
+    const updated = { ...target, isFavorite: !target.isFavorite }
+    persistRecipients(current.map((r) => (r.id === id ? updated : r)))
+    return updated
+  }
+  return null
+}
+
 export async function deleteRecipient(id: number): Promise<void> {
   try {
     await fetch(`${API_URL}/api/recipients/${id}`, {

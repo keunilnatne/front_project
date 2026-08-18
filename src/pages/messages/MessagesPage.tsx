@@ -8,6 +8,7 @@ import { analyzeMessageMetadata } from '../../ai/aiInsights'
 import { fetchConversations, type Conversation } from '../../users/conversationArchive'
 import { detectMessageLanguage, translateAndSpellCheck } from '../../ai/freeLanguageTools'
 import { type AttachmentItem } from '../../components/AttachmentPicker'
+import { saveDraftToServer } from '../../users/drafts'
 
 type Recipient = {
   id: string
@@ -381,23 +382,16 @@ export default function MessagesPage() {
   }, [selectedRecipients, subject, body])
 
   /* 임시 저장 */
-  function saveDraft() {
-    const drafts = JSON.parse(
-      localStorage.getItem('message-drafts') || '[]',
-    )
-
-    const newDraft = {
-      id: Date.now().toString(),
-      recipients: selectedRecipients,
-      subject,
-      body,
-      createdAt: new Date().toISOString(),
+  async function saveDraft() {
+    try {
+      await saveDraftToServer({
+        recipients: selectedRecipients,
+        subject,
+        body,
+      })
+    } catch {
+      // ignore
     }
-
-    localStorage.setItem(
-      'message-drafts',
-      JSON.stringify([newDraft, ...drafts]),
-    )
 
     setDraftSaved(true)
 

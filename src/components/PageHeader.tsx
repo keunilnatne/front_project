@@ -5,6 +5,7 @@ import { getNotifications, markNotificationsRead, type NotificationItem } from '
 import { fetchRecipients, type Recipient } from '../users/recipients'
 import { fetchHistory, type HistoryItem } from '../users/history'
 import { fetchConversations, type Conversation } from '../users/conversationArchive'
+import { fetchInboxMessages, getGmailStatus } from '../users/inbox'
 
 type PageHeaderProps = {
   searchValue?: string
@@ -146,20 +147,36 @@ export default function PageHeader({
     let active = true
     const syncServerNotifications = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/notifications`)
-        if (!response.ok) return
-        const data: unknown = await response.json()
-        if (!active || !Array.isArray(data)) return
-        const current = getNotifications()
-        for (const item of data as Array<Record<string, unknown>>) {
-          const id = String(item.id ?? '')
-          if (!id || current.some((notification) => notification.id === id)) continue
-          const type = item.type === 'learning' ? 'learning' : item.type === 'mail' ? 'mail' : 'system'
-          const created = String(item.createdAt ?? new Date().toISOString())
-          localStorage.setItem('ieum-notifications', JSON.stringify([{ id, type, title: String(item.title ?? (type === 'mail' ? '새 메일이 도착했습니다.' : '새 알림')), description: String(item.description ?? ''), createdAt: created, read: false }, ...current].slice(0, 50)))
+        // 1. Gmail 연동 상태 확인 및 새 메일 알림 동기화
+        const status = await getGmailStatus()
+        if (status.connected) {
+          const inboxMessages = await fetchInboxMessages()
+          if (active && Array.isArray(inboxMessages)) {
+            const current = getNotifications()
+            let hasNew = false
+            for (const msg of inboxMessages.slice(0, 10)) {
+              const notifId = `mail-${msg.id}`
+              if (!current.some((notification) => notification.id === notifId)) {
+                current.unshift({
+                  id: notifId,
+                  type: 'mail',
+                  title: `[새 메일] ${msg.fromName || msg.fromEmail || '알 수 없음'}`,
+                  description: msg.subject ? `${msg.subject} - ${msg.snippet}` : (msg.snippet || '새 메일이 도착했습니다.'),
+                  createdAt: msg.date || new Date().toISOString(),
+                  read: false,
+                })
+                hasNew = true
+              }
+            }
+            if (hasNew) {
+              localStorage.setItem('ieum-notifications', JSON.stringify(current.slice(0, 50)))
+              window.dispatchEvent(new Event('notifications-updated'))
+            }
+          }
         }
-        window.dispatchEvent(new Event('notifications-updated'))
-      } catch { /* 서버 알림 API가 없으면 로컬 알림만 사용 */ }
+      } catch {
+        // ignore
+      }
     }
     void syncServerNotifications()
     const timer = window.setInterval(syncServerNotifications, 30000)
@@ -278,9 +295,42 @@ export default function PageHeader({
             {unreadCount > 0 && <span style={{ position: 'absolute', top: 1, right: 0, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 999, background: '#c4144d', color: 'white', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
           </button>
           {openNotifications && (
-            <div style={{ position: 'absolute', right: 0, top: 38, width: 330, maxHeight: 360, overflowY: 'auto', background: 'white', border: '1px solid #e5e5e8', borderRadius: 12, boxShadow: '0 12px 30px rgba(0,0,0,.12)', zIndex: 100 }}>
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid #eeeef1', fontWeight: 700, fontSize: 13 }}>알림</div>
-              {notifications.length === 0 ? <div style={{ padding: 24, color: '#999', fontSize: 12, textAlign: 'center' }}>새로운 알림이 없습니다.</div> : notifications.map((item) => <div key={item.id} style={{ padding: '13px 16px', borderBottom: '1px solid #f1f1f3', background: item.read ? '#fff' : '#faf8ff' }}><div style={{ fontSize: 12, fontWeight: 700, color: '#333' }}>{item.title}</div><div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.5, color: '#777' }}>{item.description}</div></div>)}
+            <div style={{ position: 'absolute', right: 0, top: 38, width: 340, maxHeight: 380, overflowY: 'auto', background: 'white', border: '1px solid #e5e5e8', borderRadius: 12, boxShadow: '0 12px 30px rgba(0,0,0,.12)', zIndex: 100 }}>
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid #eeeef1', fontWeight: 700, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>알림</span>
+                <span style={{ fontSize: 10, color: '#888', fontWeight: 'normal' }}>최신순</span>
+              </div>
+              {notifications.length === 0 ? (
+                <div style={{ padding: 24, color: '#999', fontSize: 12, textAlign: 'center' }}>새로운 알림이 없습니다.</div>
+              ) : (
+                notifications.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      setOpenNotifications(false)
+                      if (item.type === 'mail') {
+                        navigate('/inbox')
+                      }
+                    }}
+                    style={{
+                      padding: '12px 16px',
+                      borderBottom: '1px solid #f1f1f3',
+                      background: item.read ? '#fff' : '#faf8ff',
+                      cursor: 'pointer',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#f3f0ff')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = item.read ? '#fff' : '#faf8ff')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {item.type === 'mail' && <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: '#eeebff', color: '#4f46e5', fontWeight: 600 }}>메일</span>}
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#222' }}>{item.title}</div>
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.4, color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</div>
+                    {item.createdAt && <div style={{ marginTop: 4, fontSize: 9, color: '#aaa' }}>{new Date(item.createdAt).toLocaleDateString('ko-KR')}</div>}
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>

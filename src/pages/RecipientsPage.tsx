@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { createRecipient, fetchRecipientByEmail, fetchRecipients, persistRecipients, type Recipient } from '../users/recipients'
+import { createRecipient, fetchRecipientByEmail, fetchRecipients, persistRecipients, toggleRecipientFavorite, type Recipient } from '../users/recipients'
 import { analyzeRecipient, type RecipientAIProfile } from '../ai/aiInsights'
 
 type TabId = 'all' | 'favorite' | 'recent'
@@ -1091,29 +1091,25 @@ function RecipientsPage() {
     }
   }
 
-  const toggleFavorite = (id: number) => {
+  const toggleFavorite = async (id: number) => {
+    // 낙관적 UI 업데이트
     setRecipientList((current) => {
       const updated = current.map((recipient) =>
         recipient.id === id
-          ? {
-              ...recipient,
-              isFavorite: !recipient.isFavorite,
-            }
+          ? { ...recipient, isFavorite: !recipient.isFavorite }
           : recipient,
       )
-
       persistRecipients(updated)
-      const changed = updated.find((recipient) => recipient.id === id)
-      if (changed) {
-        void fetch(`${import.meta.env.VITE_API_URL || ''}/api/recipients/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isFavorite: changed.isFavorite }),
-        }).catch(() => {})
-      }
-
       return updated
     })
+
+    // 백엔드 API 호출
+    const result = await toggleRecipientFavorite(id)
+    if (result) {
+      setRecipientList((current) =>
+        current.map((r) => (r.id === result.id ? result : r)),
+      )
+    }
   }
 
   const handleMessage = (recipient: Recipient) => {
