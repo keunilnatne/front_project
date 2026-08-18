@@ -57,6 +57,29 @@ function getStatusClass(status: string) {
     : 'bg-[#dcf8e8] text-[#22955c]'
 }
 
+function deduplicateHistory(items: HistoryItem[]): HistoryItem[] {
+  const map = new Map<string, HistoryItem>()
+
+  for (const item of items) {
+    const key = item.messageId || `${item.recipient}__${(item.subject || item.purpose || '').trim()}`
+    const existing = map.get(key)
+    if (!existing) {
+      map.set(key, item)
+    } else {
+      const priority = (h: HistoryItem) => {
+        if (h.status.includes('전송 완료') || h.type === '전송') return 3
+        if (h.status.includes('변환') || h.score > 0) return 2
+        return 1
+      }
+      if (priority(item) > priority(existing)) {
+        map.set(key, item)
+      }
+    }
+  }
+
+  return Array.from(map.values())
+}
+
 export default function HistoryPage() {
   const [searchParams] = useSearchParams()
   const [history, setHistory] = useState<HistoryItem[]>([])
@@ -95,8 +118,9 @@ export default function HistoryPage() {
 
   const filtered = useMemo(() => {
     const keyword = search.trim().toLowerCase()
+    const deduped = deduplicateHistory(history)
 
-    return history.filter((item) => {
+    return deduped.filter((item) => {
       // 변환/전송 된 것만 노출 (내용 없는 실패 더미 제외)
       const isFailedEmpty = item.status === '실패' && !item.content && !item.subject
       if (isFailedEmpty) return false
