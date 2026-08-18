@@ -505,17 +505,80 @@ export default function HistoryPage() {
                 <span>{getItemType(selectedItem)} 기록</span>
               </div>
 
-              {selectedItem.content && (
-                <div>
-                  <p className="mb-2 font-medium text-[#777]">
-                    내용
-                  </p>
+              {/* 메시지 내용 영역 (변환 전/후 또는 단일 메시지) */}
+              {(() => {
+                const hasConverted = Boolean(
+                  (selectedItem.originalBody && selectedItem.content && selectedItem.originalBody.trim() !== selectedItem.content.trim()) ||
+                  (selectedItem.originalSubject && selectedItem.subject && selectedItem.originalSubject.trim() !== selectedItem.subject.trim()) ||
+                  (selectedItem.type === '변환' && selectedItem.originalBody)
+                )
 
-                  <div className="rounded-lg bg-[#f8f9fc] p-4 leading-6 border border-[#ededf2]">
-                    <MarkdownViewer content={selectedItem.content} />
+                if (hasConverted) {
+                  return (
+                    <div className="space-y-4 pt-1">
+                      {/* 변환 전 (원문) */}
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <span className="h-2 w-2 rounded-full bg-[#94a3b8]" />
+                          <span className="text-[12px] font-bold text-[#475569]">변환 전 (원문)</span>
+                        </div>
+                        <div className="rounded-xl bg-[#f8fafc] p-4 border border-[#e2e8f0] text-[13px] space-y-2">
+                          {selectedItem.originalSubject && (
+                            <p className="font-semibold text-[#334155]">
+                              <span className="text-[11px] text-[#64748b] block font-normal mb-0.5">제목:</span>
+                              {selectedItem.originalSubject}
+                            </p>
+                          )}
+                          {selectedItem.originalBody && (
+                            <div>
+                              <span className="text-[11px] text-[#64748b] block font-normal mb-0.5">본문:</span>
+                              <div className="whitespace-pre-wrap leading-relaxed text-[#334155] rounded-lg bg-white p-3 border border-[#edf2f7]">
+                                {selectedItem.originalBody}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 변환 후 (최적화) */}
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <span className="h-2 w-2 rounded-full bg-[#6366f1]" />
+                          <span className="text-[12px] font-bold text-[#4f46e5]">변환 후 (AI 최적화 메시지)</span>
+                        </div>
+                        <div className="rounded-xl bg-[#f5f3ff] p-4 border border-[#ddd6fe] text-[13px] space-y-2">
+                          {selectedItem.subject && (
+                            <p className="font-semibold text-[#1e1b4b]">
+                              <span className="text-[11px] text-[#7c3aed] block font-normal mb-0.5">제목:</span>
+                              {selectedItem.subject}
+                            </p>
+                          )}
+                          {selectedItem.content && (
+                            <div>
+                              <span className="text-[11px] text-[#7c3aed] block font-normal mb-0.5">본문:</span>
+                              <div className="rounded-lg bg-white p-3 leading-relaxed border border-[#ede9fe]">
+                                <MarkdownViewer content={selectedItem.content} />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
+
+                // 그냥 보낸 메시지인 경우 (단일 본문만 노출)
+                return (
+                  <div>
+                    <p className="mb-2 font-medium text-[#777]">
+                      메시지 내용
+                    </p>
+                    <div className="rounded-lg bg-[#f8f9fc] p-4 leading-6 border border-[#ededf2]">
+                      <MarkdownViewer content={selectedItem.content || selectedItem.originalBody || ''} />
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
             </div>
 
             <div className="pt-4 border-t border-[#eee] shrink-0">
