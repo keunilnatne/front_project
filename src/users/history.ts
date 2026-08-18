@@ -76,10 +76,8 @@ export async function fetchHistory(signal?: AbortSignal, type?: string, q?: stri
     const data: unknown = await response.json()
     if (Array.isArray(data)) {
       const history = data.filter(isHistoryItem)
-      if (history.length) {
-        persistHistory(history)
-        return history
-      }
+      persistHistory(history)
+      return history
     }
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error

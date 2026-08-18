@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PageHeader from '../../components/PageHeader'
 import { sendMessage as sendMessageRequest } from '../../users/messageService'
-import { createHistoryItem } from '../../users/history'
 import { saveConversation } from '../../users/conversationArchive'
 import MarkdownViewer from '../../components/MarkdownViewer'
 import AttachmentPicker, { type AttachmentItem } from '../../components/AttachmentPicker'
@@ -457,17 +456,6 @@ export default function MessageOptimizedPage() {
           },
         ],
         analysisStatus: 'completed',
-      })
-      void createHistoryItem({
-        id: `send-${Date.now()}`,
-        date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
-        recipient: recipients.map((item) => item.name).join(', '),
-        purpose: subject,
-        score: 0,
-        status: '전송 완료',
-        type: '전송',
-        createdAt: new Date().toISOString(),
-        content: body,
       })
       setShowSuccessModal(true)
     } catch (error) {

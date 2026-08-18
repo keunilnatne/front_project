@@ -3,7 +3,6 @@ import PageHeader from '../../components/PageHeader'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { createRecipient, fetchRecipients, type Recipient as UserRecipient } from '../../users/recipients'
 import { optimizeMessage, sendMessage } from '../../users/messageService'
-import { createHistoryItem } from '../../users/history'
 import { analyzeMessageMetadata } from '../../ai/aiInsights'
 import { fetchConversations, saveConversation, type Conversation } from '../../users/conversationArchive'
 import { detectMessageLanguage, translateAndSpellCheck } from '../../ai/freeLanguageTools'
@@ -559,18 +558,6 @@ export default function MessagesPage() {
           },
         ],
         analysisStatus: 'completed',
-      })
-
-      void createHistoryItem({
-        id: `send-${Date.now()}`,
-        date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
-        recipient: selectedRecipients.map((item) => item.name).join(', '),
-        purpose: subject,
-        score: 0,
-        status: '전송 완료',
-        type: '전송',
-        createdAt: new Date().toISOString(),
-        content: body,
       })
 
       alert('Gmail을 통해 메시지가 성공적으로 발송되었습니다!')
