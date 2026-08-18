@@ -1,3 +1,5 @@
+import { type AttachmentItem } from '../components/AttachmentPicker'
+
 export type DraftItem = {
   id: string
   recipients?: Array<{
@@ -10,6 +12,7 @@ export type DraftItem = {
   }>
   subject: string
   body: string
+  attachments?: AttachmentItem[]
   createdAt: string
   updatedAt?: string
 }
@@ -56,8 +59,17 @@ export async function fetchDrafts(signal?: AbortSignal): Promise<DraftItem[]> {
       if (response.ok) {
         const data = await response.json()
         if (Array.isArray(data)) {
-          persistLocalDrafts(data)
-          return data
+          // Merge local attachments if server doesn't store full base64
+          const locals = readLocalDrafts()
+          const merged = data.map((d: DraftItem) => {
+            const local = locals.find((l) => l.id === d.id)
+            return {
+              ...d,
+              attachments: d.attachments || local?.attachments || [],
+            }
+          })
+          persistLocalDrafts(merged)
+          return merged
         }
       }
     }
@@ -72,12 +84,14 @@ export async function saveDraftToServer(draft: {
   subject: string
   body: string
   recipients?: any[]
+  attachments?: AttachmentItem[]
 }): Promise<DraftItem> {
   const fallbackDraft: DraftItem = {
     id: draft.id || Date.now().toString(),
     subject: draft.subject,
     body: draft.body,
     recipients: draft.recipients || [],
+    attachments: draft.attachments || [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -95,9 +109,13 @@ export async function saveDraftToServer(draft: {
       })
       if (response.ok) {
         const saved = await response.json()
-        const current = readLocalDrafts().filter((d) => d.id !== saved.id)
-        persistLocalDrafts([saved, ...current])
-        return saved
+        const fullSaved: DraftItem = {
+          ...saved,
+          attachments: draft.attachments || [],
+        }
+        const current = readLocalDrafts().filter((d) => d.id !== fullSaved.id)
+        persistLocalDrafts([fullSaved, ...current])
+        return fullSaved
       }
     }
   } catch {

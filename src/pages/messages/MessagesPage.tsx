@@ -388,6 +388,7 @@ export default function MessagesPage() {
         recipients: selectedRecipients,
         subject,
         body,
+        attachments,
       })
     } catch {
       // ignore
@@ -754,6 +755,47 @@ export default function MessagesPage() {
                   </div>
                 )}
               </div>
+
+              {/* 수신자 선택 즉시 선호 스타일 및 협업 정보 표시 배너 */}
+              {selectedRecipients.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#e5e1f8] bg-[#f8f7ff] px-4 py-3 text-[12px] shadow-xs">
+                  <div className="flex items-center gap-1.5 font-semibold text-[#5531e8]">
+                    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    </svg>
+                    <span>선호 소통 스타일:</span>
+                    <span className="rounded-md bg-[#eeeaff] px-2 py-0.5 font-bold text-[#4f46e5]">
+                      {selectedRecipients[0].relationship || '명확하고 간결하게'}
+                    </span>
+                  </div>
+
+                  <div className="hidden h-3.5 w-[1px] bg-[#d9d5f0] sm:block" />
+
+                  <div className="flex items-center gap-1.5 text-[#555]">
+                    <svg className="h-3.5 w-3.5 shrink-0 text-[#888]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    <span>응답 속도:</span>
+                    <span className="font-medium text-[#333]">
+                      {selectedRecipients[0].speed || '보통'} ({selectedRecipients[0].responseTime ? `약 ${selectedRecipients[0].responseTime}분` : '평균 속도'})
+                    </span>
+                  </div>
+
+                  <div className="hidden h-3.5 w-[1px] bg-[#d9d5f0] sm:block" />
+
+                  <div className="flex items-center gap-1.5 text-[#555]">
+                    <svg className="h-3.5 w-3.5 shrink-0 text-[#888]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                    </svg>
+                    <span>조직 관계:</span>
+                    <span className="font-medium text-[#333]">
+                      {selectedRecipients[0].relationship || '팀원'}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* MESSAGE FORM */}
               <div className="overflow-hidden rounded-xl border border-[#e1e0e5] bg-white">

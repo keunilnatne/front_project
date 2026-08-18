@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createRecipient } from '../../users/recipients'
+import { getCountryInfo } from '../../users/countryTimezones'
 
 const countries = [
   '대한민국', '미국', '일본', '중국', '영국', '캐나다', '호주', '뉴질랜드',
@@ -58,6 +59,7 @@ function AddRecipient() {
     const company = String(form.get('company') || '').trim()
     const relationship = String(form.get('relationship') || '팀원').trim()
 
+    const countryInfo = getCountryInfo(country)
     setSubmitting(true)
     try {
       await createRecipient({
@@ -66,8 +68,8 @@ function AddRecipient() {
         role: job || '팀원',
         company: company || '회사 미지정',
         country,
-        language: country === '대한민국' ? 'Korean' : 'English',
-        timezone: country === '대한민국' ? 'Asia/Seoul' : 'America/New_York',
+        language: countryInfo.language,
+        timezone: countryInfo.defaultTimezone,
         organizationRelation: relationship,
         responseSpeed: '보통',
         averageResponseMinutes: 0,

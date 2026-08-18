@@ -3,6 +3,22 @@ import { useNavigate } from 'react-router-dom'
 import PageHeader from '../../components/PageHeader'
 import { fetchDrafts, deleteDraftFromServer, type DraftItem } from '../../users/drafts'
 
+function formatDateTime(dateStr?: string): string {
+  if (!dateStr) return '-'
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    return `${year}. ${month}. ${day}. ${hours}:${minutes}`
+  } catch {
+    return dateStr
+  }
+}
+
 export default function DraftsPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
@@ -76,7 +92,7 @@ export default function DraftsPage() {
                   </strong>
                   <div className="flex items-center gap-3">
                     <span className="shrink-0 text-[10px] text-[#999]">
-                      {new Date(draft.createdAt).toLocaleString('ko-KR')}
+                      {formatDateTime(draft.updatedAt || draft.createdAt)}
                     </span>
                     <button
                       type="button"

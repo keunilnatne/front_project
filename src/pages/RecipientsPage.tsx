@@ -3,6 +3,7 @@ import PageHeader from '../components/PageHeader'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { createRecipient, fetchRecipientByEmail, fetchRecipients, persistRecipients, toggleRecipientFavorite, type Recipient } from '../users/recipients'
 import { analyzeRecipient, type RecipientAIProfile } from '../ai/aiInsights'
+import { getCountryInfo } from '../users/countryTimezones'
 
 type TabId = 'all' | 'favorite' | 'recent'
 
@@ -1728,36 +1729,41 @@ function RecipientsPage() {
                   <span className="mb-1 block font-semibold text-[#5d5565]">국가</span>
                   <select
                     value={newRecipient.country}
-                    onChange={(e) => setNewRecipient((v) => ({ ...v, country: e.target.value }))}
+                    onChange={(e) => {
+                      const sel = e.target.value
+                      const info = getCountryInfo(sel)
+                      setNewRecipient((v) => ({
+                        ...v,
+                        country: sel,
+                        language: info.language,
+                        timezone: info.defaultTimezone,
+                      }))
+                    }}
                     className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"
                   >
-                    <option>South Korea</option>
-                    <option>Indonesia</option>
-                    <option>United States</option>
-                    <option>Japan</option>
-                    <option>China</option>
-                    <option>Germany</option>
-                    <option>Spain</option>
-                    <option>United Kingdom</option>
-                    <option>Singapore</option>
+                    <option value="대한민국">대한민국</option>
+                    <option value="미국">미국</option>
+                    <option value="일본">일본</option>
+                    <option value="중국">중국</option>
+                    <option value="영국">영국</option>
+                    <option value="독일">독일</option>
+                    <option value="프랑스">프랑스</option>
+                    <option value="싱가포르">싱가포르</option>
+                    <option value="인도">인도</option>
+                    <option value="호주">호주</option>
+                    <option value="캐나다">캐나다</option>
+                    <option value="베트남">베트남</option>
                   </select>
                 </label>
 
                 <label className="text-[11px] text-[#777]">
                   <span className="mb-1 block font-semibold text-[#5d5565]">언어</span>
-                  <select
+                  <input
                     value={newRecipient.language}
                     onChange={(e) => setNewRecipient((v) => ({ ...v, language: e.target.value }))}
-                    className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"
-                  >
-                    <option>Korean</option>
-                    <option>English</option>
-                    <option>Indonesian</option>
-                    <option>Japanese</option>
-                    <option>Chinese</option>
-                    <option>German</option>
-                    <option>Spanish</option>
-                  </select>
+                    className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                    placeholder="Korean, English 등"
+                  />
                 </label>
 
                 <label className="text-[11px] text-[#777]">
@@ -1767,15 +1773,9 @@ function RecipientsPage() {
                     onChange={(e) => setNewRecipient((v) => ({ ...v, timezone: e.target.value }))}
                     className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"
                   >
-                    <option value="Asia/Seoul">KST · Asia/Seoul</option>
-                    <option value="Asia/Jakarta">WIB · Asia/Jakarta</option>
-                    <option value="Asia/Makassar">WITA · Asia/Makassar</option>
-                    <option value="Asia/Jayapura">WIT · Asia/Jayapura</option>
-                    <option value="Asia/Tokyo">JST · Asia/Tokyo</option>
-                    <option value="America/New_York">ET · America/New_York</option>
-                    <option value="America/Los_Angeles">PT · America/Los_Angeles</option>
-                    <option value="Europe/London">GMT · Europe/London</option>
-                    <option value="Europe/Berlin">CET · Europe/Berlin</option>
+                    {getCountryInfo(newRecipient.country).availableTimezones.map((tz) => (
+                      <option key={tz.value} value={tz.value}>{tz.label}</option>
+                    ))}
                   </select>
                 </label>
 

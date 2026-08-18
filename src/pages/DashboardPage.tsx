@@ -132,32 +132,32 @@ export default function DashboardPage() {
 
           {/* 통계 카드 */}
           <div className="mt-4.25 grid grid-cols-3 gap-4">
-            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3">
-              <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
+            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3 shadow-xs transition hover:border-[#cfc7ff]">
+              <strong className="block text-[34px] font-bold leading-none text-[#29272c]">
                 {loading ? '-' : stats.sentMessages}
               </strong>
 
-              <p className="mt-4 text-[11px] text-[#c1c1c1]">
+              <p className="mt-4 text-[12px] font-medium text-[#777]">
                 전송한 메시지
               </p>
             </div>
 
-            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3">
-              <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
+            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3 shadow-xs transition hover:border-[#cfc7ff]">
+              <strong className="block text-[34px] font-bold leading-none text-[#5531e8]">
                 {loading ? '-' : stats.aiConversions}
               </strong>
 
-              <p className="mt-4 text-[11px] text-[#c1c1c1]">
+              <p className="mt-4 text-[12px] font-medium text-[#777]">
                 AI 변환 횟수
               </p>
             </div>
 
-            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3">
-              <strong className="block text-[36px] font-bold leading-none text-[#bcbcbc]">
+            <div className="h-25.5 rounded-xl border border-[#dedee4] bg-white px-4 py-3 shadow-xs transition hover:border-[#cfc7ff]">
+              <strong className="block text-[34px] font-bold leading-none text-[#29272c]">
                 {loading ? '-' : stats.recipients}
               </strong>
 
-              <p className="mt-4 text-[11px] text-[#c1c1c1]">
+              <p className="mt-4 text-[12px] font-medium text-[#777]">
                 등록된 수신자
               </p>
             </div>

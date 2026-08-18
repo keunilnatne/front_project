@@ -1,10 +1,28 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import PageHeader from '../../components/PageHeader'
 import { sendMessage as sendMessageRequest } from '../../users/messageService'
 import { createHistoryItem } from '../../users/history'
 import { saveConversation } from '../../users/conversationArchive'
 import MarkdownViewer from '../../components/MarkdownViewer'
 import AttachmentPicker, { type AttachmentItem } from '../../components/AttachmentPicker'
+
+function formatSendErrorMessage(rawMessage?: string): string {
+  if (!rawMessage) return '메시지 전송에 실패했습니다. 백엔드 서버 연결 상태를 확인해주세요.'
+  if (rawMessage.includes('GMAIL_NOT_CONNECTED') || rawMessage.includes('연결된 Gmail 계정이 없습니다')) {
+    return 'Gmail 계정이 연결되어 있지 않습니다. 설정 > 연결에서 계정을 연결해 주세요.'
+  }
+  if (rawMessage.includes('TOKEN_REFRESH_FAILED') || rawMessage.includes('인증이 만료')) {
+    return 'Gmail 연결 인증이 만료되었습니다. 설정 > 연결에서 계정을 다시 연결해 주세요.'
+  }
+  if (rawMessage.includes('RECIPIENT_INVALID') || rawMessage.includes('이메일')) {
+    return '수신자 이메일 주소가 올바르지 않습니다. 수신자 정보를 확인해 주세요.'
+  }
+  if (rawMessage.includes('GMAIL_API_FAILED')) {
+    return 'Gmail 서비스 응답 지연으로 전송에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+  }
+  return rawMessage
+}
 
 type Recipient = {
   id: string
@@ -59,55 +77,6 @@ function getRecipients(state: OptimizedState): Recipient[] {
 /* -------------------------------------------------------
  * 공통 아이콘
  * ----------------------------------------------------- */
-
-function SearchIcon() {
-  return (
-    <svg
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-4-4" />
-    </svg>
-  )
-}
-
-function BellIcon() {
-  return (
-    <svg
-      width="19"
-      height="19"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-      <path d="M10 21h4" />
-    </svg>
-  )
-}
-
-function HelpIcon() {
-  return (
-    <svg
-      width="19"
-      height="19"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9.7 9a2.4 2.4 0 1 1 4.2 1.6c-.9.9-1.9 1.3-1.9 2.8" />
-      <path d="M12 17h.01" />
-    </svg>
-  )
-}
 
 function CopyIcon() {
   return (
@@ -389,42 +358,13 @@ export default function MessageOptimizedPage() {
 
   const [copied, setCopied] = useState(false)
   const [sending, setSending] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
 
   if (!state) {
     return (
       <div className="min-h-screen bg-[#f8f9fc]">
-        {/* HEADER */}
-        <header className="flex h-17 shrink-0 items-center justify-between border-b border-[#e5e5e8] bg-white px-10">
-          <div className="min-w-0 flex-1">
-            <div className="relative w-full max-w-111.25">
-              <SearchIcon />
-
-              <input
-                className="h-11 w-full rounded-lg border border-[#dedee3] bg-white pl-10 pr-3 text-[14px] outline-none"
-                placeholder="메시지 또는 팀 멤버 검색"
-              />
-            </div>
-          </div>
-
-          <div className="ml-8 flex shrink-0 items-center gap-6 text-[#555]">
-            <button
-              type="button"
-              aria-label="알림"
-              className="transition hover:text-[#4338ca]"
-            >
-              <BellIcon />
-            </button>
-
-            <button
-              type="button"
-              aria-label="도움말"
-              className="transition hover:text-[#4338ca]"
-            >
-              <HelpIcon />
-            </button>
-          </div>
-        </header>
-
+        <PageHeader />
         <div className="flex min-h-[calc(100vh-68px)] items-center justify-center">
           <div className="text-center">
             <p className="mb-4 text-[15px] text-[#555]">
@@ -460,10 +400,7 @@ export default function MessageOptimizedPage() {
 
   async function copyMessage() {
     try {
-      await navigator.clipboard.writeText(
-        `${subject}\n\n${body}`,
-      )
-
+      await navigator.clipboard.writeText(`${subject}\n\n${body}`)
       setCopied(true)
 
       window.setTimeout(() => {
@@ -476,6 +413,7 @@ export default function MessageOptimizedPage() {
 
   async function sendMessage() {
     if (sending || recipients.length === 0) return
+    setSendError(null)
     setSending(true)
     try {
       await sendMessageRequest({
@@ -531,10 +469,11 @@ export default function MessageOptimizedPage() {
         createdAt: new Date().toISOString(),
         content: body,
       })
-      window.alert('메시지가 전송되었습니다.')
+      setShowSuccessModal(true)
     } catch (error) {
       console.error(error)
-      window.alert(error instanceof Error ? error.message : '메시지 전송에 실패했습니다. 백엔드 서버 연결을 확인해주세요.')
+      const raw = error instanceof Error ? error.message : String(error)
+      setSendError(formatSendErrorMessage(raw))
     } finally {
       setSending(false)
     }
@@ -557,44 +496,7 @@ export default function MessageOptimizedPage() {
       {/* =================================================
           HEADER
       ================================================= */}
-
-      <header className="flex h-17 shrink-0 items-center justify-between border-b border-[#e5e5e8] bg-white px-10">
-        {/* 검색창
-            flex-1 + max-width를 사용해서 화면 크기가 달라도
-            검색창이 찌그러지지 않도록 함.
-        */}
-        <div className="min-w-0 flex-1">
-          <div className="relative w-full max-w-111.25">
-            <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#777]">
-              <SearchIcon />
-            </div>
-
-            <input
-              className="h-11 w-full rounded-lg border border-[#dedee3] bg-white pl-10 pr-3 text-[14px] outline-none transition focus:border-[#cfc7f5] focus:ring-2 focus:ring-[#6343dd]/5"
-              placeholder="메시지 또는 팀 멤버 검색"
-            />
-          </div>
-        </div>
-
-        {/* 오른쪽 아이콘 */}
-        <div className="ml-8 flex shrink-0 items-center gap-6 text-[#555]">
-          <button
-            type="button"
-            aria-label="알림"
-            className="transition hover:text-[#4338ca]"
-          >
-            <BellIcon />
-          </button>
-
-          <button
-            type="button"
-            aria-label="도움말"
-            className="transition hover:text-[#4338ca]"
-          >
-            <HelpIcon />
-          </button>
-        </div>
-      </header>
+      <PageHeader />
 
       {/* =================================================
           PAGE
@@ -713,6 +615,27 @@ export default function MessageOptimizedPage() {
               </div>
             </div>
 
+            {/* ERROR BANNER */}
+            {sendError && (
+              <div className="mt-6 flex items-center justify-between rounded-xl border border-[#fed7d7] bg-[#fff5f5] p-4 text-[13px] text-[#c53030]">
+                <div className="flex items-center gap-2.5">
+                  <svg className="h-5 w-5 shrink-0 text-[#e53e3e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <span>{sendError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={sendMessage}
+                  className="shrink-0 rounded-lg bg-[#e53e3e] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#c53030]"
+                >
+                  다시 시도
+                </button>
+              </div>
+            )}
+
             {/* =================================================
                 BUTTONS
             ================================================= */}
@@ -720,19 +643,9 @@ export default function MessageOptimizedPage() {
             <div className="mt-8 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={copyMessage}
-                className="flex items-center gap-2 rounded-lg border border-[#dddde3] bg-white px-5 py-3 text-[13px] transition hover:bg-[#f7f7f9]"
-              >
-                <CopyIcon />
-
-                {copied ? '복사됨' : '복사'}
-              </button>
-
-              <button
-                type="button"
                 onClick={sendMessage}
                 disabled={sending}
-                className="flex items-center gap-2 rounded-lg bg-[#5531e8] px-6 py-3 text-[13px] font-semibold text-white transition hover:bg-[#4926d6] disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex items-center gap-2 rounded-xl bg-[#5531e8] px-7 py-3 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#4926d6] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <svg
                   width="16"
@@ -906,6 +819,41 @@ export default function MessageOptimizedPage() {
           </div>
         </aside>
       </div>
+
+      {/* 전송 완료 모달 */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f0edff] text-[#5531e8] mb-4">
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <h3 className="text-[17px] font-bold text-[#222]">
+              메시지가 성공적으로 전송되었습니다!
+            </h3>
+            <p className="mt-2 text-[13px] text-[#666] leading-relaxed">
+              수신자의 Gmail로 최적화된 메시지가 발송되었으며, 기록함에서 전송 상태를 언제든지 확인할 수 있습니다.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/messages')}
+                className="rounded-xl border border-[#dedee3] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#555] transition hover:bg-[#f7f7fa]"
+              >
+                새 메시지 작성
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/history')}
+                className="rounded-xl bg-[#5531e8] px-5 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#4926d6] shadow-sm"
+              >
+                보낸 기록 보기 →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

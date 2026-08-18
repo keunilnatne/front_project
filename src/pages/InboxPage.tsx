@@ -22,12 +22,27 @@ function formatDate(dateStr: string): string {
   try {
     const d = new Date(dateStr)
     if (isNaN(d.getTime())) return dateStr
-    const now = new Date()
-    const isToday = d.toDateString() === now.toDateString()
-    if (isToday) {
-      return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-    }
-    return `${d.getMonth() + 1}월 ${d.getDate()}일`
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    return `${month}.${day} ${hours}:${minutes}`
+  } catch {
+    return dateStr
+  }
+}
+
+function formatFullDateTime(dateStr: string): string {
+  if (!dateStr) return ''
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    return `${year}. ${month}. ${day}. ${hours}:${minutes}`
   } catch {
     return dateStr
   }
@@ -350,7 +365,7 @@ export default function InboxPage() {
                             )}
                           </div>
                           <span className="text-[11px] text-[#888]">
-                            수신: {selectedDetail.date}
+                            수신: {formatFullDateTime(selectedDetail.date)}
                           </span>
                         </div>
                       </div>
@@ -429,17 +444,10 @@ export default function InboxPage() {
                   </div>
 
                   {/* Bottom Action Footer */}
-                  <div className="shrink-0 border-t border-[#ededf0] bg-[#fafafc] p-4 flex items-center justify-between">
-                    <span className="text-[11px] text-[#888]">
-                      이 메일에 답장하려면 [AI 답장 작성]을 눌러 이음의 맞춤형 톤앤매너로 작성하세요.
+                  <div className="shrink-0 border-t border-[#ededf0] bg-[#fafafc] px-6 py-3.5 flex items-center justify-between text-[12px] text-[#777]">
+                    <span>
+                      이 메일에 답장하려면 우측 상단의 <strong className="text-[#4f46e5] font-semibold">[AI 답장 작성]</strong>을 눌러 맞춤형 톤앤매너로 신속하게 답장할 수 있습니다.
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => handleReplyWithAi(selectedDetail)}
-                      className="rounded-lg bg-[#4f46e5] px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-[#4338ca]"
-                    >
-                      AI 답장 작성하기 →
-                    </button>
                   </div>
                 </div>
               )}

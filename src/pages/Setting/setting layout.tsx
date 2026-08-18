@@ -8,35 +8,18 @@ type SettingLayoutProps = {
 }
 
 const menus = [
-  { id: 'account', label: '계정', stage: 1 },
-  { id: 'ai-personalization', label: 'AI 개인화', stage: 1 },
-  { id: 'integrations', label: '연결', stage: 2 },
-  { id: 'security', label: '보안 및 개인정보', stage: 3 },
+  { id: 'account', label: '계정' },
+  { id: 'ai-personalization', label: 'AI 개인화' },
+  { id: 'integrations', label: '연결' },
+  { id: 'security', label: '보안 및 개인정보' },
 ]
 
-function MoreButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#e1e1e1] bg-white text-[13px] font-semibold text-[#5146e5] shadow-sm transition hover:border-[#bbb5fa] hover:bg-[#f8f7ff]"
-    >
-      {label}
-      <span aria-hidden="true">⌄</span>
-    </button>
-  )
-}
-
 function SettingLayout({ account, personalization, integrations, security }: SettingLayoutProps) {
-  const [visibleStage, setVisibleStage] = useState(1)
+  const [activeMenu, setActiveMenu] = useState('account')
 
   const moveTo = (id: string) => {
+    setActiveMenu(id)
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
-  const showNext = (stage: number, id: string) => {
-    setVisibleStage(stage)
-    window.setTimeout(() => moveTo(id), 80)
   }
 
   return (
@@ -50,10 +33,9 @@ function SettingLayout({ account, personalization, integrations, security }: Set
               <button
                 key={menu.id}
                 type="button"
-                disabled={visibleStage < menu.stage}
                 onClick={() => moveTo(menu.id)}
-                className={`h-10 rounded-lg px-4 text-left whitespace-nowrap transition disabled:cursor-not-allowed disabled:opacity-35 ${
-                  menu.id === 'account'
+                className={`h-10 rounded-lg px-4 text-left whitespace-nowrap transition ${
+                  activeMenu === menu.id
                     ? 'bg-[#f0edff] font-semibold text-[#5146e5]'
                     : 'text-[#565861] hover:bg-white'
                 }`}
@@ -67,18 +49,8 @@ function SettingLayout({ account, personalization, integrations, security }: Set
         <main className="flex w-full max-w-175 min-w-0 flex-col gap-8">
           {account}
           {personalization}
-
-          {visibleStage === 1 && (
-            <MoreButton label="연결 설정 더보기" onClick={() => showNext(2, 'integrations')} />
-          )}
-
-          {visibleStage >= 2 && integrations}
-
-          {visibleStage === 2 && (
-            <MoreButton label="보안 및 개인정보 더보기" onClick={() => showNext(3, 'security')} />
-          )}
-
-          {visibleStage >= 3 && security}
+          {integrations}
+          {security}
         </main>
       </div>
     </div>

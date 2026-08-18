@@ -36,6 +36,22 @@ function getScoreClass(score: number) {
   return 'bg-[#ffe4e5] text-[#df3340]'
 }
 
+function formatDateTime(dateStr?: string): string {
+  if (!dateStr) return '-'
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    return `${year}. ${month}. ${day}. ${hours}:${minutes}`
+  } catch {
+    return dateStr
+  }
+}
+
 function getStatusClass(status: string) {
   return status === '대기 중'
     ? 'bg-[#eee] text-[#888]'
@@ -271,8 +287,8 @@ export default function HistoryPage() {
           </div>
 
           <div className="mt-6 overflow-hidden rounded-xl border border-[#dedee5] bg-white">
-            <div className="grid grid-cols-[125px_120px_1fr_100px_100px] border-b border-[#dddde2] px-5 py-4 text-[11px] text-[#777]">
-              <span>날짜</span>
+            <div className="grid grid-cols-[150px_120px_1fr_100px_100px] border-b border-[#dddde2] px-5 py-4 text-[11px] text-[#777]">
+              <span>일시</span>
               <span>수신자</span>
               <span>목적</span>
               <span>적합도 점수</span>
@@ -293,9 +309,9 @@ export default function HistoryPage() {
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedItem(item)}
-                  className="grid w-full grid-cols-[125px_120px_1fr_100px_100px] items-center border-b border-[#eeeef0] px-5 py-5 text-left text-[12px] last:border-0 hover:bg-[#fafafe]"
+                  className="grid w-full grid-cols-[150px_120px_1fr_100px_100px] items-center border-b border-[#eeeef0] px-5 py-4 text-left text-[12px] last:border-0 hover:bg-[#fafafe]"
                 >
-                  <span>{item.date}</span>
+                  <span className="text-[11px] text-[#666]">{formatDateTime(item.createdAt || item.sentAt || item.date)}</span>
 
                   <span className="flex items-center gap-2">
                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#f4dcca] text-[9px]">

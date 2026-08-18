@@ -31,9 +31,9 @@ export default function AttachmentPicker({
     if (!files || files.length === 0) return
 
     Array.from(files).forEach((file) => {
-      // 10MB limit per file
-      if (file.size > 10 * 1024 * 1024) {
-        alert(`${file.name} 파일이 너무 큽니다. (최대 10MB)`)
+      // 25MB limit per file (Gmail standard)
+      if (file.size > 25 * 1024 * 1024) {
+        alert(`${file.name} 파일이 너무 큽니다. (최대 25MB 지원)`)
         return
       }
 
@@ -89,6 +89,9 @@ export default function AttachmentPicker({
               <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l7.88-7.88" />
             </svg>
             <span>파일이나 이미지를 여기에 드래그하거나 첨부하세요</span>
+            <span className="rounded bg-[#eeebff] px-2 py-0.5 text-[10px] font-medium text-[#4f46e5]">
+              최대 25MB (PDF, 이미지, 문서, 압축 파일 등)
+            </span>
           </div>
 
           <button
