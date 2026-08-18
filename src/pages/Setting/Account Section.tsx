@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUserProfile, saveUserProfile } from '../../users/userProfile'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+const API_URL = import.meta.env.VITE_API_URL || ''
 const PASSWORD_STORAGE_KEY = 'ieum.accountPassword'
 
 function AccountSection() {

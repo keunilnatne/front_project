@@ -71,7 +71,7 @@ function AiPersonalizationSection() {
   const [settings, setSettings] = useState(initialSettings)
   const [showTagOptions, setShowTagOptions] = useState(false)
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+  const API_URL = import.meta.env.VITE_API_URL || ''
 
   const updateSettings = (changes: Partial<AiSettings>) => {
     const nextSettings = { ...settings, ...changes }
