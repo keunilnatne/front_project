@@ -1,10 +1,9 @@
-// src/pages/TeamMemoryPage.tsx
-
 import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
 import {
   fetchTeamMemory,
   saveTeamMemoryPattern,
+  deleteTeamMemoryPattern,
   type Pattern,
 } from '../users/teamMemory'
 
@@ -882,6 +881,17 @@ export default function TeamMemoryPage() {
     }
   }
 
+  const handleDeleteEvent = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!window.confirm('이 일정을 삭제하시겠습니까?')) return
+    try {
+      await deleteTeamMemoryPattern(id)
+      setPatterns((current) => current.filter((p) => String(p.id) !== String(id)))
+    } catch {
+      window.alert('일정 삭제에 실패했습니다.')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
       {/*
@@ -1166,13 +1176,23 @@ export default function TeamMemoryPage() {
                             {event.title}
                           </p>
 
-                          <span
-                            className={`shrink-0 rounded-md bg-[#f5f6fa] px-2 py-1 text-[10px] font-medium ${colorTextClass(
-                              event.color,
-                            )}`}
-                          >
-                            {event.place}
-                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span
+                              className={`rounded-md bg-[#f5f6fa] px-2 py-1 text-[10px] font-medium ${colorTextClass(
+                                event.color,
+                              )}`}
+                            >
+                              {event.place}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteEvent(event.id, e)}
+                              className="h-5 w-5 rounded flex items-center justify-center text-[#a5abb7] hover:text-[#e04b4b] hover:bg-[#fff0f0] transition cursor-pointer text-[13px] leading-none"
+                              title="일정 삭제"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
