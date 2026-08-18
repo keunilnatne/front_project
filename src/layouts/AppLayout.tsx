@@ -36,7 +36,7 @@ const navigationItems: NavigationItem[] = [
     icon: 'history',
   },
   {
-    label: 'Team Memory',
+    label: '팀 일정',
     path: '/team-memory',
     icon: 'memory',
   },
