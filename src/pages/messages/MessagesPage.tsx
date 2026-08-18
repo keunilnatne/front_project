@@ -1081,7 +1081,7 @@ function toMessageRecipient(item: UserRecipient): Recipient {
     id: String(item.id), name: item.name, email: item.email, position: item.role,
     company: item.company, country: item.country, language: item.language,
     timezone: item.timezone, relationship: item.organizationRelation,
-    responseTime: item.averageResponseMinutes, speed: item.responseSpeed,
-    collaboration: item.collaborationActivity,
+    responseTime: item.averageResponseMinutes ?? undefined, speed: item.responseSpeed ?? undefined,
+    collaboration: item.collaborationActivity ?? undefined,
   }
 }

@@ -8,9 +8,9 @@ export type Recipient = {
   language: string
   timezone: string
   organizationRelation: string
-  responseSpeed: '빠름' | '보통' | '느림' | string
-  averageResponseMinutes: number
-  collaborationActivity: 'High' | 'Medium' | 'Low' | string
+  responseSpeed?: '빠름' | '보통' | '느림' | string | null
+  averageResponseMinutes?: number | null
+  collaborationActivity?: 'High' | 'Medium' | 'Low' | string | null
   isOnline: boolean
   isFavorite: boolean
   isRecent: boolean
@@ -46,14 +46,21 @@ async function apiError(response: Response, fallback: string) {
   return new Error(data?.message || data?.error?.message || fallback)
 }
 
-export function sanitizeResponseSpeed(value: unknown): '빠름' | '보통' | '느림' {
+export function sanitizeResponseSpeed(value: unknown): '빠름' | '보통' | '느림' | '' {
+  if (!value) return ''
   const str = String(value || '').trim()
   if (str.includes('빠') || str.toLowerCase().includes('fast')) return '빠름'
   if (str.includes('느') || str.toLowerCase().includes('slow')) return '느림'
-  return '보통'
+  if (str.includes('보') || str.toLowerCase().includes('normal')) return '보통'
+  return ''
 }
 
 function normalizeRecipient(item: any): Recipient {
+  const speed = sanitizeResponseSpeed(item.responseSpeed)
+  const avgMinutes = typeof item.averageResponseMinutes === 'number' && item.averageResponseMinutes > 0
+    ? item.averageResponseMinutes
+    : (item.averageResponseMinutes && !isNaN(Number(item.averageResponseMinutes)) && Number(item.averageResponseMinutes) > 0 ? Number(item.averageResponseMinutes) : null)
+
   return {
     id: Number(item.id),
     name: String(item.name || ''),
@@ -64,9 +71,9 @@ function normalizeRecipient(item: any): Recipient {
     language: item.language || 'Korean',
     timezone: item.timezone || 'Asia/Seoul',
     organizationRelation: item.organizationRelation || item.relationship || '팀원',
-    responseSpeed: sanitizeResponseSpeed(item.responseSpeed),
-    averageResponseMinutes: Number(item.averageResponseMinutes || 30),
-    collaborationActivity: item.collaborationActivity || 'Medium',
+    responseSpeed: speed || null,
+    averageResponseMinutes: avgMinutes,
+    collaborationActivity: item.collaborationActivity || null,
     isOnline: Boolean(item.isOnline),
     isFavorite: Boolean(item.isFavorite),
     isRecent: item.isRecent !== undefined ? Boolean(item.isRecent) : true,

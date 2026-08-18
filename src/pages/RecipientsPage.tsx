@@ -1506,7 +1506,7 @@ function RecipientsPage() {
                 <div className="flex items-center gap-2">
                   <span className="w-16 shrink-0 text-[12px] font-medium text-[#7b7b84]">응답 속도</span>
                   <span className="font-medium text-[#3b3c48]">
-                    {selectedRecipient.responseSpeed ? `${selectedRecipient.responseSpeed} (평균 ${selectedRecipient.averageResponseMinutes || 30}분)` : '-'}
+                    {selectedRecipient.responseSpeed ? `${selectedRecipient.responseSpeed}${selectedRecipient.averageResponseMinutes ? ` (평균 ${selectedRecipient.averageResponseMinutes}분)` : ''}` : '-'}
                   </span>
                 </div>
               </div>
