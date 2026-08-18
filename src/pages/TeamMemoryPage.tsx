@@ -1,30 +1,365 @@
 // src/pages/TeamMemoryPage.tsx
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
 import {
-  deleteTeamMemoryPattern,
   fetchTeamMemory,
-  fetchTeamMemoryCandidates,
-  getLocalLearningLogs,
-  persistLearningLogs,
   saveTeamMemoryPattern,
-  updateTeamMemoryPattern,
-  type Candidate,
-  type LearningLog,
   type Pattern,
 } from '../users/teamMemory'
-import { addNotification } from '../users/notifications'
 
-/* =========================================================
-   Icons
-========================================================= */
+type CalendarEvent = {
+  id: string
+  date: string
+  start: string
+  end: string
+  title: string
+  place: string
+  color: 'blue' | 'green' | 'purple'
+  source: 'ai' | 'manual'
+}
+
+type EventDraft = {
+  date: string
+  start: string
+  end: string
+  title: string
+  place: string
+  color: CalendarEvent['color']
+}
+
+const weekdayLabels = [
+  '일',
+  '월',
+  '화',
+  '수',
+  '목',
+  '금',
+  '토',
+]
+
+const monthNames = [
+  '1월',
+  '2월',
+  '3월',
+  '4월',
+  '5월',
+  '6월',
+  '7월',
+  '8월',
+  '9월',
+  '10월',
+  '11월',
+  '12월',
+]
+
+function getDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(
+    date.getMonth() + 1,
+  ).padStart(2, '0')}-${String(
+    date.getDate(),
+  ).padStart(2, '0')}`
+}
+
+function getInitialToday() {
+  const date = new Date()
+
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth(),
+    date: getDateKey(date),
+  }
+}
+
+/**
+ * 현재 달의 실제 날짜를 계산합니다.
+ *
+ * Date 객체를 기준으로 계산하기 때문에
+ * 0일, -1일 같은 잘못된 날짜가 생성되지 않습니다.
+ */
+function getCalendarDays(
+  year: number,
+  month: number,
+) {
+  const firstDate = new Date(
+    year,
+    month,
+    1,
+  )
+
+  const firstWeekday =
+    firstDate.getDay()
+
+  const daysInMonth = new Date(
+    year,
+    month + 1,
+    0,
+  ).getDate()
+
+  const totalCells =
+    Math.ceil(
+      (firstWeekday + daysInMonth) / 7,
+    ) * 7
+
+  return Array.from(
+    { length: totalCells },
+    (_, index) => {
+      const date = new Date(
+        year,
+        month,
+        index - firstWeekday + 1,
+      )
+
+      return {
+        date: getDateKey(date),
+        day: date.getDate(),
+        weekday: date.getDay(),
+        isCurrentMonth:
+          date.getMonth() === month,
+      }
+    },
+  )
+}
+
+/**
+ * Team Memory에 저장된 deadline에서
+ * 실제 날짜와 시간을 읽습니다.
+ *
+ * 지원 예:
+ *
+ * 2026-08-18
+ * 2026.08.18
+ * 2026/08/18
+ * 2026년 8월 18일
+ * 2026-08-18 14:00
+ * 2026년 8월 18일 오후 2시
+ *
+ * 날짜가 없는 데이터는
+ * 임의의 날짜에 배치하지 않습니다.
+ */
+function parseDeadline(
+  deadline: string,
+) {
+  const value = deadline.trim()
+
+  const dateMatch =
+    value.match(
+      /(\d{4})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})/,
+    ) ||
+    value.match(
+      /(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/,
+    )
+
+  if (!dateMatch) {
+    return null
+  }
+
+  const year = Number(dateMatch[1])
+  const month = Number(dateMatch[2])
+  const day = Number(dateMatch[3])
+
+  const date = new Date(
+    year,
+    month - 1,
+    day,
+  )
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null
+  }
+
+  const timeMatch = value.match(
+    /(오전|오후|AM|PM)?\s*(\d{1,2})(?::|시)\s*(\d{1,2})?/i,
+  )
+
+  if (!timeMatch) {
+    return {
+      date: getDateKey(date),
+      start: '종일',
+      end: '',
+    }
+  }
+
+  let hour = Number(timeMatch[2])
+
+  const minute = Number(
+    timeMatch[3] || 0,
+  )
+
+  const period =
+    timeMatch[1]?.toUpperCase()
+
+  if (
+    (period === '오후' ||
+      period === 'PM') &&
+    hour < 12
+  ) {
+    hour += 12
+  }
+
+  if (
+    (period === '오전' ||
+      period === 'AM') &&
+    hour === 12
+  ) {
+    hour = 0
+  }
+
+  const start = `${String(
+    hour,
+  ).padStart(2, '0')}:${String(
+    minute,
+  ).padStart(2, '0')}`
+
+  const endDate = new Date(date)
+
+  endDate.setHours(hour)
+  endDate.setMinutes(
+    minute + 60,
+  )
+
+  const end = `${String(
+    endDate.getHours(),
+  ).padStart(2, '0')}:${String(
+    endDate.getMinutes(),
+  ).padStart(2, '0')}`
+
+  return {
+    date: getDateKey(date),
+    start,
+    end,
+  }
+}
+
+/**
+ * 기존 Team Memory의 Pattern만
+ * 캘린더 데이터로 변환합니다.
+ *
+ * 일정은 하드코딩하지 않습니다.
+ *
+ * 현재 프로젝트에서 실제 날짜 정보가 들어있는
+ * Pattern.deadline만 캘린더에 표시합니다.
+ */
+function patternsToCalendarEvents(
+  patterns: Pattern[],
+): CalendarEvent[] {
+  const events: CalendarEvent[] = []
+
+  patterns.forEach(
+    (pattern, index) => {
+      const parsed = parseDeadline(
+        pattern.deadline,
+      )
+
+      if (!parsed) {
+        return
+      }
+
+      const event: CalendarEvent = {
+        id: pattern.id,
+        date: parsed.date,
+        start: parsed.start,
+        end: parsed.end,
+
+        title:
+          pattern.title.trim() ||
+          pattern.request.trim() ||
+          'AI 학습 일정',
+
+        /*
+         * 현재 Pattern 모델에는 장소 필드가 없으므로
+         * 없는 장소를 임의로 생성하지 않습니다.
+         */
+        place: 'AI 학습',
+
+        color:
+          index % 3 === 0
+            ? 'blue'
+            : index % 3 === 1
+              ? 'green'
+              : 'purple',
+
+        source: 'ai',
+      }
+
+      events.push(event)
+    },
+  )
+
+  return events
+}
+
+function formatDateLabel(
+  dateKey: string,
+) {
+  const date = new Date(
+    `${dateKey}T00:00:00`,
+  )
+
+  const weekdays = [
+    '일',
+    '월',
+    '화',
+    '수',
+    '목',
+    '금',
+    '토',
+  ]
+
+  return `${
+    date.getMonth() + 1
+  }월 ${date.getDate()}일 ${
+    weekdays[date.getDay()]
+  }요일`
+}
+
+function formatEventTime(
+  event: CalendarEvent,
+) {
+  if (event.start === '종일') {
+    return '종일'
+  }
+
+  return `${event.start} - ${event.end}`
+}
+
+function colorClass(
+  color: CalendarEvent['color'],
+) {
+  if (color === 'green') {
+    return 'bg-[#16b879]'
+  }
+
+  if (color === 'purple') {
+    return 'bg-[#8b5cf6]'
+  }
+
+  return 'bg-[#4385f5]'
+}
+
+function colorTextClass(
+  color: CalendarEvent['color'],
+) {
+  if (color === 'green') {
+    return 'text-[#16a971]'
+  }
+
+  if (color === 'purple') {
+    return 'text-[#8050ee]'
+  }
+
+  return 'text-[#4385f5]'
+}
 
 function PlusIcon() {
   return (
     <svg
-      width="16"
-      height="16"
+      width="17"
+      height="17"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -36,151 +371,15 @@ function PlusIcon() {
   )
 }
 
-function PatternIcon() {
-  return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#efedff] text-[#4c35d4]">
-      <svg
-        width="19"
-        height="19"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M7 4h10v16H7z" />
-        <path d="M9.5 8h5M9.5 12h5M9.5 16h3" />
-      </svg>
-    </div>
-  )
-}
-
-function SparkleIcon() {
+function ChevronIcon({
+  direction,
+}: {
+  direction: 'left' | 'right'
+}) {
   return (
     <svg
-      width="19"
-      height="19"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-    >
-      <path d="M12 2l1.5 5.5L19 9l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5L12 2Z" />
-      <path d="M19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7L19 15Z" />
-    </svg>
-  )
-}
-
-function EditIcon() {
-  return (
-    <svg
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4L16.5 3.5Z" />
-    </svg>
-  )
-}
-
-function MoreIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-    >
-      <circle cx="12" cy="5" r="1.6" />
-      <circle cx="12" cy="12" r="1.6" />
-      <circle cx="12" cy="19" r="1.6" />
-    </svg>
-  )
-}
-
-function UploadIcon() {
-  return (
-    <svg
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 16V4" />
-      <path d="m7 9 5-5 5 5" />
-      <path d="M5 20h14" />
-    </svg>
-  )
-}
-
-function SortIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-    >
-      <path d="M4 7h16M7 12h10M10 17h4" />
-    </svg>
-  )
-}
-
-function BookIcon() {
-  return (
-    <svg
-      width="19"
-      height="19"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4Z" />
-      <path d="M5 18a2 2 0 0 0 2 2" />
-      <path d="M9 8h7M9 12h7" />
-    </svg>
-  )
-}
-
-function CloseIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-    >
-      <path d="M6 6l12 12M18 6 6 18" />
-    </svg>
-  )
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      width="15"
-      height="15"
+      width="20"
+      height="20"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -188,1427 +387,823 @@ function CheckIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="m5 12 4 4L19 6" />
+      <path
+        d={
+          direction === 'left'
+            ? 'm14.5 5-7 7 7 7'
+            : 'm9.5 5 7 7-7 7'
+        }
+      />
     </svg>
   )
 }
 
-/* =========================================================
-   Helpers
-========================================================= */
+function EventModal({
+  selectedDate,
+  onClose,
+  onAdd,
+}: {
+  selectedDate: string
+  onClose: () => void
+  onAdd: (
+    event: EventDraft,
+  ) => Promise<void>
+}) {
+  const [title, setTitle] =
+    useState('')
 
-function getUpdatedTimeValue(value?: string) {
-  if (!value) return 0
+  const [start, setStart] =
+    useState('10:00')
 
-  if (value.includes('방금')) return 0
-  if (value.includes('분 전')) {
-    const minute = Number(value.replace(/[^0-9]/g, ''))
-    return minute
+  const [end, setEnd] =
+    useState('11:00')
+
+  const [place, setPlace] =
+    useState('')
+
+  const [color, setColor] =
+    useState<
+      EventDraft['color']
+    >('blue')
+
+  const [saving, setSaving] =
+    useState(false)
+
+  const submit = async () => {
+    if (
+      !title.trim() ||
+      saving
+    ) {
+      return
+    }
+
+    setSaving(true)
+
+    try {
+      await onAdd({
+        date: selectedDate,
+        start,
+        end,
+        title: title.trim(),
+        place: place.trim(),
+        color,
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
-  if (value.includes('시간 전')) {
-    const hour = Number(value.replace(/[^0-9]/g, ''))
-    return hour * 60
-  }
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 px-4"
+      onMouseDown={onClose}
+    >
+      <div
+        className="w-full max-w-[420px] rounded-2xl bg-white p-6 shadow-[0_20px_60px_rgba(0,0,0,0.18)]"
+        onMouseDown={(event) =>
+          event.stopPropagation()
+        }
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-[18px] font-bold text-[#292d3a]">
+              일정 추가
+            </h2>
 
-  if (value.includes('일 전')) {
-    const day = Number(value.replace(/[^0-9]/g, ''))
-    return day * 24 * 60
-  }
+            <p className="mt-1 text-[12px] text-[#7c8497]">
+              {formatDateLabel(
+                selectedDate,
+              )}
+            </p>
+          </div>
 
-  if (value.includes('주 전')) {
-    const week = Number(value.replace(/[^0-9]/g, ''))
-    return week * 7 * 24 * 60
-  }
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-[24px] leading-none text-[#8b91a0]"
+            aria-label="닫기"
+          >
+            ×
+          </button>
+        </div>
 
-  const parsed = Date.parse(value)
-  return Number.isNaN(parsed) ? 999999 : Math.floor(parsed / 60000)
+        <div className="mt-5 space-y-4">
+          <label className="block">
+            <span className="mb-1.5 block text-[12px] font-medium text-[#596175]">
+              일정 제목
+            </span>
+
+            <input
+              autoFocus
+              value={title}
+              onChange={(event) =>
+                setTitle(
+                  event.target.value,
+                )
+              }
+              placeholder="일정 제목"
+              className="h-10 w-full rounded-lg border border-[#dedfe7] px-3 text-[13px] outline-none focus:border-[#5a43dc]"
+            />
+          </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1.5 block text-[12px] font-medium text-[#596175]">
+                시작
+              </span>
+
+              <input
+                type="time"
+                value={start}
+                onChange={(event) =>
+                  setStart(
+                    event.target.value,
+                  )
+                }
+                className="h-10 w-full rounded-lg border border-[#dedfe7] px-3 text-[13px] outline-none focus:border-[#5a43dc]"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block text-[12px] font-medium text-[#596175]">
+                종료
+              </span>
+
+              <input
+                type="time"
+                value={end}
+                onChange={(event) =>
+                  setEnd(
+                    event.target.value,
+                  )
+                }
+                className="h-10 w-full rounded-lg border border-[#dedfe7] px-3 text-[13px] outline-none focus:border-[#5a43dc]"
+              />
+            </label>
+          </div>
+
+          <label className="block">
+            <span className="mb-1.5 block text-[12px] font-medium text-[#596175]">
+              장소
+            </span>
+
+            <input
+              value={place}
+              onChange={(event) =>
+                setPlace(
+                  event.target.value,
+                )
+              }
+              placeholder="회의실 / 온라인"
+              className="h-10 w-full rounded-lg border border-[#dedfe7] px-3 text-[13px] outline-none focus:border-[#5a43dc]"
+            />
+          </label>
+
+          <div>
+            <span className="mb-2 block text-[12px] font-medium text-[#596175]">
+              색상
+            </span>
+
+            <div className="flex gap-2">
+              {(
+                [
+                  'blue',
+                  'green',
+                  'purple',
+                ] as const
+              ).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() =>
+                    setColor(value)
+                  }
+                  className={`flex h-9 w-9 items-center justify-center rounded-full border ${
+                    color === value
+                      ? 'border-[#5b45dc]'
+                      : 'border-transparent'
+                  }`}
+                >
+                  <span
+                    className={`h-3 w-3 rounded-full ${colorClass(
+                      value,
+                    )}`}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="h-10 rounded-lg border border-[#dedfe7] px-4 text-[12px] text-[#666d7d]"
+          >
+            취소
+          </button>
+
+          <button
+            type="button"
+            disabled={
+              !title.trim() ||
+              saving
+            }
+            onClick={() =>
+              void submit()
+            }
+            className="h-10 rounded-lg bg-[#4b39d4] px-5 text-[12px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving
+              ? '저장 중...'
+              : '일정 추가'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
-/* =========================================================
-   Page
-========================================================= */
-
 export default function TeamMemoryPage() {
-  const [patterns, setPatterns] = useState<Pattern[]>([])
-  const [selectedId, setSelectedId] = useState('1')
-  const [tab, setTab] = useState<'saved' | 'candidates'>('saved')
+  /*
+   * 페이지에 처음 들어왔을 때
+   * 무조건 실제 오늘 날짜를 선택합니다.
+   */
+  const initialToday = useMemo(
+    () => getInitialToday(),
+    [],
+  )
 
-  const [candidates, setCandidates] =
-    useState<Candidate[]>([])
+  const [year, setYear] =
+    useState(initialToday.year)
 
-  const [learningLogs, setLearningLogs] =
-    useState<LearningLog[]>(getLocalLearningLogs())
+  const [month, setMonth] =
+    useState(initialToday.month)
 
-  const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
-  const [growthRate, setGrowthRate] = useState(0)
+  const [selectedDate, setSelectedDate] =
+    useState(initialToday.date)
 
-  // 버튼이 눌렸을 때만 true
-  const [showUnreadOnly, setShowUnreadOnly] = useState(false)
+  const [search, setSearch] =
+    useState('')
 
-  // 버튼이 눌렸을 때만 true
-  const [sortActive, setSortActive] = useState(false)
+  const [patterns, setPatterns] =
+    useState<Pattern[]>([])
 
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [showMenu, setShowMenu] = useState(false)
-  const [showLearningLog, setShowLearningLog] = useState(false)
+  const [loading, setLoading] =
+    useState(true)
 
-  const [newTitle, setNewTitle] = useState('')
-  const [newPurpose, setNewPurpose] = useState('')
-  const [newReason, setNewReason] = useState('')
-  const [newRequest, setNewRequest] = useState('')
-  const [newDeadline, setNewDeadline] = useState('')
+  const [errorMessage, setErrorMessage] =
+    useState('')
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-
-  const selected =
-    patterns.find((pattern) => pattern.id === selectedId) ||
-    patterns[0]
-
-  /* =========================================================
-     API
-  ========================================================= */
+  const [showModal, setShowModal] =
+    useState(false)
 
   useEffect(() => {
-    const controller = new AbortController()
-    void Promise.all([
-      fetchTeamMemory(controller.signal),
-      fetchTeamMemoryCandidates(controller.signal),
-    ])
-      .then(([loadedPatterns, loadedCandidates]) => {
-        setPatterns(loadedPatterns)
-        setSelectedId(loadedPatterns[0]?.id || '')
-        setCandidates(loadedCandidates)
-        if (loadedCandidates.length > 0 && loadedCandidates.length !== Number(localStorage.getItem('ieum.teamMemory.lastCandidateCount') || 0)) {
-          addNotification({ type: 'learning', title: '새 AI 학습 후보가 도착했습니다.', description: `${loadedCandidates.length}개의 커뮤니케이션 패턴을 검토할 수 있습니다.` })
-          localStorage.setItem('ieum.teamMemory.lastCandidateCount', String(loadedCandidates.length))
+    const controller =
+      new AbortController()
+
+    const load = async () => {
+      setLoading(true)
+      setErrorMessage('')
+
+      try {
+        /*
+         * 기존 Team Memory 데이터 연결.
+         *
+         * fetchTeamMemory()
+         *   -> /api/team-memory
+         *   -> API 실패 시 기존 localStorage
+         *
+         * 하드코딩 데이터를 사용하지 않습니다.
+         */
+        const result =
+          await fetchTeamMemory(
+            controller.signal,
+          )
+
+        if (
+          !controller.signal.aborted
+        ) {
+          setPatterns(result)
         }
-        const previousCount = Number(localStorage.getItem('ieum.teamMemory.previousCount') || loadedPatterns.length)
-        setGrowthRate(previousCount > 0 ? Math.round(((loadedPatterns.length - previousCount) / previousCount) * 100) : 0)
-        localStorage.setItem('ieum.teamMemory.previousCount', String(loadedPatterns.length))
-      })
-      .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) {
-          console.error('팀 메모리를 불러오지 못했습니다.', error)
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name ===
+            'AbortError'
+        ) {
+          return
         }
-      })
-    return () => controller.abort()
-  }, [])
 
-  /* =========================================================
-     Filter + Sort
-  ========================================================= */
-
-  const filteredPatterns = useMemo(() => {
-    let result = [...patterns]
-
-    if (search.trim()) {
-      const keyword = search.toLowerCase().trim()
-
-      result = result.filter((item) => {
-        return (
-          item.title.toLowerCase().includes(keyword) ||
-          item.purpose.toLowerCase().includes(keyword) ||
-          item.reason.toLowerCase().includes(keyword) ||
-          item.request.toLowerCase().includes(keyword) ||
-          item.deadline.toLowerCase().includes(keyword)
-        )
-      })
-    }
-
-    // 읽지 않은 항목 버튼이 눌린 경우에만 필터링
-    if (showUnreadOnly) {
-      result = result.filter((item) => item.unread === true)
-    }
-
-    // 정렬 버튼이 눌린 경우에만 정렬
-    // false일 때는 patterns의 원래 순서를 그대로 유지
-    if (sortActive) {
-      result.sort((a, b) => {
-        return (
-          getUpdatedTimeValue(a.updatedAt) -
-          getUpdatedTimeValue(b.updatedAt)
-        )
-      })
-    }
-
-    return result
-  }, [
-    patterns,
-    search,
-    showUnreadOnly,
-    sortActive,
-  ])
-
-  /*
-   * 사진처럼:
-   * 첫 번째 카드는 큰 카드
-   * 나머지는 아래 2열 카드
-   *
-   * 정렬을 하지 않은 기본 상태에서는 기존 배열 순서를 그대로 사용한다.
-   * 선택한 카드를 클릭하면 그 카드를 상세 카드로 보여준다.
-   */
-  const displayPatterns = useMemo(() => {
-    if (!filteredPatterns.length) return []
-
-    if (!sortActive) {
-      const selectedIndex = filteredPatterns.findIndex(
-        (item) => item.id === selectedId,
-      )
-
-      if (selectedIndex > 0) {
-        const copied = [...filteredPatterns]
-        const [selectedPattern] = copied.splice(selectedIndex, 1)
-        copied.unshift(selectedPattern)
-        return copied
+        if (
+          !controller.signal.aborted
+        ) {
+          setErrorMessage(
+            'AI 학습 데이터를 불러오지 못했습니다.',
+          )
+        }
+      } finally {
+        if (
+          !controller.signal.aborted
+        ) {
+          setLoading(false)
+        }
       }
     }
 
-    return filteredPatterns
-  }, [filteredPatterns, selectedId, sortActive])
+    void load()
 
-  const featuredPattern = displayPatterns[0]
-  const secondaryPatterns = displayPatterns.slice(1)
-
-  /* =========================================================
-     Logs
-  ========================================================= */
-
-  function addLearningLog(
-    action: string,
-    description: string,
-  ) {
-    const now = new Date()
-
-    const time = now.toLocaleTimeString('ko-KR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-
-    setLearningLogs((current) => {
-      const next = [
-        {
-          id: `log-${Date.now()}`,
-          action,
-          description,
-          time: `오늘 ${time}`,
-        },
-        ...current,
-      ]
-      persistLearningLogs(next)
-      return next
-    })
-  }
-
-  /* =========================================================
-     Add
-  ========================================================= */
-
-  function openAddModal() {
-    setNewTitle('')
-    setNewPurpose('')
-    setNewReason('')
-    setNewRequest('')
-    setNewDeadline('')
-    setShowAddModal(true)
-  }
-
-  async function addPattern() {
-    if (!newTitle.trim()) return
-
-    const newPattern: Pattern = {
-      id: `pattern-${Date.now()}`,
-      title: newTitle.trim(),
-      purpose: newPurpose.trim(),
-      reason: newReason.trim(),
-      request: newRequest.trim(),
-      deadline: newDeadline.trim(),
-      updatedAt: '방금 전',
-      unread: true,
+    return () => {
+      controller.abort()
     }
+  }, [])
 
-    setPatterns((current) => [newPattern, ...current])
-    setSelectedId(newPattern.id)
-    setShowAddModal(false)
-
-    addLearningLog(
-      '패턴 추가',
-      `"${newPattern.title}" 패턴이 추가되었습니다.`,
-    )
-
-    try {
-      const saved = await saveTeamMemoryPattern(newPattern)
-      setPatterns((current) => current.map((item) => item.id === saved.id ? saved : item))
-    } catch (error) {
-      console.error(error)
-      alert('팀 메모리 저장에 실패했습니다.')
-    }
-  }
-
-  /* =========================================================
-     Edit
-  ========================================================= */
-
-  function openEditModal() {
-    if (!selected) return
-
-    setNewTitle(selected.title)
-    setNewPurpose(selected.purpose)
-    setNewReason(selected.reason)
-    setNewRequest(selected.request)
-    setNewDeadline(selected.deadline)
-
-    setShowEditModal(true)
-    setShowMenu(false)
-  }
-
-  async function updatePattern() {
-    if (!selected || !newTitle.trim()) return
-
-    const updated: Pattern = {
-      ...selected,
-      title: newTitle.trim(),
-      purpose: newPurpose.trim(),
-      reason: newReason.trim(),
-      request: newRequest.trim(),
-      deadline: newDeadline.trim(),
-      updatedAt: '방금 전',
-    }
-
-    setLoading(true)
-    setPatterns((current) =>
-      current.map((item) =>
-        item.id === updated.id ? updated : item,
+  /*
+   * 실제 Pattern.deadline에 들어있는
+   * 날짜가 있는 데이터만 일정으로 변환합니다.
+   */
+  const aiEvents = useMemo(
+    () =>
+      patternsToCalendarEvents(
+        patterns,
       ),
-    )
+    [patterns],
+  )
 
-    setShowEditModal(false)
+  const calendarDays = useMemo(
+    () =>
+      getCalendarDays(
+        year,
+        month,
+      ),
+    [year, month],
+  )
 
-    addLearningLog(
-      '패턴 업데이트',
-      `"${updated.title}" 패턴이 수정되었습니다.`,
-    )
+  const visibleEvents = useMemo(() => {
+    const keyword =
+      search.trim().toLowerCase()
 
-    try {
-      const saved = await updateTeamMemoryPattern(updated)
-      setPatterns((current) => current.map((item) => item.id === saved.id ? saved : item))
-    } catch (error) {
-      console.error(error)
-      alert('팀 메모리 수정에 실패했습니다.')
-    } finally {
-      setLoading(false)
+    if (!keyword) {
+      return aiEvents
     }
+
+    return aiEvents.filter(
+      (event) =>
+        `${event.title} ${event.place} ${event.date} ${event.start} ${event.end}`
+          .toLowerCase()
+          .includes(keyword),
+    )
+  }, [aiEvents, search])
+
+  const selectedEvents = useMemo(
+    () =>
+      visibleEvents
+        .filter(
+          (event) =>
+            event.date ===
+            selectedDate,
+        )
+        .sort((a, b) => {
+          if (
+            a.start === '종일'
+          ) {
+            return -1
+          }
+
+          if (
+            b.start === '종일'
+          ) {
+            return 1
+          }
+
+          return a.start.localeCompare(
+            b.start,
+          )
+        }),
+    [
+      visibleEvents,
+      selectedDate,
+    ],
+  )
+
+  const moveMonth = (
+    direction: number,
+  ) => {
+    const next = new Date(
+      year,
+      month + direction,
+      1,
+    )
+
+    setYear(
+      next.getFullYear(),
+    )
+
+    setMonth(
+      next.getMonth(),
+    )
+
+    /*
+     * 이동한 달에서는
+     * 무조건 그 달의 1일을 선택합니다.
+     *
+     * 따라서 전월의 31일 같은
+     * 잘못된 날짜가 남지 않습니다.
+     */
+    setSelectedDate(
+      getDateKey(next),
+    )
   }
 
-  /* =========================================================
-     Delete
-  ========================================================= */
+  const goToday = () => {
+    const today = new Date()
 
-  async function deleteSelected() {
-    if (!selected) return
-
-    const confirmed = window.confirm(
-      `"${selected.title}" 패턴을 삭제하시겠습니까?`,
+    setYear(
+      today.getFullYear(),
     )
 
-    if (!confirmed) return
-
-    const deletedTitle = selected.title
-
-    const remaining = patterns.filter(
-      (item) => item.id !== selected.id,
+    setMonth(
+      today.getMonth(),
     )
 
-    setPatterns(remaining)
-    setSelectedId(remaining[0]?.id || '')
-    setShowMenu(false)
-
-    addLearningLog(
-      '패턴 삭제',
-      `"${deletedTitle}" 패턴이 삭제되었습니다.`,
+    setSelectedDate(
+      getDateKey(today),
     )
-
-    try {
-      await deleteTeamMemoryPattern(selected.id)
-    } catch (error) {
-      console.error(error)
-      alert('팀 메모리 삭제에 실패했습니다.')
-    }
   }
 
-  /* =========================================================
-     Candidate
-  ========================================================= */
+  /**
+   * 직접 추가한 일정 역시 기존 Team Memory
+   * 저장 API를 사용합니다.
+   */
+  const addEvent = async (
+    event: EventDraft,
+  ) => {
+    const deadline =
+      `${event.date} ${event.start}`
 
-  async function saveCandidate(candidate: Candidate) {
-    const newPattern: Pattern = {
-      id: `candidate-pattern-${Date.now()}`,
-      title: 'AI 학습 패턴',
-      purpose: candidate.suggestion,
-      reason: '',
-      request: '',
-      deadline: '',
-      updatedAt: '방금 전',
+    const pattern: Pattern = {
+      id: `team-memory-${Date.now()}`,
+      title: event.title,
+      purpose: event.title,
+      reason:
+        '팀 일정에서 직접 추가',
+      request: event.title,
+      deadline,
+      updatedAt:
+        new Date().toISOString(),
       unread: false,
     }
 
-    setPatterns((current) => [newPattern, ...current])
-
-    setCandidates((current) =>
-      current.filter((item) => item.id !== candidate.id),
-    )
-
-    addLearningLog(
-      'AI 패턴 저장',
-      `신뢰도 ${candidate.confidence}%의 AI 학습 후보가 저장되었습니다.`,
-    )
-
     try {
-      const saved = await saveTeamMemoryPattern(newPattern)
-      setPatterns((current) => current.map((item) => item.id === saved.id ? saved : item))
+      const saved =
+        await saveTeamMemoryPattern(
+          pattern,
+        )
+
+      setPatterns(
+        (current) => [
+          saved,
+          ...current.filter(
+            (item) =>
+              item.id !== saved.id,
+          ),
+        ],
+      )
+
+      setShowModal(false)
     } catch (error) {
       console.error(error)
-      alert('팀 메모리 저장에 실패했습니다.')
-    }
-  }
 
-  function ignoreCandidate(candidateId: string) {
-    const candidate = candidates.find(
-      (item) => item.id === candidateId,
-    )
-
-    setCandidates((current) =>
-      current.filter((item) => item.id !== candidateId),
-    )
-
-    if (candidate) {
-      addLearningLog(
-        'AI 패턴 무시',
-        `신뢰도 ${candidate.confidence}%의 학습 후보를 무시했습니다.`,
+      window.alert(
+        '일정 저장에 실패했습니다.',
       )
     }
   }
 
-  /* =========================================================
-     File
-  ========================================================= */
-
-  function handleFileChange(
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) {
-    const file = event.target.files?.[0]
-
-    if (!file || !selected) return
-
-    setPatterns((current) =>
-      current.map((item) =>
-        item.id === selected.id
-          ? {
-              ...item,
-              attachmentName: file.name,
-            }
-          : item,
-      ),
-    )
-
-    addLearningLog(
-      '첨부파일 추가',
-      `"${file.name}" 파일이 "${selected.title}"에 첨부되었습니다.`,
-    )
-
-    event.target.value = ''
-  }
-
-  /* =========================================================
-     Read
-  ========================================================= */
-
-  function markAsRead(patternId: string) {
-    setPatterns((current) =>
-      current.map((item) =>
-        item.id === patternId
-          ? { ...item, unread: false }
-          : item,
-      ),
-    )
-  }
-
-  /* =========================================================
-     Render
-  ========================================================= */
-
   return (
-    <div className="min-h-screen bg-[#fbfbfd] text-[#2d292b]">
-      {/* =====================================================
-          Header
-      ===================================================== */}
+    <div className="min-h-screen bg-[#f8f9fc]">
+      {/*
+       * 기존 프로젝트의 공통 헤더를 그대로 사용합니다.
+       */}
+      <PageHeader
+        searchValue={search}
+        onSearchChange={setSearch}
+        onSearchSubmit={setSearch}
+        searchPlaceholder="일정, 참석자 또는 키워드 검색"
+      />
 
-      <PageHeader searchValue={search} onSearchChange={setSearch} onSearchSubmit={setSearch} />
+      <main className="px-8 pb-8 pt-6">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="ieum-page-title text-[#292e3b]">
+              팀 일정
+            </h1>
 
-      {/* =====================================================
-          Main
-      ===================================================== */}
-
-      <main className="px-8 pb-12 pt-8">
-        <div className="mb-7">
-          <h1 className="ieum-page-title text-[#292527]">팀 메모리</h1>
-          <p className="ieum-page-subtitle text-[#777079]">팀의 커뮤니케이션 패턴과 학습된 업무 방식을 관리하세요.</p>
-        </div>
-        {/* ===================================================
-            Tabs
-        =================================================== */}
-
-        <div className="flex items-end justify-between border-b border-[#e4e1e7]">
-          <div className="flex h-11.75 items-start gap-8">
-            <button
-              type="button"
-              onClick={() => setTab('saved')}
-              className={`relative h-11.75 px-2 text-[15px] ${
-                tab === 'saved'
-                  ? 'font-medium text-[#5037d7]'
-                  : 'text-[#6f6b70]'
-              }`}
-            >
-              저장된 패턴
-
-              {tab === 'saved' && (
-                <span className="absolute -bottom-px left-0 right-0 h-0.5 bg-[#5037d7]" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setTab('candidates')}
-              className={`relative h-11.75 px-2 text-[15px] ${
-                tab === 'candidates'
-                  ? 'font-medium text-[#5037d7]'
-                  : 'text-[#6f6b70]'
-              }`}
-            >
-              학습 후보
-
-              <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#5037d7] px-1 text-[11px] font-semibold text-white">
-                {candidates.length}
-              </span>
-
-              {tab === 'candidates' && (
-                <span className="absolute -bottom-px left-0 right-0 h-0.5 bg-[#5037d7]" />
-              )}
-            </button>
+            <p className="mt-1 text-[13px] text-[#7a8395]">
+              AI가 팀 커뮤니케이션에서
+              학습한 일정 정보를 한눈에
+              확인하세요.
+            </p>
           </div>
 
           <button
             type="button"
-            onClick={openAddModal}
-            className="mb-3 flex h-9.25 items-center gap-2 rounded-lg bg-[#5037d7] px-4 text-[13px] font-medium text-white shadow-sm transition hover:bg-[#432bc9]"
+            onClick={() =>
+              setShowModal(true)
+            }
+            className="flex h-11 items-center gap-2 rounded-lg bg-[#4b38d2] px-4 text-[13px] font-semibold text-white shadow-[0_5px_14px_rgba(75,56,210,0.15)] transition hover:bg-[#4130c3]"
           >
             <PlusIcon />
-            패턴 추가
+            일정 추가
           </button>
         </div>
 
-        {tab === 'saved' ? (
-          <div className="mt-6 grid grid-cols-[minmax(0,1fr)_312px] items-start gap-5">
-            {/* =================================================
-                LEFT
-            ================================================= */}
-
-            <section className="min-w-0">
-              {/* =================================================
-                  Filters
-
-                  기본 상태 = 흰색
-                  활성화 상태 = 보라색
-              ================================================= */}
-
-              <div className="mb-6 flex items-center gap-2">
-                {/* 읽지 않은 항목 */}
+        <div className="grid grid-cols-[minmax(0,1fr)_320px] items-stretch gap-6">
+          <section className="overflow-hidden rounded-[16px] border border-[#e7e9ef] bg-white shadow-[0_5px_18px_rgba(34,42,61,0.035)]">
+            <div className="flex h-[87px] items-center justify-center border-b border-[#e8eaf0]">
+              <div className="flex items-center">
                 <button
                   type="button"
-                  aria-pressed={showUnreadOnly}
                   onClick={() =>
-                    setShowUnreadOnly((current) => !current)
+                    moveMonth(-1)
                   }
-                  className={`h-7.75 rounded border px-3 text-[12px] transition ${
-                    showUnreadOnly
-                      ? 'border-[#a99ce8] bg-[#f2efff] text-[#5037d7]'
-                      : 'border-[#d4d1d6] bg-white text-[#4f4a50] hover:bg-[#fafafa]'
-                  }`}
+                  aria-label="이전 달"
+                  className="mr-7 flex h-9 w-9 items-center justify-center text-[#66738a] hover:text-[#4436ca]"
                 >
-                  읽지 않은 항목
+                  <ChevronIcon direction="left" />
                 </button>
 
-                {/* 정렬 */}
-                <button
-                  type="button"
-                  aria-pressed={sortActive}
-                  onClick={() =>
-                    setSortActive((current) => !current)
-                  }
-                  className={`flex h-7.75 items-center gap-2 rounded border px-3 text-[12px] transition ${
-                    sortActive
-                      ? 'border-[#a99ce8] bg-[#f2efff] text-[#5037d7]'
-                      : 'border-[#d4d1d6] bg-white text-[#4f4a50] hover:bg-[#fafafa]'
-                  }`}
-                >
-                  <SortIcon />
-                  정렬
-                </button>
-              </div>
-
-              {/* =================================================
-                  Pattern Cards
-              ================================================= */}
-
-              {displayPatterns.length === 0 ? (
-                <div className="rounded-xl border border-[#dedce2] bg-white px-6 py-14 text-center text-[13px] text-[#88848a]">
-                  {showUnreadOnly
-                    ? '읽지 않은 패턴이 없습니다.'
-                    : '조건에 맞는 패턴이 없습니다.'}
-                </div>
-              ) : sortActive ? (
-                  <div className="flex gap-4 overflow-x-auto pb-3">
-                    {displayPatterns.map((pattern) => (
-                      <div key={pattern.id} className="w-[320px] shrink-0">
-                        <PatternCard pattern={pattern} isSelected={selected?.id === pattern.id} isFeatured={false} showMenu={showMenu && selected?.id === pattern.id} onSelect={() => { setSelectedId(pattern.id); markAsRead(pattern.id) }} onEdit={openEditModal} onToggleMenu={() => setShowMenu((current) => !current)} onDelete={deleteSelected} onUpload={() => fileInputRef.current?.click()} fileInputRef={fileInputRef} onFileChange={handleFileChange} />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-5">
-                    {featuredPattern && (
-                      <PatternCard pattern={featuredPattern} isSelected={selected?.id === featuredPattern.id} isFeatured showMenu={showMenu && selected?.id === featuredPattern.id} onSelect={() => { setSelectedId(featuredPattern.id); markAsRead(featuredPattern.id) }} onEdit={openEditModal} onToggleMenu={() => setShowMenu((current) => !current)} onDelete={deleteSelected} onUpload={() => fileInputRef.current?.click()} fileInputRef={fileInputRef} onFileChange={handleFileChange} />
-                    )}
-                    {secondaryPatterns.length > 0 && (
-                      <div className="grid grid-cols-2 gap-5">
-                        {secondaryPatterns.map((pattern) => (
-                          <PatternCard key={pattern.id} pattern={pattern} isSelected={selected?.id === pattern.id} isFeatured={false} showMenu={showMenu && selected?.id === pattern.id} onSelect={() => { setSelectedId(pattern.id); markAsRead(pattern.id) }} onEdit={openEditModal} onToggleMenu={() => setShowMenu((current) => !current)} onDelete={deleteSelected} onUpload={() => fileInputRef.current?.click()} fileInputRef={fileInputRef} onFileChange={handleFileChange} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-            </section>
-
-            {/* =================================================
-                RIGHT AI
-            ================================================= */}
-
-            <aside className="rounded-xl border border-[#dedce2] bg-white p-6">
-              <div className="flex items-center gap-2">
-                <div className="text-[#5037d7]">
-                  <SparkleIcon />
-                </div>
-
-                <h2 className="text-[17px] font-semibold text-[#332e32]">
-                  AI 학습 후보
+                <h2 className="min-w-[145px] text-center text-[20px] font-bold tracking-[-0.02em] text-[#283041]">
+                  {year}년{' '}
+                  {monthNames[month]}
                 </h2>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    moveMonth(1)
+                  }
+                  aria-label="다음 달"
+                  className="ml-7 flex h-9 w-9 items-center justify-center text-[#66738a] hover:text-[#4436ca]"
+                >
+                  <ChevronIcon direction="right" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={goToday}
+                  className="ml-24 h-9 rounded-lg border border-[#e5e7ed] bg-white px-4 text-[12px] font-medium text-[#697386] hover:bg-[#f7f7fb]"
+                >
+                  오늘
+                </button>
               </div>
+            </div>
 
-              {candidates.length > 0 ? (
-                <div className="mt-5">
-                  {/* 첫 번째 후보 - 사진과 동일하게 크게 */}
-                  <CandidatePreview
-                    candidate={candidates[0]}
-                    onIgnore={() =>
-                      ignoreCandidate(candidates[0].id)
-                    }
-                    onSave={() =>
-                      saveCandidate(candidates[0])
-                    }
-                  />
-
-                  {/* 나머지 후보는 사진 레이아웃을 유지하면서 아래에 표시 */}
-                  {candidates.length > 1 && (
-                    <div className="mt-3 space-y-2">
-                      {candidates.slice(1).map((candidate) => (
-                        <div
-                          key={candidate.id}
-                          className="rounded-lg border border-[#ebe9ed] p-3"
-                        >
-                          <p className="text-[11px] leading-5 text-[#656067]">
-                            {candidate.text}
-                          </p>
-
-                          <div className="mt-2 flex items-center justify-between">
-                            <span className="text-[10px] text-[#8b858b]">
-                              신뢰도 {candidate.confidence}%
-                            </span>
-
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  ignoreCandidate(candidate.id)
-                                }
-                                className="text-[10px] text-[#888]"
-                              >
-                                무시
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  saveCandidate(candidate)
-                                }
-                                className="text-[10px] font-medium text-[#5037d7]"
-                              >
-                                저장
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-5 rounded-xl border border-[#e3e0e5] px-4 py-8 text-center text-[12px] text-[#8c878d]">
-                  새로운 학습 후보가 없습니다.
-                </div>
+            <div className="grid grid-cols-7 border-b border-[#e8eaf0]">
+              {weekdayLabels.map(
+                (label) => (
+                  <div
+                    key={label}
+                    className="flex h-11 items-center justify-center text-[12px] font-medium text-[#6d7890]"
+                  >
+                    {label}
+                  </div>
+                ),
               )}
+            </div>
 
-              {/* =================================================
-                  Statistics
-              ================================================= */}
+            <div className="grid grid-cols-7">
+              {calendarDays.map(
+                (cell) => {
+                  const dayEvents =
+                    visibleEvents.filter(
+                      (event) =>
+                        event.date ===
+                        cell.date,
+                    )
 
-              <div className="mt-4 rounded-xl bg-[#efedff] p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] text-[#77717a]">
-                      학습 완료 패턴
-                    </p>
+                  const isSelected =
+                    cell.date ===
+                    selectedDate
 
-                    <strong className="mt-1 block text-[20px] font-semibold text-[#5037d7]">
-                      {patterns.length}
-                      개
-                    </strong>
-                  </div>
-
-                  <div className="text-right">
-                    <p className="text-[11px] text-[#77717a]">
-                      성장률
-                    </p>
-
-                    <strong className="mt-1 block text-[20px] font-semibold text-[#087fa7]">
-                      {growthRate >= 0 ? `+${growthRate}%` : `${growthRate}%`}
-                    </strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* =================================================
-                  Learning Log
-              ================================================= */}
-
-              <button
-                type="button"
-                onClick={() => setShowLearningLog(true)}
-                className="mt-5 h-10 w-full rounded-lg border border-[#dfbda8] bg-white text-[12px] text-[#665c57] transition hover:bg-[#fffaf7]"
-              >
-                학습 로그 보기
-              </button>
-            </aside>
-          </div>
-        ) : (
-          /* ===================================================
-             Candidate Tab
-          =================================================== */
-
-          <section className="mt-6 grid max-w-230 grid-cols-1 gap-4">
-            {candidates.length === 0 ? (
-              <div className="rounded-xl border border-[#dedce2] bg-white px-6 py-14 text-center text-[13px] text-[#88848a]">
-                현재 학습 후보가 없습니다.
-              </div>
-            ) : (
-              candidates.map((candidate) => (
-                <div
-                  key={candidate.id}
-                  className="rounded-xl border border-[#dedce2] bg-white p-6"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#efedff] text-[#5037d7]">
-                        <SparkleIcon />
-                      </div>
-
-                      <div>
-                        <h3 className="text-[16px] font-semibold">
-                          AI 학습 후보
-                        </h3>
-
-                        <p className="mt-1 text-[11px] text-[#89838a]">
-                          신뢰도 {candidate.confidence}%
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          ignoreCandidate(candidate.id)
-                        }
-                        className="rounded-full bg-[#e4e3e4] px-4 py-2 text-[11px] text-[#6b676b]"
+                  return (
+                    <button
+                      key={cell.date}
+                      type="button"
+                      onClick={() =>
+                        setSelectedDate(
+                          cell.date,
+                        )
+                      }
+                      /*
+                       * 중요:
+                       *
+                       * 기존 프로젝트의 공통/브라우저
+                       * button 스타일 때문에 날짜가
+                       * 세로 가운데로 내려가는 것을
+                       * 막기 위해 셀 자체를 block으로
+                       * 강제합니다.
+                       *
+                       * !block
+                       * !w-full
+                       * !p-0
+                       * !m-0
+                       *
+                       * 로 버튼의 기본 정렬 영향을
+                       * 차단합니다.
+                       *
+                       * 세로 145px이므로
+                       * 정사각형이 아닌 세로로 조금 긴
+                       * 직사각형 형태입니다.
+                       */
+                      className={`!block !w-full !m-0 !p-0 relative h-[145px] overflow-hidden border-r border-b border-[#e8eaf0] text-left align-top ${
+                        cell.isCurrentMonth
+                          ? 'bg-white hover:bg-[#fcfcff]'
+                          : 'bg-[#fbfcfe]'
+                      }`}
+                    >
+                      {/*
+                       * 날짜 숫자 위치:
+                       *
+                       * left-1/2
+                       *   → 가로 중앙
+                       *
+                       * -translate-x-1/2
+                       *   → 숫자 자체까지 정확히 중앙
+                       *
+                       * top-2.5
+                       *   → 셀 위쪽 10px
+                       *
+                       * 따라서 날짜는 항상
+                       * "가운데 위"에 위치합니다.
+                       */}
+                      <span
+                        className={`absolute left-1/2 top-2.5 flex h-8 w-8 -translate-x-1/2 items-center justify-center text-[13px] font-medium ${
+                          !cell.isCurrentMonth
+                            ? 'text-[#aeb6c5]'
+                            : cell.weekday ===
+                                0
+                              ? 'text-[#ff4545]'
+                              : cell.weekday ===
+                                  6
+                                ? 'text-[#3974ec]'
+                                : 'text-[#68758d]'
+                        } ${
+                          isSelected
+                            ? 'rounded-full border border-[#b9c3ff] bg-[#e3e7ff] text-[#5268ef]'
+                            : ''
+                        }`}
                       >
-                        무시
-                      </button>
+                        {cell.day}
+                      </span>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          saveCandidate(candidate)
-                        }
-                        className="rounded-full bg-[#5037d7] px-4 py-2 text-[11px] text-white"
-                      >
-                        저장
-                      </button>
-                    </div>
-                  </div>
+                      {/*
+                       * 일정은 날짜 숫자 아래쪽에서
+                       * 시작하도록 고정합니다.
+                       */}
+                      <div className="absolute left-3 right-3 top-[54px] space-y-2">
+                        {dayEvents
+                          .slice(0, 2)
+                          .map(
+                            (
+                              event,
+                            ) => (
+                              <div
+                                key={
+                                  event.id
+                                }
+                                className="flex min-w-0 items-center gap-1.5"
+                              >
+                                <span
+                                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${colorClass(
+                                    event.color,
+                                  )}`}
+                                />
 
-                  <p className="mt-5 text-[13px] leading-6">
-                    {candidate.text}
-                  </p>
+                                <span className="truncate text-[11px] text-[#70798b]">
+                                  {
+                                    event.title
+                                  }
+                                </span>
+                              </div>
+                            ),
+                          )}
 
-                  <div className="mt-3 rounded-lg bg-[#f0edff] p-4 text-[13px] leading-6 text-[#5f5963]">
-                    {candidate.suggestion}
-                  </div>
-                </div>
-              ))
-            )}
+                        {dayEvents.length >
+                          2 && (
+                          <span className="block pl-3 text-[11px] text-[#5267ef]">
+                            +
+                            {dayEvents.length -
+                              2}
+                            개
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  )
+                },
+              )}
+            </div>
           </section>
-        )}
-      </main>
 
-      {/* =====================================================
-          Add Pattern Modal
-      ===================================================== */}
-
-      {showAddModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 px-4"
-          onMouseDown={() => setShowAddModal(false)}
-        >
-          <div
-            className="w-full max-w-155 rounded-xl bg-white p-6 shadow-2xl"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-[18px] font-semibold">
-                새로운 패턴 추가
+          <aside className="flex min-h-[856px] flex-col rounded-[16px] border border-[#e7e9ef] bg-white p-6 shadow-[0_5px_18px_rgba(34,42,61,0.035)]">
+            <div>
+              <h2 className="text-[20px] font-bold tracking-[-0.02em] text-[#29303e]">
+                {formatDateLabel(
+                  selectedDate,
+                )}
               </h2>
 
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="text-[#777]"
-              >
-                <CloseIcon />
-              </button>
+              <span className="mt-3 inline-flex rounded-full bg-[#f0f3ff] px-3 py-1.5 text-[11px] font-medium text-[#5c70ef]">
+                {selectedEvents.length}개의
+                일정
+              </span>
             </div>
 
-            <PatternForm
-              title={newTitle}
-              purpose={newPurpose}
-              reason={newReason}
-              request={newRequest}
-              deadline={newDeadline}
-              setTitle={setNewTitle}
-              setPurpose={setNewPurpose}
-              setReason={setNewReason}
-              setRequest={setNewRequest}
-              setDeadline={setNewDeadline}
-            />
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="rounded-lg border border-[#d9d6dc] px-5 py-3 text-[12px]"
-              >
-                취소
-              </button>
-
-              <button
-                type="button"
-                onClick={addPattern}
-                className="rounded-lg bg-[#5037d7] px-5 py-3 text-[12px] font-medium text-white"
-              >
-                패턴 추가
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          Edit Pattern Modal
-      ===================================================== */}
-
-      {showEditModal && selected && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 px-4"
-          onMouseDown={() => setShowEditModal(false)}
-        >
-          <div
-            className="w-full max-w-155 rounded-xl bg-white p-6 shadow-2xl"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-[18px] font-semibold">
-                패턴 수정
-              </h2>
-
-              <button
-                type="button"
-                onClick={() => setShowEditModal(false)}
-                className="text-[#777]"
-              >
-                <CloseIcon />
-              </button>
-            </div>
-
-            <PatternForm
-              title={newTitle}
-              purpose={newPurpose}
-              reason={newReason}
-              request={newRequest}
-              deadline={newDeadline}
-              setTitle={setNewTitle}
-              setPurpose={setNewPurpose}
-              setReason={setNewReason}
-              setRequest={setNewRequest}
-              setDeadline={setNewDeadline}
-            />
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowEditModal(false)}
-                className="rounded-lg border border-[#d9d6dc] px-5 py-3 text-[12px]"
-              >
-                취소
-              </button>
-
-              <button
-                type="button"
-                onClick={updatePattern}
-                disabled={loading}
-                className="rounded-lg bg-[#5037d7] px-5 py-3 text-[12px] font-medium text-white disabled:opacity-50"
-              >
-                {loading ? '저장 중...' : '변경사항 저장'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          Learning Log Modal
-      ===================================================== */}
-
-      {showLearningLog && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 px-4"
-          onMouseDown={() => setShowLearningLog(false)}
-        >
-          <div
-            className="w-full max-w-140 overflow-hidden rounded-xl bg-white shadow-2xl"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-[#e8e5e9] px-6 py-5">
-              <div>
-                <h2 className="text-[17px] font-semibold text-[#332e32]">
-                  학습 로그
-                </h2>
-
-                <p className="mt-1 text-[11px] text-[#89838a]">
-                  팀 메모리에 반영된 최근 학습 활동입니다.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowLearningLog(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-[#777] hover:bg-[#f6f4f7]"
-              >
-                <CloseIcon />
-              </button>
-            </div>
-
-            {/* Logs */}
-            <div className="max-h-110 overflow-y-auto px-6 py-4">
-              {learningLogs.length === 0 ? (
-                <div className="py-12 text-center text-[12px] text-[#8c878d]">
-                  학습 로그가 없습니다.
+            <div className="mt-7 space-y-6">
+              {loading ? (
+                <div className="py-8 text-center text-[12px] text-[#9aa1b0]">
+                  AI 학습 데이터를
+                  불러오는 중입니다.
+                </div>
+              ) : errorMessage ? (
+                <div className="py-8 text-center text-[12px] leading-5 text-[#d44c4c]">
+                  {errorMessage}
+                </div>
+              ) : selectedEvents.length ===
+                0 ? (
+                <div className="py-8 text-center text-[12px] leading-5 text-[#9aa1b0]">
+                  이 날짜에 등록된
+                  <br />
+                  AI 일정이 없습니다.
                 </div>
               ) : (
-                <div className="space-y-1">
-                  {learningLogs.map((log) => (
+                selectedEvents.map(
+                  (event) => (
                     <div
-                      key={log.id}
-                      className="flex gap-3 rounded-lg px-2 py-4 hover:bg-[#faf9fb]"
+                      key={event.id}
+                      className="flex gap-3"
                     >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#efedff] text-[#5037d7]">
-                        <CheckIcon />
+                      <div className="relative mt-[7px] w-2 shrink-0">
+                        <span
+                          className={`block h-2 w-2 rounded-full ${colorClass(
+                            event.color,
+                          )}`}
+                        />
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-[12px] font-semibold text-[#403b40]">
-                            {log.action}
+                        <p className="text-[12px] font-medium text-[#60708a]">
+                          {formatEventTime(
+                            event,
+                          )}
+                        </p>
+
+                        <div className="mt-1.5 flex items-start justify-between gap-2">
+                          <p className="text-[15px] font-medium leading-5 text-[#323847]">
+                            {event.title}
                           </p>
 
-                          <span className="shrink-0 text-[10px] text-[#aaa4aa]">
-                            {log.time}
+                          <span
+                            className={`shrink-0 rounded-md bg-[#f5f6fa] px-2 py-1 text-[10px] font-medium ${colorTextClass(
+                              event.color,
+                            )}`}
+                          >
+                            {event.place}
                           </span>
                         </div>
-
-                        <p className="mt-1 text-[11px] leading-5 text-[#777178]">
-                          {log.description}
-                        </p>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  ),
+                )
               )}
             </div>
-
-            {/* Footer */}
-            <div className="border-t border-[#e8e5e9] px-6 py-4">
-              <button
-                type="button"
-                onClick={() => setShowLearningLog(false)}
-                className="h-9.5full rounded-lg border border-[#d9d5da] bg-white text-[12px] text-[#5e585e] hover:bg-[#fafafa]"
-              >
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* =========================================================
-   Pattern Card
-========================================================= */
-
-function PatternCard({
-  pattern,
-  isSelected,
-  isFeatured,
-  showMenu,
-  onSelect,
-  onEdit,
-  onToggleMenu,
-  onDelete,
-  onUpload,
-  fileInputRef,
-  onFileChange,
-}: {
-  pattern: Pattern
-  isSelected: boolean
-  isFeatured: boolean
-  showMenu: boolean
-  onSelect: () => void
-  onEdit: () => void
-  onToggleMenu: () => void
-  onDelete: () => void
-  onUpload: () => void
-  fileInputRef: React.RefObject<HTMLInputElement | null>
-  onFileChange: (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => void
-}) {
-  return (
-    <div
-      onClick={onSelect}
-      className={`relative cursor-pointer rounded-xl border bg-white text-left transition ${
-        isSelected
-          ? 'border-[#ddd9e5] shadow-[0_1px_2px_rgba(0,0,0,0.02)]'
-          : 'border-[#dedce2] hover:border-[#c9c5cf]'
-      }`}
-    >
-      {/* 사진의 왼쪽 세로선 */}
-      {isSelected && (
-        <span className="absolute bottom-0 left-0 top-0 w-0.75 rounded-l-xl bg-[#e7e4ea]" />
-      )}
-
-      <div
-        className={
-          isFeatured
-            ? 'p-6'
-            : 'min-h-45.5 p-6'
-        }
-      >
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <PatternIcon />
-
-            <div>
-              <div className="flex items-center gap-2">
-                <h2
-                  className={
-                    isFeatured
-                      ? 'text-[18px] font-semibold leading-8 text-[#302c2f]'
-                      : 'text-[17px] font-semibold leading-7 text-[#302c2f]'
-                  }
-                >
-                  {pattern.title}
-                </h2>
-
-                {pattern.unread && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#5436da]" />
-                )}
-              </div>
-
-              <p className="text-[11px] text-[#858087]">
-                마지막 업데이트 ·{' '}
-                {pattern.updatedAt || '1일 전'}
-              </p>
-            </div>
-          </div>
-
-          {/* Edit / More */}
-          <div
-            className="relative flex items-center gap-4 text-[#332e32]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={onEdit}
-              className="hover:text-[#5136d9]"
-              aria-label="패턴 수정"
-            >
-              <EditIcon />
-            </button>
 
             <button
               type="button"
-              onClick={onToggleMenu}
-              className="hover:text-[#5136d9]"
-              aria-label="더보기"
+              onClick={() =>
+                setShowModal(true)
+              }
+              className="mt-auto flex h-12 items-center justify-center gap-2 rounded-lg border border-[#d8d9ff] bg-white text-[13px] font-medium text-[#5360ec] hover:bg-[#fafaff]"
             >
-              <MoreIcon />
+              <PlusIcon />
+              이 날짜에 일정 추가
             </button>
-
-            {showMenu && (
-              <div className="absolute right-0 top-7 z-20 w-31.25 overflow-hidden rounded-lg border border-[#dedbe1] bg-white py-1 shadow-lg">
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  className="block w-full px-4 py-2 text-left text-[12px] hover:bg-[#f6f4ff]"
-                >
-                  수정
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onDelete}
-                  className="block w-full px-4 py-2 text-left text-[12px] text-[#d13d4b] hover:bg-[#fff5f5]"
-                >
-                  삭제
-                </button>
-              </div>
-            )}
-          </div>
+          </aside>
         </div>
+      </main>
 
-        {/* ===================================================
-            Featured card contents
-        =================================================== */}
-
-        {isFeatured ? (
-          <>
-            {/* 목적 + 첨부파일 */}
-            <div className="mt-5 grid grid-cols-2 gap-4">
-              <div className="min-h-23.75 rounded-lg border border-[#dddbe0] p-4">
-                <p className="text-[11px] font-medium text-[#5136d8]">
-                  목적
-                </p>
-
-                <p className="mt-2 text-[13px] leading-5 text-[#383338]">
-                  {pattern.purpose || '-'}
-                </p>
-              </div>
-
-              <div className="min-h-23.75 rounded-lg border border-[#dddbe0] p-4">
-                <p className="text-[11px] font-medium text-[#5136d8]">
-                  첨부파일
-                </p>
-
-                {pattern.attachmentName ? (
-                  <div className="mt-3 flex items-center gap-2 text-[12px] text-[#666168]">
-                    <BookIcon />
-
-                    <span className="truncate">
-                      {pattern.attachmentName}
-                    </span>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onUpload()
-                    }}
-                    className="mt-3 flex items-center gap-2 text-[13px] text-[#aaa5aa] hover:text-[#5037d7]"
-                  >
-                    <UploadIcon />
-                    파일 업로드
-                  </button>
-                )}
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={onFileChange}
-                />
-              </div>
-            </div>
-
-            {/* 변경 이유 */}
-            <div className="mt-4 rounded-lg border border-[#dddbe0] p-4">
-              <p className="text-[11px] font-medium text-[#5136d8]">
-                변경 이유
-              </p>
-
-              <p className="mt-2 text-[13px] leading-5 text-[#393438]">
-                {pattern.reason || '-'}
-              </p>
-            </div>
-
-            {/* 요청사항 + 마감 */}
-            <div className="mt-4 grid grid-cols-2 gap-4">
-              <div className="min-h-24.5 rounded-lg border border-[#dddbe0] p-4">
-                <p className="text-[11px] font-medium text-[#5136d8]">
-                  요청사항
-                </p>
-
-                <p className="mt-2 whitespace-pre-line text-[13px] leading-6 text-[#393438]">
-                  {pattern.request || '-'}
-                </p>
-              </div>
-
-              <div className="min-h-24.5 rounded-lg border border-[#dddbe0] p-4">
-                <p className="text-[11px] font-medium text-[#5136d8]">
-                  마감
-                </p>
-
-                <p className="mt-2 text-[13px] text-[#e13e51]">
-                  {pattern.deadline || '-'}
-                </p>
-              </div>
-            </div>
-          </>
-        ) : (
-          /* =================================================
-             Secondary cards
-          ================================================= */
-
-          <div className="mt-5">
-            <p className="text-[13px] leading-6 text-[#6f696f]">
-              {pattern.purpose}
-            </p>
-
-            <div className="mt-4 flex gap-2">
-              {pattern.title.includes('QA') ? (
-                <>
-                  <span className="rounded bg-[#efedff] px-2 py-1 text-[10px] text-[#5037d7]">
-                    #TECH
-                  </span>
-
-                  <span className="rounded bg-[#efedff] px-2 py-1 text-[10px] text-[#5037d7]">
-                    #QA
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="rounded bg-[#efedff] px-2 py-1 text-[10px] text-[#5037d7]">
-                    #REPORT
-                  </span>
-
-                  <span className="rounded bg-[#efedff] px-2 py-1 text-[10px] text-[#5037d7]">
-                    #WEEKLY
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/* =========================================================
-   Candidate Preview
-========================================================= */
-
-function CandidatePreview({
-  candidate,
-  onIgnore,
-  onSave,
-}: {
-  candidate: Candidate
-  onIgnore: () => void
-  onSave: () => void
-}) {
-  return (
-    <div className="rounded-xl border border-[#dcd9de] p-4">
-      <p className="text-[12px] leading-6 text-[#373236]">
-        {candidate.text
-          .split('동일한 표현')
-          .map((part, index) => (
-            <span key={index}>
-              {index > 0 && (
-                <span className="bg-[#cdeeff] px-1">
-                  동일한 표현
-                </span>
-              )}
-
-              {part}
-            </span>
-          ))}
-      </p>
-
-      <div className="mt-3 rounded bg-[#f0edff] p-3 text-[12px] leading-5 text-[#656068]">
-        {candidate.suggestion}
-      </div>
-
-      <div className="mt-4 flex items-center justify-between">
-        <span className="text-[11px] text-[#5e575c]">
-          신뢰도 {candidate.confidence}%
-        </span>
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onIgnore}
-            className="rounded-full bg-[#e4e3e4] px-4 py-2 text-[11px] text-[#6b676b] transition hover:bg-[#d9d8da]"
-          >
-            무시
-          </button>
-
-          <button
-            type="button"
-            onClick={onSave}
-            className="rounded-full bg-[#5037d7] px-4 py-2 text-[11px] text-white transition hover:bg-[#432bc9]"
-          >
-            저장
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* =========================================================
-   Pattern Form
-========================================================= */
-
-function PatternForm({
-  title,
-  purpose,
-  reason,
-  request,
-  deadline,
-  setTitle,
-  setPurpose,
-  setReason,
-  setRequest,
-  setDeadline,
-}: {
-  title: string
-  purpose: string
-  reason: string
-  request: string
-  deadline: string
-  setTitle: (value: string) => void
-  setPurpose: (value: string) => void
-  setReason: (value: string) => void
-  setRequest: (value: string) => void
-  setDeadline: (value: string) => void
-}) {
-  return (
-    <div className="mt-6 space-y-4">
-      <div>
-        <label className="mb-1.5 block text-[11px] font-medium text-[#5d565e]">
-          패턴 이름
-        </label>
-
-        <input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          className="h-10 w-full rounded-lg border border-[#ddd9df] px-3 text-[13px] outline-none focus:border-[#7561dc]"
-          placeholder="예: 디자인 피드백 요청"
+      {showModal && (
+        <EventModal
+          selectedDate={selectedDate}
+          onClose={() =>
+            setShowModal(false)
+          }
+          onAdd={addEvent}
         />
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-[11px] font-medium text-[#5d565e]">
-          목적
-        </label>
-
-        <textarea
-          value={purpose}
-          onChange={(event) => setPurpose(event.target.value)}
-          rows={2}
-          className="w-full resize-none rounded-lg border border-[#ddd9df] p-3 text-[13px] outline-none focus:border-[#7561dc]"
-          placeholder="이 패턴의 목적을 입력하세요."
-        />
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-[11px] font-medium text-[#5d565e]">
-          변경 이유
-        </label>
-
-        <textarea
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-          rows={2}
-          className="w-full resize-none rounded-lg border border-[#ddd9df] p-3 text-[13px] outline-none focus:border-[#7561dc]"
-          placeholder="변경 이유를 입력하세요."
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="mb-1.5 block text-[11px] font-medium text-[#5d565e]">
-            요청사항
-          </label>
-
-          <textarea
-            value={request}
-            onChange={(event) => setRequest(event.target.value)}
-            rows={3}
-            className="w-full resize-none rounded-lg border border-[#ddd9df] p-3 text-[13px] outline-none focus:border-[#7561dc]"
-            placeholder="요청사항을 입력하세요."
-          />
-        </div>
-
-        <div>
-          <label className="mb-1.5 block text-[11px] font-medium text-[#5d565e]">
-            마감
-          </label>
-
-          <input
-            value={deadline}
-            onChange={(event) => setDeadline(event.target.value)}
-            className="h-10 w-full rounded-lg border border-[#ddd9df] px-3 text-[13px] outline-none focus:border-[#7561dc]"
-            placeholder="2024-11-20 (수) 15:00까지"
-          />
-        </div>
-      </div>
+      )}
     </div>
   )
 }
