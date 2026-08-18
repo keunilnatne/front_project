@@ -15,6 +15,32 @@ const allPreferences = [
   ['casual', '편하게'],
 ] as const
 
+const TIME_OPTIONS = [
+  '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30',
+  '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
+  '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+  '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30',
+  '22:00', '22:30', '23:00'
+]
+
+const WORK_PRESETS = [
+  { label: '09:00 ~ 18:00', sub: '기본 (9h)', start: '09:00', end: '18:00' },
+  { label: '08:30 ~ 17:30', sub: '얼리 (9h)', start: '08:30', end: '17:30' },
+  { label: '10:00 ~ 19:00', sub: '시차 (9h)', start: '10:00', end: '19:00' },
+  { label: '자율 근무', sub: '유연', start: '자율', end: '근무' },
+]
+
+function calculateDuration(start: string, end: string): string {
+  const [sH, sM] = start.split(':').map(Number)
+  const [eH, eM] = end.split(':').map(Number)
+  if (isNaN(sH) || isNaN(eH)) return '8시간'
+  let diff = (eH * 60 + (eM || 0)) - (sH * 60 + (sM || 0))
+  if (diff <= 0) diff += 24 * 60
+  const h = Math.floor(diff / 60)
+  const m = diff % 60
+  return m > 0 ? `${h}시간 ${m}분` : `${h}시간`
+}
+
 function Icon({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
 }
@@ -30,6 +56,9 @@ function MyProfilePage() {
   const [editCompany, setEditCompany] = useState('')
   const [editRole, setEditRole] = useState('')
   const [editPosition, setEditPosition] = useState('')
+  const [editStartHour, setEditStartHour] = useState('09:00')
+  const [editEndHour, setEditEndHour] = useState('18:00')
+  const [isFlexibleWork, setIsFlexibleWork] = useState(false)
   const [editPreferences, setEditPreferences] = useState<string[]>([])
   const [editCustomStyle, setEditCustomStyle] = useState('')
 
@@ -43,6 +72,19 @@ function MyProfilePage() {
     setEditCompany(p.company || '')
     setEditRole(p.role || '')
     setEditPosition(p.position || '')
+
+    const rawHours = p.workHours || '09:00 - 18:00'
+    if (rawHours.includes('자율')) {
+      setIsFlexibleWork(true)
+      setEditStartHour('09:00')
+      setEditEndHour('18:00')
+    } else {
+      setIsFlexibleWork(false)
+      const parts = rawHours.split(/[-~]/).map((s) => s.trim())
+      setEditStartHour(parts[0] || '09:00')
+      setEditEndHour(parts[1] || '18:00')
+    }
+
     setEditPreferences(p.communicationPreferences || [])
     setEditCustomStyle(p.customStyle || '')
     setIsEditModalOpen(true)
@@ -50,11 +92,13 @@ function MyProfilePage() {
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
+    const finalWorkHours = isFlexibleWork ? '자율 근무' : `${editStartHour} - ${editEndHour}`
     await saveUserProfile({
       name: editName.trim(),
       company: editCompany.trim(),
       role: editRole.trim(),
       position: editPosition.trim(),
+      workHours: finalWorkHours,
       communicationPreferences: editPreferences,
       customStyle: editCustomStyle.trim(),
     })
@@ -130,7 +174,18 @@ function MyProfilePage() {
                 </button>
               </div>
               <dl className="mt-4 space-y-2 border-t border-[#d5d5d5] pt-6 text-xs">
-                {[['이메일', profile.email], ['회사', profile.company], ['직무', profile.role], ['직급', profile.position]].map(([label, value]) => <div key={label} className="flex justify-between gap-4"><dt className="text-[#888]">{label}</dt><dd className="truncate text-right font-medium">{value || '-'}</dd></div>)}
+                {[
+                  ['이메일', profile.email],
+                  ['회사', profile.company],
+                  ['직무', profile.role],
+                  ['직급', profile.position],
+                  ['업무 시간', profile.workHours || '09:00 - 18:00'],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex justify-between gap-4">
+                    <dt className="text-[#888]">{label}</dt>
+                    <dd className="truncate text-right font-medium">{value || '-'}</dd>
+                  </div>
+                ))}
               </dl>
             </section>
 
@@ -254,6 +309,92 @@ function MyProfilePage() {
                     className="w-full h-9 rounded-lg border border-[#ddd] px-3 text-xs outline-none focus:border-[#5531e8]"
                   />
                 </label>
+              </div>
+
+              {/* 업무 시간 설정 (개선된 UI/UX) */}
+              <div className="rounded-xl border border-[#e4e4ed] bg-[#fafafc] p-3.5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-semibold text-[#444] flex items-center gap-1.5 text-xs">
+                    <svg className="w-3.5 h-3.5 text-[#5531e8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    업무 시간 (근무 시간대)
+                  </span>
+                  {!isFlexibleWork && (
+                    <span className="text-[11px] font-semibold text-[#5531e8] bg-[#eeebff] px-2 py-0.5 rounded-full">
+                      총 {calculateDuration(editStartHour, editEndHour)}
+                    </span>
+                  )}
+                </div>
+
+                {/* 빠른 프리셋 버튼 */}
+                <div className="grid grid-cols-4 gap-1.5 mb-2.5">
+                  {WORK_PRESETS.map((preset) => {
+                    const isSelected = preset.start === '자율'
+                      ? isFlexibleWork
+                      : (!isFlexibleWork && editStartHour === preset.start && editEndHour === preset.end)
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          if (preset.start === '자율') {
+                            setIsFlexibleWork(true)
+                          } else {
+                            setIsFlexibleWork(false)
+                            setEditStartHour(preset.start)
+                            setEditEndHour(preset.end)
+                          }
+                        }}
+                        className={`py-1.5 px-1 rounded-lg text-[11px] transition text-center font-medium cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#5531e8] text-white shadow-xs font-semibold'
+                            : 'bg-white border border-[#dedee5] text-[#555] hover:bg-[#f0f0f5]'
+                        }`}
+                      >
+                        <div className="truncate">{preset.label.split(' ')[0]}</div>
+                        <div className={`text-[9px] ${isSelected ? 'text-white/80' : 'text-[#888]'}`}>{preset.sub}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* 시작 / 종료 시간 드롭다운 */}
+                {!isFlexibleWork ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-[#e0e0e8] bg-white p-2.5">
+                    <div className="flex-1">
+                      <span className="block text-[10px] text-[#777] mb-1 font-medium">시작 (출근)</span>
+                      <select
+                        value={editStartHour}
+                        onChange={(e) => setEditStartHour(e.target.value)}
+                        className="w-full h-8 rounded-md border border-[#dedee5] bg-white px-2 text-xs font-medium text-[#333] outline-none focus:border-[#5531e8]"
+                      >
+                        {TIME_OPTIONS.map((t) => (
+                          <option key={`start-${t}`} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <span className="text-[#888] font-bold text-sm pt-4">~</span>
+
+                    <div className="flex-1">
+                      <span className="block text-[10px] text-[#777] mb-1 font-medium">종료 (퇴근)</span>
+                      <select
+                        value={editEndHour}
+                        onChange={(e) => setEditEndHour(e.target.value)}
+                        className="w-full h-8 rounded-md border border-[#dedee5] bg-white px-2 text-xs font-medium text-[#333] outline-none focus:border-[#5531e8]"
+                      >
+                        {TIME_OPTIONS.map((t) => (
+                          <option key={`end-${t}`} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-[#d8d2f5] bg-[#f8f6ff] p-2.5 text-center text-xs text-[#5531e8] font-medium">
+                    ✨ 정해진 출퇴근 시간 없이 자율적으로 근무합니다.
+                  </div>
+                )}
               </div>
 
               <div>

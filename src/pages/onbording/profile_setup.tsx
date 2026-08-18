@@ -26,10 +26,23 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
+const TIME_OPTIONS = [
+  '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30',
+  '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
+  '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+  '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30',
+  '22:00', '22:30', '23:00'
+]
+
 function ProfileSetup() {
   const navigate = useNavigate()
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const profile = getUserProfile()
+
+  const rawHours = profile.workHours || '09:00 - 18:00'
+  const parts = rawHours.split(/[-~]/).map((s) => s.trim())
+  const [startHour, setStartHour] = useState(parts[0] || '09:00')
+  const [endHour, setEndHour] = useState(parts[1] || '18:00')
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -37,7 +50,7 @@ function ProfileSetup() {
     const role = selectedRole === '기타'
       ? String(form.get('customRole')).trim()
       : selectedRole || profile.role
-    const workHours = String(form.get('workHours') || '').trim() || '09:00 - 18:00'
+    const workHours = `${startHour} - ${endHour}`
     await saveUserProfile({
       name: String(form.get('name')),
       company: String(form.get('company')),
@@ -66,7 +79,25 @@ function ProfileSetup() {
             </div>
             <div className="mt-4 grid grid-cols-2 gap-4 max-sm:grid-cols-1">
               <Field label="직급"><input name="position" defaultValue={profile.position} placeholder="예: 책임, 매니저, 팀장" className={inputClass} /></Field>
-              <Field label="업무 시간"><input name="workHours" defaultValue={profile.workHours || '09:00 - 18:00'} placeholder="예: 09:00 - 18:00" className={inputClass} /></Field>
+              <Field label="업무 시간">
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={startHour}
+                    onChange={(e) => setStartHour(e.target.value)}
+                    className="h-9.5 flex-1 rounded-md border border-[#ddc1ae] bg-white px-2 text-xs font-medium text-[#564334] outline-none focus:border-[#5b3df5]"
+                  >
+                    {TIME_OPTIONS.map((t) => <option key={`onboard-s-${t}`} value={t}>{t}</option>)}
+                  </select>
+                  <span className="text-[#888] font-semibold text-xs">~</span>
+                  <select
+                    value={endHour}
+                    onChange={(e) => setEndHour(e.target.value)}
+                    className="h-9.5 flex-1 rounded-md border border-[#ddc1ae] bg-white px-2 text-xs font-medium text-[#564334] outline-none focus:border-[#5b3df5]"
+                  >
+                    {TIME_OPTIONS.map((t) => <option key={`onboard-e-${t}`} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </Field>
             </div>
 
             <fieldset className="mt-8 border-y border-[#ececf1] py-4">

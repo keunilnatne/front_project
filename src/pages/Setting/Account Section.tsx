@@ -11,9 +11,6 @@ function AccountSection() {
 
   const [name, setName] = useState(profile.name || '홍길동')
   const [email, setEmail] = useState(profile.email || 'jungmin@company.com')
-  const [company, setCompany] = useState(profile.company || '')
-  const [position, setPosition] = useState(profile.position || '')
-  const [workHours, setWorkHours] = useState(profile.workHours || '09:00 - 18:00')
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [passwordCheck, setPasswordCheck] = useState('')
@@ -64,11 +61,6 @@ function AccountSection() {
         body: JSON.stringify({
           name: name.trim(),
           email: email.trim(),
-          company: company.trim(),
-          companyName: company.trim(),
-          position: position.trim(),
-          jobTitle: position.trim(),
-          workHours: workHours.trim() || '09:00 - 18:00',
         }),
       }).catch(() => null)
 
@@ -92,9 +84,6 @@ function AccountSection() {
       await saveUserProfile({
         name: name.trim(),
         email: email.trim(),
-        company: company.trim(),
-        position: position.trim(),
-        workHours: workHours.trim() || '09:00 - 18:00',
       })
       showSavedMessage()
     } catch (err: any) {
@@ -136,33 +125,6 @@ function AccountSection() {
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          className="h-10 rounded-md border border-[#dedee3] px-3 outline-none focus:border-[#5146e5] focus:ring-2 focus:ring-[#5146e5]/10"
-        />
-
-        <label htmlFor="settings-company" className="text-right text-[#676971] max-sm:text-left">소속 회사</label>
-        <input
-          id="settings-company"
-          value={company}
-          onChange={(event) => setCompany(event.target.value)}
-          placeholder="예: ABC Company"
-          className="h-10 rounded-md border border-[#dedee3] px-3 outline-none focus:border-[#5146e5] focus:ring-2 focus:ring-[#5146e5]/10"
-        />
-
-        <label htmlFor="settings-position" className="text-right text-[#676971] max-sm:text-left">직급</label>
-        <input
-          id="settings-position"
-          value={position}
-          onChange={(event) => setPosition(event.target.value)}
-          placeholder="예: 책임, 팀장, 매니저"
-          className="h-10 rounded-md border border-[#dedee3] px-3 outline-none focus:border-[#5146e5] focus:ring-2 focus:ring-[#5146e5]/10"
-        />
-
-        <label htmlFor="settings-workhours" className="text-right text-[#676971] max-sm:text-left">업무 시간</label>
-        <input
-          id="settings-workhours"
-          value={workHours}
-          onChange={(event) => setWorkHours(event.target.value)}
-          placeholder="예: 09:00 - 18:00"
           className="h-10 rounded-md border border-[#dedee3] px-3 outline-none focus:border-[#5146e5] focus:ring-2 focus:ring-[#5146e5]/10"
         />
 
