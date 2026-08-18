@@ -101,6 +101,29 @@ function getRecipientTimeNotice(recipient?: Recipient) {
  * 사진에서 보이는 1명 단위
  * ----------------------------------------------------- */
 
+function getRecipientWorkStatus(timezone = 'Asia/Seoul'): { isWorkHour: boolean; timeString: string; label: string } {
+  try {
+    const formatter = new Intl.DateTimeFormat('ko-KR', {
+      timeZone: timezone || 'Asia/Seoul',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+    const timeString = formatter.format(new Date())
+    const [h, m] = timeString.split(':').map(Number)
+    const totalMinutes = h * 60 + (m || 0)
+    // 일반 업무 시간: 09:00 - 18:00
+    const isWorkHour = totalMinutes >= 540 && totalMinutes <= 1080
+    return {
+      isWorkHour,
+      timeString,
+      label: isWorkHour ? '업무 시간 중' : '업무 시간 외',
+    }
+  } catch {
+    return { isWorkHour: true, timeString: '', label: '업무 시간 중' }
+  }
+}
+
 function RecipientContextCard({
   recipient,
   aiTags = [],
@@ -108,6 +131,8 @@ function RecipientContextCard({
   recipient: Recipient
   aiTags?: string[]
 }) {
+  const workStatus = getRecipientWorkStatus(recipient.timezone)
+
   return (
     <div className="border-b border-[#eeeef0] pb-6">
       {/* 사람 정보 */}
@@ -146,10 +171,11 @@ function RecipientContextCard({
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[#999]">시간대</span>
+          <span className="text-[#999]">시간대 / 업무 상태</span>
 
-          <span className="font-medium text-[#29292d]">
-            {recipient.timezone || '-'}
+          <span className="flex items-center gap-1.5 font-medium text-[#29292d]">
+            <span>{workStatus.timeString ? `${workStatus.timeString} (${workStatus.label})` : recipient.timezone || '-'}</span>
+            <span className={`inline-block h-2 w-2 rounded-full ${workStatus.isWorkHour ? 'bg-[#10b981]' : 'bg-[#f59e0b]'}`} />
           </span>
         </div>
 

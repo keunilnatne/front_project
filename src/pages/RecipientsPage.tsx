@@ -1500,12 +1500,14 @@ function RecipientsPage() {
 
                 <div className="flex items-center gap-2">
                   <span className="w-16 shrink-0 text-[12px] font-medium text-[#7b7b84]">조직 관계</span>
-                  <span className="font-medium text-[#3b3c48]">{selectedRecipient.organizationRelation}</span>
+                  <span className="font-medium text-[#3b3c48]">{selectedRecipient.organizationRelation || '-'}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <span className="w-16 shrink-0 text-[12px] font-medium text-[#7b7b84]">응답 속도</span>
-                  <span className="font-medium text-[#3b3c48]">{selectedRecipient.responseSpeed} (평균 {selectedRecipient.averageResponseMinutes || 30}분)</span>
+                  <span className="font-medium text-[#3b3c48]">
+                    {selectedRecipient.responseSpeed ? `${selectedRecipient.responseSpeed} (평균 ${selectedRecipient.averageResponseMinutes || 30}분)` : '-'}
+                  </span>
                 </div>
               </div>
 
@@ -1548,26 +1550,32 @@ function RecipientsPage() {
 
             {/* Metrics */}
             <div className="border-t border-[#ededf0] px-6 py-6">
-              <div className="mb-6 flex items-center gap-2">
-                <span className="text-[#5143d1]">
-                  <ClockIcon />
-                </span>
+              <div className="mb-6 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[#5143d1]">
+                    <ClockIcon />
+                  </span>
 
-                <h3 className="text-[16px] font-semibold text-[#292b38]">
-                  Response Time Metrics
-                </h3>
+                  <h3 className="text-[16px] font-semibold text-[#292b38]">
+                    Response Time Metrics
+                  </h3>
+                </div>
+                <span className="text-[10px] text-[#8a8790]">
+                  {selectedRecipient.averageResponseMinutes || selectedRecipient.responseSpeed ? '분석 데이터 반영됨' : '데이터 집계 대기 중'}
+                </span>
               </div>
 
               <div className="grid grid-cols-3 gap-5">
                 <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#4c3ddd]">
-                    {
-                      selectedRecipient.averageResponseMinutes || 30
-                    }
-
-                    <span className="ml-1 text-[14px]">
-                      min
-                    </span>
+                    {selectedRecipient.averageResponseMinutes ? (
+                      <>
+                        {selectedRecipient.averageResponseMinutes}
+                        <span className="ml-1 text-[14px]">min</span>
+                      </>
+                    ) : (
+                      <span className="text-[20px] text-[#9ca3af]">-</span>
+                    )}
                   </div>
 
                   <p className="mt-1 text-[11px] text-[#8d8e96]">
@@ -1581,7 +1589,9 @@ function RecipientsPage() {
                       ? 'Fast'
                       : selectedRecipient.responseSpeed === '느림'
                         ? 'Slow'
-                        : 'Normal'}
+                        : selectedRecipient.responseSpeed === '보통'
+                          ? 'Normal'
+                          : <span className="text-[20px] text-[#9ca3af]">-</span>}
                   </div>
 
                   <p className="mt-1 text-[11px] text-[#8d8e96]">
@@ -1591,9 +1601,7 @@ function RecipientsPage() {
 
                 <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#9a58ed]">
-                    {
-                      selectedRecipient.collaborationActivity || 'Medium'
-                    }
+                    {selectedRecipient.collaborationActivity || (selectedRecipient.averageResponseMinutes ? 'Medium' : <span className="text-[20px] text-[#9ca3af]">-</span>)}
                   </div>
 
                   <p className="mt-1 text-[11px] text-[#8d8e96]">
@@ -1607,7 +1615,9 @@ function RecipientsPage() {
                   ? '업무시간 중 메시지를 확인하면 비교적 빠르게 응답하는 편입니다.'
                   : selectedRecipient.responseSpeed === '느림'
                     ? '응답까지 시간이 걸릴 수 있어 미리 일정을 공유하는 것이 좋습니다.'
-                    : '일반적인 업무시간 내에 응답하는 편입니다.'}
+                    : selectedRecipient.responseSpeed === '보통'
+                      ? '일반적인 업무시간 내에 응답하는 편입니다.'
+                      : '메시지 송수신 데이터가 누적되면 AI가 수신자의 응답 속도와 협업 패턴을 자동으로 분석합니다.'}
               </div>
             </div>
           </div>
