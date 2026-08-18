@@ -10,7 +10,7 @@ type SettingLayoutProps = {
 const menus = [
   { id: 'account', label: '계정', stage: 1 },
   { id: 'ai-personalization', label: 'AI 개인화', stage: 1 },
-  { id: 'integrations', label: '연동', stage: 2 },
+  { id: 'integrations', label: '연결', stage: 2 },
   { id: 'security', label: '보안 및 개인정보', stage: 3 },
 ]
 
@@ -69,7 +69,7 @@ function SettingLayout({ account, personalization, integrations, security }: Set
           {personalization}
 
           {visibleStage === 1 && (
-            <MoreButton label="연동 설정 더보기" onClick={() => showNext(2, 'integrations')} />
+            <MoreButton label="연결 설정 더보기" onClick={() => showNext(2, 'integrations')} />
           )}
 
           {visibleStage >= 2 && integrations}

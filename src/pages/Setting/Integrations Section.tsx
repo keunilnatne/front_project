@@ -110,7 +110,7 @@ function IntegrationsSection() {
 
   return (
     <section id="integrations" className="min-h-94.75 scroll-mt-8 rounded-xl border border-[#e1e1e1] bg-white p-6 shadow-sm">
-      <h2 className="text-[16px] font-semibold">연동</h2>
+      <h2 className="text-[16px] font-semibold">연결</h2>
       <p className="mt-1 text-[12px] text-[#777981]">외부 서비스 계정을 연결하여 AI 편집 기능을 확장하세요.</p>
 
       <div className="mt-6 space-y-3">
@@ -130,7 +130,7 @@ function IntegrationsSection() {
                 <p className="truncate text-[13px] font-medium">{service.name}</p>
                 <p className="mt-0.5 flex items-center gap-1 text-[10px] text-[#777981]">
                   <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-[#3dbb67]' : 'bg-[#b7b8be]'}`} />
-                  {isConnected ? `연동됨 · ${connectedAccount}` : '미연결'}
+                  {isConnected ? `연결됨 · ${connectedAccount}` : '미연결'}
                 </p>
               </div>
 
@@ -140,7 +140,7 @@ function IntegrationsSection() {
                   disabled
                   className="h-8 cursor-not-allowed rounded-md border border-[#e1e1e5] bg-[#f5f5f7] px-3 text-[10px] font-semibold text-[#8e8e93]"
                 >
-                  연동됨
+                  연결됨
                 </button>
               ) : isConnected ? (
                 <button
@@ -210,7 +210,7 @@ function ConnectDialog({ service, onConnect, onClose }: {
             className="mt-2 h-10 w-full rounded-md border border-[#dedee3] px-3 text-[12px] outline-none focus:border-[#5146e5] focus:ring-2 focus:ring-[#5146e5]/10"
           />
 
-          <p className="mt-3 text-[10px] leading-4 text-[#85878e]">입력한 정보는 연동 상태를 표시하기 위해 현재 브라우저에 저장됩니다.</p>
+          <p className="mt-3 text-[10px] leading-4 text-[#85878e]">입력한 정보는 연결 상태를 표시하기 위해 현재 브라우저에 저장됩니다.</p>
 
           <div className="mt-6 flex justify-end gap-2">
             <button type="button" onClick={onClose} className="h-9 rounded-md border border-[#d9d9df] px-4 text-[11px] font-semibold hover:bg-[#f7f7f9]">취소</button>
