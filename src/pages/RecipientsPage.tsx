@@ -1192,14 +1192,14 @@ function RecipientsPage() {
 
           <div className="flex items-end justify-between gap-4">
             <p className="mt-1 text-[13px] text-[#87888f]">자주 소통하는 상대의 커뮤니케이션 성향을 확인하고 관리하세요</p>
-            <button type="button" onClick={openAddRecipientModal} className="shrink-0 rounded-lg bg-[#4d3bd5] px-4 py-2.5 text-[12px] font-semibold text-white">+ 수신자 추가</button>
+            <button type="button" onClick={openAddRecipientModal} className="shrink-0 rounded-lg bg-[#4d3bd5] px-4 py-2.5 text-[12px] font-semibold text-white cursor-pointer">+ 수신자 추가</button>
           </div>
         </div>
 
-        <div className="grid grid-cols-[298px_minmax(0,1fr)] items-stretch gap-7">
+        <div className="grid grid-cols-[298px_minmax(0,1fr)] items-start gap-7">
           {/* Left */}
-          <div className="flex min-h-[760px] flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-            <div className="border-b border-[#ededf0] p-4">
+          <div className="flex max-h-[calc(100vh-140px)] min-h-[500px] flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)] sticky top-6">
+            <div className="border-b border-[#ededf0] p-4 shrink-0">
               <div className="flex h-9 items-center rounded-full bg-[#f1f1f4] px-4">
                 <input
                   type="text"
@@ -1213,7 +1213,7 @@ function RecipientsPage() {
               </div>
             </div>
 
-            <div className="flex h-12 items-center gap-1 border-b border-[#ededf0] px-3">
+            <div className="flex h-12 items-center gap-1 border-b border-[#ededf0] px-3 shrink-0">
               {tabs.map((tab) => {
                 const count =
                   tab.id === 'all'
@@ -1233,7 +1233,7 @@ function RecipientsPage() {
                       setActiveTab(tab.id)
                     }
                     className={[
-                      'rounded-full px-3 py-1.5 text-[11px] font-medium transition',
+                      'rounded-full px-3 py-1.5 text-[11px] font-medium transition cursor-pointer',
                       isActive
                         ? 'bg-[#eeeaff] text-[#5143d1]'
                         : 'text-[#777880] hover:bg-[#f7f7f9]',
@@ -1245,7 +1245,7 @@ function RecipientsPage() {
               })}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-2">
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
               {filteredRecipients.map(
                 (recipient) => {
                   const selected =
@@ -1255,7 +1255,7 @@ function RecipientsPage() {
                     <div
                       key={recipient.id}
                       className={[
-                        'group mb-1 flex w-full items-center gap-3 rounded-[16px] px-3 py-3 transition',
+                        'group flex w-full items-center gap-3 rounded-[16px] px-3 py-3 transition',
                         selected
                           ? 'bg-[#f0edff]'
                           : 'hover:bg-[#f7f7f9]',
@@ -1268,7 +1268,7 @@ function RecipientsPage() {
                             recipient.id,
                           )
                         }
-                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left cursor-pointer"
                       >
                         <Avatar
                           recipient={recipient}
@@ -1316,7 +1316,7 @@ function RecipientsPage() {
                           )
                         }
                         className={[
-                          'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition',
+                          'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition cursor-pointer',
                           recipient.isFavorite
                             ? 'text-[#f3b51b]'
                             : 'text-[#c7c7cd] hover:bg-white hover:text-[#f3b51b]',
@@ -1355,16 +1355,16 @@ function RecipientsPage() {
 
           {/* Right */}
           {!selectedRecipient ? (
-            <div className="flex min-h-[760px] items-center justify-center rounded-[22px] border border-[#e7e7eb] bg-white p-10 text-center">
+            <div className="flex min-h-[500px] items-center justify-center rounded-[22px] border border-[#e7e7eb] bg-white p-10 text-center">
               <div>
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f0edff] text-2xl text-[#5143d1]">+</div>
                 <h2 className="mt-4 text-[18px] font-semibold text-[#29292d]">등록된 수신자가 없습니다</h2>
                 <p className="mt-2 text-[12px] leading-5 text-[#888]">수신자를 추가하면 AI가 해당 사람과의 커뮤니케이션 데이터를 분석해 맞춤형 Context를 생성합니다.</p>
-                <button type="button" onClick={openAddRecipientModal} className="mt-5 rounded-lg bg-[#4d3bd5] px-5 py-2.5 text-[12px] font-semibold text-white">수신자 추가</button>
+                <button type="button" onClick={openAddRecipientModal} className="mt-5 rounded-lg bg-[#4d3bd5] px-5 py-2.5 text-[12px] font-semibold text-white cursor-pointer">수신자 추가</button>
               </div>
             </div>
           ) : (
-          <div className="flex min-h-[760px] flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div className="flex flex-col overflow-hidden rounded-[22px] border border-[#e7e7eb] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-5 px-6 py-5">
               <Avatar
                 recipient={selectedRecipient}
@@ -1413,15 +1413,15 @@ function RecipientsPage() {
                     )
                   }
                   className={[
-                    'flex h-11 w-11 items-center justify-center rounded-lg border transition',
+                    'flex h-11 w-11 items-center justify-center rounded-lg border transition cursor-pointer',
                     selectedRecipient.isFavorite
                       ? 'border-[#f2d98a] bg-[#fffaf0] text-[#e6a900]'
                       : 'border-[#d9d9df] bg-white text-[#999aa1] hover:bg-[#f7f7f9] hover:text-[#e6a900]',
                   ].join(' ')}
                   aria-label={
                     selectedRecipient.isFavorite
-                      ? '즐겨찾기 해제'
-                      : '즐겨찾기 추가'
+                      ? `${selectedRecipient.name} 즐겨찾기 해제`
+                      : `${selectedRecipient.name} 즐겨찾기 추가`
                   }
                   title={
                     selectedRecipient.isFavorite
@@ -1445,7 +1445,7 @@ function RecipientsPage() {
                       selectedRecipient,
                     )
                   }
-                  className="h-11 rounded-lg border border-[#d9d9df] bg-white px-5 text-[13px] font-medium text-[#55565c] transition hover:bg-[#f7f7f9]"
+                  className="h-11 rounded-lg border border-[#d9d9df] bg-white px-5 text-[13px] font-medium text-[#55565c] transition hover:bg-[#f7f7f9] cursor-pointer"
                 >
                   메시지 보내기
                 </button>
@@ -1458,7 +1458,7 @@ function RecipientsPage() {
                       selectedRecipient,
                     )
                   }
-                  className="flex h-11 items-center gap-2 rounded-lg bg-[#4d3bd5] px-5 text-[13px] font-semibold text-white transition hover:bg-[#4332c2]"
+                  className="flex h-11 items-center gap-2 rounded-lg bg-[#4d3bd5] px-5 text-[13px] font-semibold text-white transition hover:bg-[#4332c2] cursor-pointer"
                 >
                   <CollaborationIcon />
                   협업 요청
@@ -1467,91 +1467,80 @@ function RecipientsPage() {
             </div>
 
             {/* Collaboration Context */}
-            <div className="border-y border-[#e7e2ff] bg-[#f0edff] px-6 py-6">
-              <div className="mb-5 flex items-center gap-2">
-                <span className="text-[#5143d1]">
-                  <CollaborationIcon />
-                </span>
+            <div className="border-y border-[#e7e2ff] bg-[#f0edff] px-6 py-5">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[#5143d1]">
+                    <CollaborationIcon />
+                  </span>
 
-                <h3 className="text-[16px] font-semibold text-[#292b38]">
-                  Collaboration Context
-                </h3>
+                  <h3 className="text-[15px] font-semibold text-[#292b38]">
+                    Collaboration Context
+                  </h3>
+                </div>
+                <span className="rounded-full bg-white/70 px-2.5 py-0.5 text-[11px] font-medium text-[#5143d1] border border-[#d8d3f8]">
+                  AI 맞춤 컨텍스트
+                </span>
               </div>
 
-              <div className="grid grid-cols-[82px_1fr] gap-y-3 text-[13px]">
-                <span className="text-[#7b7b84]">
-                  국가
-                </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3.5 text-[13px]">
+                <div className="flex items-center gap-2">
+                  <span className="w-16 shrink-0 text-[12px] font-medium text-[#7b7b84]">국가</span>
+                  <span className="font-medium text-[#3b3c48]">{selectedRecipient.country}</span>
+                </div>
 
-                <span className="font-medium text-[#555662]">
-                  {selectedRecipient.country}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="w-16 shrink-0 text-[12px] font-medium text-[#7b7b84]">언어</span>
+                  <span className="font-medium text-[#3b3c48]">{selectedRecipient.language}</span>
+                </div>
 
-                <span className="text-[#7b7b84]">
-                  언어
-                </span>
-
-                <span className="font-medium text-[#555662]">
-                  {selectedRecipient.language}
-                </span>
-
-                <span className="text-[#7b7b84]">
-                  시간대
-                </span>
-
-                <span className="font-medium text-[#555662]">
-                  {selectedRecipient.timezone}
-
-                  <span className="ml-2 text-[11px] font-normal text-[#888994]">
-                    현재{' '}
-                    {getTimeForTimezone(
-                      selectedRecipient.timezone,
-                    )}
+                <div className="flex items-center gap-2">
+                  <span className="w-16 shrink-0 text-[12px] font-medium text-[#7b7b84]">시간대</span>
+                  <span className="font-medium text-[#3b3c48]">
+                    {selectedRecipient.timezone}
+                    <span className="ml-1.5 rounded bg-white/60 px-1.5 py-0.5 text-[10px] font-normal text-[#696b79]">
+                      현재 {getTimeForTimezone(selectedRecipient.timezone)}
+                    </span>
                   </span>
-                </span>
+                </div>
 
-                <span className="text-[#7b7b84]">
-                  직무
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="w-16 shrink-0 text-[12px] font-medium text-[#7b7b84]">직무</span>
+                  <span className="font-medium text-[#3b3c48]">{selectedRecipient.role}</span>
+                </div>
 
-                <span className="font-medium text-[#555662]">
-                  {selectedRecipient.role}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="w-16 shrink-0 text-[12px] font-medium text-[#7b7b84]">조직 관계</span>
+                  <span className="font-medium text-[#3b3c48]">{selectedRecipient.organizationRelation}</span>
+                </div>
 
-                <span className="text-[#7b7b84]">
-                  조직 관계
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="w-16 shrink-0 text-[12px] font-medium text-[#7b7b84]">응답 속도</span>
+                  <span className="font-medium text-[#3b3c48]">{selectedRecipient.responseSpeed} (평균 {selectedRecipient.averageResponseMinutes}분)</span>
+                </div>
+              </div>
 
-                <span className="font-medium text-[#555662]">
-                  {
-                    selectedRecipient.organizationRelation
-                  }
-                </span>
-
-                <span className="text-[#7b7b84]">
-                  선호 소통 스타일
-                </span>
-
+              {/* 선호 소통 스타일 */}
+              <div className="mt-4 pt-3 border-t border-[#e2dcfa] flex items-start gap-3 text-[13px]">
+                <span className="w-24 shrink-0 text-[12px] font-medium text-[#7b7b84] pt-0.5">선호 소통 스타일</span>
                 <div className="flex flex-wrap gap-1.5">
                   {Array.isArray(selectedRecipient.communicationStyle) && selectedRecipient.communicationStyle.length > 0 ? (
                     selectedRecipient.communicationStyle.map((style) => (
                       <span
                         key={style}
-                        className="rounded-full bg-[#f1edff] px-2.5 py-0.5 text-[11px] font-medium text-[#5143d1]"
+                        className="rounded-md bg-white border border-[#d8d2f5] px-2.5 py-1 text-[11px] font-medium text-[#5143d1] shadow-xs"
                       >
                         {style}
                       </span>
                     ))
                   ) : (
-                    <span className="font-medium text-[#555662]">
-                      {selectedRecipient.preferredStyle || '명확하고 간결하게'}
+                    <span className="rounded-md bg-white border border-[#d8d2f5] px-2.5 py-1 text-[11px] font-medium text-[#5143d1] shadow-xs">
+                      {selectedRecipient.preferredStyle || '명확과 표현 선호'}
                     </span>
                   )}
                 </div>
               </div>
             </div>
-
-            <div className="min-h-[220px] flex-1" />
 
             {/* AI-generated communication profile */}
             <div className="border-t border-[#ededf0] px-6 py-6">

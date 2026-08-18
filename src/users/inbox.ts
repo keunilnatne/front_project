@@ -68,6 +68,27 @@ export async function getGmailStatus(): Promise<GmailStatus> {
   return { connected: false, email: null }
 }
 
+const INBOX_CACHE_KEY = 'ieum.inboxCache'
+
+export function getCachedInboxMessages(): InboxMessage[] {
+  try {
+    const raw = localStorage.getItem(INBOX_CACHE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+export function saveCachedInboxMessages(messages: InboxMessage[]): void {
+  try {
+    localStorage.setItem(INBOX_CACHE_KEY, JSON.stringify(messages))
+  } catch {
+    // ignore
+  }
+}
+
 export async function fetchInboxMessages(q?: string): Promise<InboxMessage[]> {
   const params = new URLSearchParams()
   if (q) params.set('q', q)
@@ -88,7 +109,7 @@ export async function fetchInboxMessages(q?: string): Promise<InboxMessage[]> {
   const data = await response.json()
   if (!Array.isArray(data)) return []
 
-  return data.map((item: any) => {
+  const list = data.map((item: any) => {
     const { name, email } = parseSender(item.from || '')
     return {
       id: String(item.id),
@@ -103,6 +124,12 @@ export async function fetchInboxMessages(q?: string): Promise<InboxMessage[]> {
       attachments: item.attachments || [],
     }
   })
+
+  if (!q && list.length > 0) {
+    saveCachedInboxMessages(list)
+  }
+
+  return list
 }
 
 export async function fetchInboxMessageDetail(messageId: string): Promise<InboxMessage> {

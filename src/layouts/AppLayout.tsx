@@ -40,11 +40,12 @@ const navigationItems: NavigationItem[] = [
     path: '/team-memory',
     icon: 'memory',
   },
-  {
-    label: 'Company DNA',
-    path: '/company-dna',
-    icon: 'dna',
-  },
+  // Company DNA 메뉴는 임시 숨김 처리 (추후 재활성화를 위해 코드 및 컴포넌트 보존)
+  // {
+  //   label: 'Company DNA',
+  //   path: '/company-dna',
+  //   icon: 'dna',
+  // },
 ]
 
 function MenuIcon({

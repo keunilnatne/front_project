@@ -2,19 +2,17 @@ import { useState, type ReactNode } from 'react'
 
 type SettingLayoutProps = {
   account: ReactNode
-  personalization: ReactNode
   integrations: ReactNode
   security: ReactNode
 }
 
 const menus = [
   { id: 'account', label: '계정' },
-  { id: 'ai-personalization', label: 'AI 개인화' },
   { id: 'integrations', label: '연결' },
   { id: 'security', label: '보안 및 개인정보' },
 ]
 
-function SettingLayout({ account, personalization, integrations, security }: SettingLayoutProps) {
+function SettingLayout({ account, integrations, security }: SettingLayoutProps) {
   const [activeMenu, setActiveMenu] = useState('account')
 
   const moveTo = (id: string) => {
@@ -34,7 +32,7 @@ function SettingLayout({ account, personalization, integrations, security }: Set
                 key={menu.id}
                 type="button"
                 onClick={() => moveTo(menu.id)}
-                className={`h-10 rounded-lg px-4 text-left whitespace-nowrap transition ${
+                className={`h-10 rounded-lg px-4 text-left whitespace-nowrap transition cursor-pointer ${
                   activeMenu === menu.id
                     ? 'bg-[#f0edff] font-semibold text-[#5146e5]'
                     : 'text-[#565861] hover:bg-white'
@@ -48,7 +46,6 @@ function SettingLayout({ account, personalization, integrations, security }: Set
 
         <main className="flex w-full max-w-175 min-w-0 flex-col gap-8">
           {account}
-          {personalization}
           {integrations}
           {security}
         </main>

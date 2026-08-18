@@ -5,6 +5,7 @@ import {
   fetchInboxMessageDetail,
   downloadInboxAttachment,
   getGmailStatus,
+  getCachedInboxMessages,
   type InboxMessage,
   type GmailStatus,
 } from '../users/inbox'
@@ -50,10 +51,13 @@ function formatFullDateTime(dateStr: string): string {
 
 export default function InboxPage() {
   const navigate = useNavigate()
-  const [messages, setMessages] = useState<InboxMessage[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [messages, setMessages] = useState<InboxMessage[]>(() => getCachedInboxMessages())
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    const cached = getCachedInboxMessages()
+    return cached.length > 0 ? cached[0].id : null
+  })
   const [selectedDetail, setSelectedDetail] = useState<InboxMessage | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => getCachedInboxMessages().length === 0)
   const [detailLoading, setDetailLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<GmailStatus>({ connected: false, email: null })
@@ -61,7 +65,6 @@ export default function InboxPage() {
   const [copied, setCopied] = useState(false)
 
   async function loadData() {
-    setLoading(true)
     setNotConnected(false)
     try {
       const currentStatus = await getGmailStatus()
@@ -75,7 +78,7 @@ export default function InboxPage() {
       const list = await fetchInboxMessages()
       setMessages(list)
       if (list.length > 0) {
-        setSelectedId(list[0].id)
+        setSelectedId((prev) => prev || list[0].id)
       }
     } catch (err: any) {
       if (err.message === 'GMAIL_NOT_CONNECTED') {

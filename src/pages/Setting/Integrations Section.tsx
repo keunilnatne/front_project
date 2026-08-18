@@ -1,7 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import googleLogo from '../../images/google.png'
-import slackLogo from '../../images/slack.png'
-import teamsLogo from '../../images/teams.png'
 import { getGmailStatus } from '../../users/inbox'
 
 type ServiceId = 'google' | 'slack' | 'teams'
@@ -25,20 +23,6 @@ const services: Service[] = [
     name: 'Google Workspace',
     logo: googleLogo,
     accountLabel: 'Google 계정 이메일',
-    accountPlaceholder: 'name@company.com',
-  },
-  {
-    id: 'slack',
-    name: 'Slack',
-    logo: slackLogo,
-    accountLabel: 'Slack 워크스페이스 주소',
-    accountPlaceholder: 'company.slack.com',
-  },
-  {
-    id: 'teams',
-    name: 'Microsoft Teams',
-    logo: teamsLogo,
-    accountLabel: 'Microsoft 계정 이메일',
     accountPlaceholder: 'name@company.com',
   },
 ]
