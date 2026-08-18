@@ -1445,23 +1445,12 @@ function RecipientsPage() {
                       selectedRecipient,
                     )
                   }
-                  className="h-11 rounded-lg border border-[#d9d9df] bg-white px-5 text-[13px] font-medium text-[#55565c] transition hover:bg-[#f7f7f9] cursor-pointer"
+                  className="flex h-11 items-center gap-2 rounded-lg bg-[#4d3bd5] px-5 text-[13px] font-semibold text-white transition hover:bg-[#4332c2] cursor-pointer shadow-xs"
                 >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                  </svg>
                   메시지 보내기
-                </button>
-
-                {/* Collaboration */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCollaborationTarget(
-                      selectedRecipient,
-                    )
-                  }
-                  className="flex h-11 items-center gap-2 rounded-lg bg-[#4d3bd5] px-5 text-[13px] font-semibold text-white transition hover:bg-[#4332c2] cursor-pointer"
-                >
-                  <CollaborationIcon />
-                  협업 요청
                 </button>
               </div>
             </div>
