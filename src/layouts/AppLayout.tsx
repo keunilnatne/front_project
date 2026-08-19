@@ -277,25 +277,15 @@ function AppLayout() {
         {/* User */}
         <div className="p-4">
           <NavLink to="/my-profile" aria-label="내 프로필 보기" className={({ isActive }) => `flex items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-[#f0edff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca]/30 ${isActive ? 'bg-[#f0edff]' : ''}`}>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#5546e8]">
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="1.7"
-              >
-                <circle cx="12" cy="8" r="3.5" />
-                <path d="M5 20c.7-3.5 3.2-5.5 7-5.5s6.3 2 7 5.5" />
-              </svg>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#5b3df5] text-[15px] font-bold text-white shadow-2xs">
+              {(profile.name?.trim() || '나').slice(0, 1)}
             </div>
 
-            <div>
-              <p className="text-[14px] font-semibold text-[#29292d]">
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold text-[#29292d] truncate">
                 {profile.name || '이름 미설정'}
               </p>
-              <p className="text-[13px] text-[#999aa0]">
+              <p className="text-[13px] text-[#999aa0] truncate">
                 {profile.role || '직무 미설정'}
               </p>
             </div>
