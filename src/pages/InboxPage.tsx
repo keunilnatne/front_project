@@ -125,7 +125,7 @@ export default function InboxPage() {
       id: `schedule-${Date.now()}`,
       title: scheduleCard.title.trim() || '이메일 추천 일정',
       purpose: scheduleCard.title.trim() || '이메일 추천 일정',
-      reason: scheduleCard.quote.trim() || '이메일 연동',
+      reason: '이메일 연동',
       request: scheduleCard.quote.trim() || '이메일 내용 기반 AI 추출 일정',
       deadline: deadlineStr,
       attachmentName: 'purple',

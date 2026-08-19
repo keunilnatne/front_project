@@ -284,7 +284,11 @@ function cleanPlace(raw?: string): string {
     trimmed === 'AI 학습' ||
     trimmed === 'AI 학습 데이터' ||
     trimmed === '수동 추가' ||
-    trimmed === '이메일 연동'
+    trimmed === '이메일 연동' ||
+    trimmed.startsWith('■') ||
+    trimmed.includes('점검') ||
+    trimmed.includes('http') ||
+    trimmed.length > 25
   ) {
     return ''
   }
