@@ -1017,7 +1017,13 @@ function RecipientsPage() {
       organizationRelation: recipient.organizationRelation || '팀원',
       customStyle: recipient.preferredStyle || '명확하고 간결하게',
     })
-    setSelectedStyles(recipient.communicationStyle?.length ? recipient.communicationStyle : ['명확하고 간결하게'])
+    const rawComm = recipient.communicationStyle as unknown
+    const existingStyles = Array.isArray(rawComm) && rawComm.length
+      ? (rawComm as string[])
+      : (typeof rawComm === 'string' && rawComm
+        ? (rawComm as string).split(',').map((s: string) => s.trim()).filter(Boolean)
+        : (recipient.preferredStyle ? recipient.preferredStyle.split(',').map((s: string) => s.trim()).filter(Boolean) : ['명확하고 간결하게']))
+    setSelectedStyles(existingStyles)
     setFormErrorMessage('')
   }
 
@@ -1116,6 +1122,13 @@ function RecipientsPage() {
     setLookupMessage(null)
     try {
       const found = await fetchRecipientByEmail(email)
+      const rawFoundComm = found.communicationStyle as unknown
+      const commStyles = Array.isArray(rawFoundComm) && rawFoundComm.length
+        ? (rawFoundComm as string[])
+        : (typeof rawFoundComm === 'string' && rawFoundComm
+          ? (rawFoundComm as string).split(',').map((s: string) => s.trim()).filter(Boolean)
+          : (found.preferredStyle ? found.preferredStyle.split(',').map((s: string) => s.trim()).filter(Boolean) : []))
+
       setNewRecipient((curr) => ({
         ...curr,
         email: found.email || email,
@@ -1128,12 +1141,12 @@ function RecipientsPage() {
         organizationRelation: found.organizationRelation || curr.organizationRelation,
         customStyle: found.preferredStyle || curr.customStyle,
       }))
-      if (Array.isArray(found.communicationStyle) && found.communicationStyle.length) {
-        setSelectedStyles(found.communicationStyle)
-      } else if (found.preferredStyle) {
-        setSelectedStyles([found.preferredStyle])
+      if (commStyles.length > 0) {
+        setSelectedStyles(commStyles)
+      } else {
+        setSelectedStyles(['명확하고 간결하게'])
       }
-      setLookupMessage({ text: `✓ 이음에 가입된 [${found.name || email}] 님의 유저 프로필을 불러왔습니다.` })
+      setLookupMessage({ text: `✓ 이음에 가입된 [${found.name || email}] 님의 유저 프로필과 선호 소통 스타일을 불러왔습니다.` })
     } catch {
       setLookupMessage({ text: '이음에 가입된 회원이 아닙니다. 아래 폼에 직접 입력하여 추가하실 수 있습니다.', isError: true })
       setNewRecipient((curr) => ({ ...curr, email }))
@@ -1925,7 +1938,7 @@ function RecipientsPage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {[
+                {Array.from(new Set([
                   '편안하고 친근하게',
                   '명확하고 간결하게',
                   '격식 있고 정중하게',
@@ -1933,7 +1946,8 @@ function RecipientsPage() {
                   '상세한 설명 선호',
                   '빠른 피드백 선호',
                   '논리적/데이터 중심',
-                ].map((styleTag) => {
+                  ...selectedStyles,
+                ])).map((styleTag) => {
                   const isSelected = selectedStyles.includes(styleTag)
                   return (
                     <button
@@ -2108,7 +2122,7 @@ function RecipientsPage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {[
+                {Array.from(new Set([
                   '편안하고 친근하게',
                   '명확하고 간결하게',
                   '격식 있고 정중하게',
@@ -2116,7 +2130,8 @@ function RecipientsPage() {
                   '상세한 설명 선호',
                   '빠른 피드백 선호',
                   '논리적/데이터 중심',
-                ].map((styleTag) => {
+                  ...selectedStyles,
+                ])).map((styleTag) => {
                   const isSelected = selectedStyles.includes(styleTag)
                   return (
                     <button
