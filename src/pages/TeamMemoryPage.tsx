@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import {
   fetchTeamMemory,
@@ -664,14 +665,29 @@ export default function TeamMemoryPage() {
     [],
   )
 
-  const [year, setYear] =
-    useState(initialToday.year)
+  const [searchParams] = useSearchParams()
+  const dateParam = searchParams.get('date')
 
-  const [month, setMonth] =
-    useState(initialToday.month)
+  const [year, setYear] = useState(() => {
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      return Number(dateParam.split('-')[0])
+    }
+    return initialToday.year
+  })
 
-  const [selectedDate, setSelectedDate] =
-    useState(initialToday.date)
+  const [month, setMonth] = useState(() => {
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      return Number(dateParam.split('-')[1]) - 1
+    }
+    return initialToday.month
+  })
+
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      return dateParam
+    }
+    return initialToday.date
+  })
 
   const [search, setSearch] =
     useState('')
@@ -1168,12 +1184,47 @@ export default function TeamMemoryPage() {
                 <div className="py-8 text-center text-[12px] leading-5 text-[#d44c4c]">
                   {errorMessage}
                 </div>
-              ) : selectedEvents.length ===
-                0 ? (
-                <div className="py-8 text-center text-[12px] leading-5 text-[#9aa1b0]">
-                  이 날짜에 등록된
-                  <br />
-                  일정이 없습니다.
+              ) : selectedEvents.length === 0 ? (
+                <div className="space-y-4">
+                  <div className="rounded-xl bg-[#f8f9fc] p-4 text-center text-[12px] text-[#88909e]">
+                    이 날짜에 등록된 일정이 없습니다.
+                  </div>
+                  {visibleEvents.length > 0 && (
+                    <div className="border-t border-[#edf0f5] pt-4">
+                      <p className="text-[12px] font-bold text-[#475569] mb-3">
+                        전체 등록된 일정 ({visibleEvents.length}개)
+                      </p>
+                      <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+                        {visibleEvents.map((evt) => (
+                          <div
+                            key={evt.id}
+                            onClick={() => {
+                              setSelectedDate(evt.date)
+                              const [y, m] = evt.date.split('-').map(Number)
+                              setYear(y)
+                              setMonth(m - 1)
+                            }}
+                            className="group flex items-center justify-between p-3 rounded-xl border border-[#e2e8f0] bg-white hover:border-[#6366f1] hover:bg-[#f5f7ff] cursor-pointer transition shadow-2xs"
+                          >
+                            <div className="min-w-0 pr-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`h-2 w-2 rounded-full ${colorClass(evt.color)}`} />
+                                <span className="font-semibold text-[13px] text-[#1e293b] truncate group-hover:text-[#4f46e5]">
+                                  {evt.title}
+                                </span>
+                              </div>
+                              <div className="mt-1 text-[11px] text-[#64748b]">
+                                {evt.date} ({evt.start})
+                              </div>
+                            </div>
+                            <span className="text-[11px] font-semibold text-[#818cf8] group-hover:text-[#4f46e5]">
+                              확인 →
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 selectedEvents.map(

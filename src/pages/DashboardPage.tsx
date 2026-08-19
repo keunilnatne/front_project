@@ -58,7 +58,7 @@ export default function DashboardPage() {
     () => [
       {
         number: 1,
-        title: '수신자 선택',
+        title: '수신자 추가',
         description: '메시지를 받을 수신자를 선택하세요.',
         icon: '♙',
         color: '#7c3aed',
@@ -81,7 +81,7 @@ export default function DashboardPage() {
   const keyword = search.trim().toLowerCase()
   const visibleGuideItems = guideItems.filter((item) =>
     !keyword
-      || `${item.title} ${item.description}`.toLowerCase().includes(keyword),
+    || `${item.title} ${item.description}`.toLowerCase().includes(keyword),
   )
 
   const handleCreateMessage = () => {

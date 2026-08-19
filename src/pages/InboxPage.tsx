@@ -76,6 +76,7 @@ export default function InboxPage() {
   const [scheduleLoading, setScheduleLoading] = useState(false)
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('팀 일정에 추가되었어요.')
+  const [addedDate, setAddedDate] = useState<string | null>(null)
 
   const handleRecommendSchedule = async (msg: InboxMessage) => {
     setScheduleLoading(true)
@@ -83,6 +84,7 @@ export default function InboxPage() {
       const result = await extractScheduleFromAi(msg)
       if (!result.hasSchedule) {
         setToastMessage('이 메일에는 마감 또는 회의 일정이 포함되어 있지 않습니다.')
+        setAddedDate(null)
         setShowToast(true)
         setTimeout(() => setShowToast(false), 4000)
       } else {
@@ -95,6 +97,7 @@ export default function InboxPage() {
       }
     } catch {
       setToastMessage('일정 분석에 실패했습니다. 다시 시도해주세요.')
+      setAddedDate(null)
       setShowToast(true)
       setTimeout(() => setShowToast(false), 4000)
     } finally {
@@ -109,6 +112,13 @@ export default function InboxPage() {
     const currentYear = new Date().getFullYear()
     if (!/^\d{4}/.test(deadlineStr)) {
       deadlineStr = `${currentYear}.${deadlineStr}`
+    }
+
+    const dateMatch = deadlineStr.match(/(\d{4})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})/)
+    if (dateMatch) {
+      setAddedDate(`${dateMatch[1]}-${String(dateMatch[2]).padStart(2, '0')}-${String(dateMatch[3]).padStart(2, '0')}`)
+    } else {
+      setAddedDate(null)
     }
 
     const pattern: Pattern = {
@@ -152,7 +162,7 @@ export default function InboxPage() {
     setShowToast(true)
     setTimeout(() => {
       setShowToast(false)
-    }, 4000)
+    }, 5000)
   }
 
   async function loadData() {
@@ -698,17 +708,26 @@ export default function InboxPage() {
 
       {/* Toast Notification (Figma design top-right) */}
       {showToast && (
-        <div className="fixed top-6 right-6 z-50 flex items-center gap-3 rounded-full border border-[#d1fae5] bg-white px-5 py-3 shadow-xl transition-all animate-in slide-in-from-top-2 duration-200">
+        <div className="fixed top-6 right-6 z-50 flex items-center gap-3 rounded-2xl border border-[#d1fae5] bg-white px-5 py-3 shadow-xl transition-all animate-in slide-in-from-top-2 duration-200">
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#dcfce7] text-[#16a34a]">
             <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
           <span className="text-[13px] font-semibold text-[#1f2937]">{toastMessage}</span>
+          {toastMessage.includes('추가') && (
+            <button
+              type="button"
+              onClick={() => navigate(addedDate ? `/team-memory?date=${addedDate}` : '/team-memory')}
+              className="ml-1 rounded-lg bg-[#5338ec] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#432bc6] transition cursor-pointer shadow-xs"
+            >
+              팀 일정 확인 →
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowToast(false)}
-            className="ml-2 text-[#9ca3af] hover:text-[#4b5563] cursor-pointer"
+            className="ml-1 text-[#9ca3af] hover:text-[#4b5563] cursor-pointer"
           >
             ✕
           </button>
