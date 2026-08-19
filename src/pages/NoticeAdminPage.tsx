@@ -41,6 +41,8 @@ export default function NoticeAdminPage() {
       setContent('')
       setMessage('공지사항이 데이터베이스에 성공적으로 등록되었습니다! 대시보드에 즉시 반영됩니다.')
       setTimeout(() => setMessage(''), 4000)
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '공지사항을 등록하지 못했습니다.')
     } finally {
       setSubmitting(false)
     }
@@ -48,8 +50,12 @@ export default function NoticeAdminPage() {
 
   const handleDelete = async (id: string | number) => {
     if (!window.confirm('이 공지사항을 삭제하시겠습니까?')) return
-    await deleteNotice(id)
-    await reloadNotices()
+    try {
+      await deleteNotice(id)
+      await reloadNotices()
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '공지사항을 삭제하지 못했습니다.')
+    }
   }
 
   return (

@@ -433,21 +433,22 @@ export default function DashboardPage() {
               </h2>
 
               <span className="rounded-full bg-[#eee9ff] px-2 py-0.5 text-[10px] font-semibold text-[#6844e2]">
-                {notices[0]?.tag || 'new'}
+                {notices[0]?.tag || '소식 없음'}
               </span>
             </div>
 
             <button
               type="button"
-              onClick={() => setShowNews(true)}
-              className="mt-3 w-full rounded-lg bg-[#f0edff] p-5 text-left transition hover:bg-[#e9e5ff] cursor-pointer"
+              onClick={() => { if (notices[0]) setShowNews(true) }}
+              disabled={!notices[0]}
+              className="mt-3 w-full rounded-lg bg-[#f0edff] p-5 text-left transition enabled:hover:bg-[#e9e5ff] enabled:cursor-pointer disabled:bg-[#f7f7f9]"
             >
               <p className="text-[13px] font-semibold text-[#4b4650]">
-                {notices[0]?.title || '더 편리해진 이음을 만나보세요'}
+                {notices[0]?.title || '등록된 새로운 소식이 없습니다.'}
               </p>
 
               <p className="mt-2 text-[12px] leading-5 text-[#888] whitespace-pre-line">
-                {notices[0]?.subtitle || '성능 개선과 새로운 기능으로\n더 나은 경험을 제공합니다.'}
+                {notices[0]?.subtitle || '새 소식이 등록되면 이곳에 표시됩니다.'}
               </p>
             </button>
           </div>
@@ -455,7 +456,7 @@ export default function DashboardPage() {
       </main>
 
       {/* 새 소식 모달 */}
-      {showNews && (
+      {showNews && notices[0] && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => setShowNews(false)}

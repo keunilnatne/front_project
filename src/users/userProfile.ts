@@ -44,10 +44,12 @@ const ONBOARDING_STORAGE_KEYS = [
 ] as const
 
 import { getAuthToken, authorizationHeaders } from './authStorage'
+import { readUserStorage, removeUserStorage, writeUserStorage } from './storage'
+import { reportApiFailure, requireOk } from './apiClient'
 
 export function getUserProfile(): UserProfile {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = readUserStorage(STORAGE_KEY)
     return stored ? { ...defaultUserProfile, ...JSON.parse(stored) } : defaultUserProfile
   } catch {
     return defaultUserProfile
@@ -57,12 +59,13 @@ export function getUserProfile(): UserProfile {
 export async function fetchUserProfile(): Promise<UserProfile> {
   try {
     const token = getAuthToken()
-    if (!token) return getUserProfile()
+    if (!token) throw new Error('로그인 정보가 없습니다.')
 
     const response = await fetch(`${API_URL}/api/users/me`, {
       headers: authorizationHeaders(),
     })
-    if (response.ok) {
+    await requireOk(response, '프로필을 불러오지 못했습니다.')
+    {
       const data = await response.json()
       const profile: UserProfile = {
         email: data.email || '',
@@ -80,62 +83,60 @@ export async function fetchUserProfile(): Promise<UserProfile> {
         customStyle: data.customStyle || data.preferredStyle || '',
         onboardingCompleted: data.onboardingCompleted === true,
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
+      writeUserStorage(STORAGE_KEY, JSON.stringify(profile))
       if (profile.onboardingCompleted) {
         completeOnboarding(profile.email)
       }
       window.dispatchEvent(new Event('profile-updated'))
       return profile
     }
-  } catch {
-    // fallback
+  } catch (error) {
+    reportApiFailure(error instanceof Error ? error.message : '프로필을 불러오지 못했습니다.', true)
   }
   return getUserProfile()
 }
 
 export async function saveUserProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
   const updated: UserProfile = { ...getUserProfile(), ...profile }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-  window.dispatchEvent(new Event('profile-updated'))
+  const token = getAuthToken()
+  if (!token) throw new Error('로그인 정보가 없습니다. 다시 로그인해 주세요.')
 
-  try {
-    const token = getAuthToken()
-    if (token) {
-      await fetch(`${API_URL}/api/users/me`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authorizationHeaders(),
-        },
-        body: JSON.stringify({
-          name: updated.name,
-          company: updated.company,
-          companyName: updated.company,
-          position: updated.position,
-          jobTitle: updated.position,
-          role: updated.role,
-          jobRole: updated.role,
-          country: updated.country,
-          language: updated.language,
-          timezone: updated.timezone,
-          workHours: updated.workHours,
-          lunchHours: updated.lunchHours,
-          tools: updated.tools,
-          communicationPreferences: updated.communicationPreferences,
-          preferredStyle: updated.customStyle || (updated.communicationPreferences?.join(', ') ?? ''),
-          customStyle: updated.customStyle,
-        }),
-      })
-    }
-  } catch {
-    // offline / sync error
-  }
+  const response = await fetch(`${API_URL}/api/users/me`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authorizationHeaders(),
+    },
+    body: JSON.stringify({
+      name: updated.name,
+      email: updated.email,
+      company: updated.company,
+      companyName: updated.company,
+      position: updated.position,
+      jobTitle: updated.position,
+      role: updated.role,
+      jobRole: updated.role,
+      country: updated.country,
+      language: updated.language,
+      timezone: updated.timezone,
+      workHours: updated.workHours,
+      lunchHours: updated.lunchHours,
+      tools: updated.tools,
+      communicationPreferences: updated.communicationPreferences,
+      preferredStyle: updated.customStyle || (updated.communicationPreferences?.join(', ') ?? ''),
+      customStyle: updated.customStyle,
+    }),
+  })
+  await requireOk(response, '프로필을 저장하지 못했습니다.')
+
+  writeUserStorage(STORAGE_KEY, JSON.stringify(updated))
+  window.dispatchEvent(new Event('profile-updated'))
 
   return updated
 }
 
 export function resetUserProfile() {
-  localStorage.removeItem(STORAGE_KEY)
+  removeUserStorage(STORAGE_KEY)
   window.dispatchEvent(new Event('profile-updated'))
 }
 
@@ -157,19 +158,17 @@ export async function finishOnboarding(email = ''): Promise<void> {
     method: 'PATCH',
     headers: authorizationHeaders(),
   })
-  if (!response.ok) {
-    throw new Error('온보딩 완료 상태를 저장하지 못했습니다. 다시 시도해 주세요.')
-  }
+  await requireOk(response, '온보딩 완료 상태를 저장하지 못했습니다. 다시 시도해 주세요.')
 
   const profile = { ...getUserProfile(), onboardingCompleted: true }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
+  writeUserStorage(STORAGE_KEY, JSON.stringify(profile))
   completeOnboarding(email || profile.email)
   window.dispatchEvent(new Event('profile-updated'))
 }
 
 export function startOnboarding(email = '') {
   const normalizedEmail = email.trim().toLowerCase()
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...defaultUserProfile, email: normalizedEmail || email }))
+  writeUserStorage(STORAGE_KEY, JSON.stringify({ ...defaultUserProfile, email: normalizedEmail || email }))
   ONBOARDING_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key))
   localStorage.removeItem('onboarding.completed')
   if (normalizedEmail) {
@@ -179,7 +178,7 @@ export function startOnboarding(email = '') {
 }
 
 export async function skipOnboarding(email = ''): Promise<void> {
-  localStorage.removeItem(STORAGE_KEY)
+  removeUserStorage(STORAGE_KEY)
   ONBOARDING_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key))
   localStorage.setItem('onboarding.skipped', 'true')
   await finishOnboarding(email)

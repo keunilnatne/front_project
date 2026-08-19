@@ -1,4 +1,6 @@
 import { getAuthToken, authorizationHeaders } from './authStorage'
+import { readUserStorage, writeUserStorage } from './storage'
+import { requireOk } from './apiClient'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -47,16 +49,7 @@ export async function getGmailStatus(): Promise<GmailStatus> {
     headers: authorizationHeaders(),
     cache: 'no-store',
   })
-  if (!response.ok) {
-    const data = await response.json().catch(() => null) as {
-      code?: string
-      message?: string
-      error?: { code?: string; message?: string }
-    } | null
-    const code = data?.code || data?.error?.code
-    const message = data?.message || data?.error?.message
-    throw new Error(code || message || `GMAIL_STATUS_FAILED_${response.status}`)
-  }
+  await requireOk(response, 'Gmail 연결 상태를 확인하지 못했습니다.')
 
   const data = await response.json() as Partial<GmailStatus>
   return {
@@ -69,7 +62,7 @@ const INBOX_CACHE_KEY = 'ieum.inboxCache'
 
 export function getCachedInboxMessages(): InboxMessage[] {
   try {
-    const raw = localStorage.getItem(INBOX_CACHE_KEY)
+    const raw = readUserStorage(INBOX_CACHE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed : []
@@ -80,7 +73,7 @@ export function getCachedInboxMessages(): InboxMessage[] {
 
 export function saveCachedInboxMessages(messages: InboxMessage[]): void {
   try {
-    localStorage.setItem(INBOX_CACHE_KEY, JSON.stringify(messages))
+    writeUserStorage(INBOX_CACHE_KEY, JSON.stringify(messages))
   } catch {
     // ignore
   }
@@ -100,25 +93,27 @@ export async function fetchInboxMessages(q?: string): Promise<InboxMessage[]> {
     if (response.status === 409) {
       throw new Error('GMAIL_NOT_CONNECTED')
     }
-    throw new Error('받은 메일 목록을 불러오는 데 실패했습니다.')
+    await requireOk(response, '받은 메일 목록을 불러오는 데 실패했습니다.')
   }
 
   const data = await response.json()
-  if (!Array.isArray(data)) return []
+  if (!Array.isArray(data)) throw new Error('서버가 올바르지 않은 받은 메일 목록을 반환했습니다.')
 
-  const list = data.map((item: any) => {
-    const { name, email } = parseSender(item.from || '')
+  const list = data.map((rawItem: unknown) => {
+    const item = (rawItem && typeof rawItem === 'object' ? rawItem : {}) as Record<string, unknown>
+    const from = String(item.from || '')
+    const { name, email } = parseSender(from)
     return {
       id: String(item.id),
       threadId: item.threadId ? String(item.threadId) : undefined,
-      subject: item.subject || '(제목 없음)',
-      from: item.from || '',
+      subject: String(item.subject || '(제목 없음)'),
+      from,
       fromName: name,
       fromEmail: email,
-      date: item.date || '',
-      snippet: item.snippet || '',
-      body: item.body || '',
-      attachments: item.attachments || [],
+      date: String(item.date || ''),
+      snippet: String(item.snippet || ''),
+      body: String(item.body || ''),
+      attachments: Array.isArray(item.attachments) ? item.attachments as InboxAttachment[] : [],
     }
   })
 
@@ -134,33 +129,35 @@ export async function fetchInboxMessageDetail(messageId: string): Promise<InboxM
     headers: authorizationHeaders(),
   })
 
-  if (!response.ok) {
-    throw new Error('메일 상세 내용을 불러오지 못했습니다.')
-  }
+  await requireOk(response, '메일 상세 내용을 불러오지 못했습니다.')
 
-  const item = await response.json()
-  const { name, email } = parseSender(item.from || '')
+  const rawItem: unknown = await response.json()
+  const item = (rawItem && typeof rawItem === 'object' ? rawItem : {}) as Record<string, unknown>
+  const from = String(item.from || '')
+  const { name, email } = parseSender(from)
 
   return {
     id: String(item.id),
     threadId: item.threadId ? String(item.threadId) : undefined,
-    subject: item.subject || '(제목 없음)',
-    from: item.from || '',
+    subject: String(item.subject || '(제목 없음)'),
+    from,
     fromName: name,
     fromEmail: email,
-    date: item.date || '',
-    snippet: item.snippet || '',
-    body: item.body || item.snippet || '',
-    htmlBody: item.htmlBody || '',
-    attachments: (item.attachments || []).map((att: any) => ({
+    date: String(item.date || ''),
+    snippet: String(item.snippet || ''),
+    body: String(item.body || item.snippet || ''),
+    htmlBody: String(item.htmlBody || ''),
+    attachments: (Array.isArray(item.attachments) ? item.attachments : []).map((rawAttachment: unknown) => {
+      const att = (rawAttachment && typeof rawAttachment === 'object' ? rawAttachment : {}) as Record<string, unknown>
+      return {
       id: String(att.id || att.attachmentId || ''),
-      name: att.name || att.filename || '첨부파일',
-      filename: att.filename || att.name || '첨부파일',
-      mimeType: att.mimeType || 'application/octet-stream',
+      name: String(att.name || att.filename || '첨부파일'),
+      filename: String(att.filename || att.name || '첨부파일'),
+      mimeType: String(att.mimeType || 'application/octet-stream'),
       size: Number(att.size) || 0,
-      attachmentId: att.attachmentId || att.id,
+      attachmentId: String(att.attachmentId || att.id || ''),
       messageId: String(item.id),
-    })),
+    }}),
   }
 }
 

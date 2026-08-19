@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import googleLogo from '../../images/google.png'
 import { getGmailStatus } from '../../users/inbox'
 import { getAuthToken, authorizationHeaders } from '../../users/authStorage'
+import { requireOk } from '../../users/apiClient'
+import { readUserStorage, writeUserStorage } from '../../users/storage'
 
 type ServiceId = 'google' | 'slack' | 'teams'
 
@@ -14,6 +16,7 @@ type Service = {
 }
 
 type Connections = Partial<Record<ServiceId, string>>
+type GmailAuthMessage = { type: 'gmail-auth-success' | 'gmail-auth-error'; email?: string; message?: string }
 
 const STORAGE_KEY = 'ieum.integrations'
 const API_URL = import.meta.env.VITE_API_URL || ''
@@ -49,10 +52,27 @@ function IntegrationsSection() {
           return next
         })
       }
-    })
+    }).catch(() => undefined)
     return () => {
       active = false
     }
+  }, [])
+
+  useEffect(() => {
+    const expectedOrigin = new URL(API_URL || window.location.origin, window.location.origin).origin
+    const handleMessage = (event: MessageEvent<GmailAuthMessage>) => {
+      if (event.origin !== expectedOrigin || !event.data || typeof event.data !== 'object') return
+      if (event.data.type === 'gmail-auth-success' && event.data.email) {
+        const updated = { ...connections, google: event.data.email }
+        setConnections(updated)
+        saveConnections(updated)
+        setGoogleStatus({ connected: true, email: event.data.email })
+      } else if (event.data.type === 'gmail-auth-error') {
+        window.alert(event.data.message || 'Gmail 계정을 연결하지 못했습니다.')
+      }
+    }
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
   }, [connections])
 
   const connectService = (serviceId: ServiceId, account: string) => {
@@ -69,13 +89,15 @@ function IntegrationsSection() {
       try {
         const token = getAuthToken()
         if (token) {
-          await fetch(`${API_URL}/api/integrations/gmail/disconnect`, {
+          const response = await fetch(`${API_URL}/api/integrations/gmail/disconnect`, {
             method: 'DELETE',
             headers: authorizationHeaders(),
           })
+          await requireOk(response, 'Gmail 연결을 해제하지 못했습니다.')
         }
-      } catch (err) {
-        console.warn('Gmail disconnect API error:', err)
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : 'Gmail 연결을 해제하지 못했습니다.')
+        return
       }
       setGoogleStatus({ connected: false, email: null })
       localStorage.removeItem('onboarding.gmail')
@@ -89,10 +111,20 @@ function IntegrationsSection() {
     saveConnections(updatedConnections)
   }
 
-  const handleConnectClick = (service: Service) => {
+  const handleConnectClick = async (service: Service) => {
     if (service.id === 'google') {
-      const token = getAuthToken() || ''
-      window.location.href = `${API_URL}/api/auth/google${token ? `?state=${encodeURIComponent(token)}` : ''}`
+      if (!getAuthToken()) {
+        window.alert('로그인 후 Gmail 계정을 연결해 주세요.')
+        return
+      }
+      const response = await fetch(`${API_URL}/api/integrations/gmail/connect`, {
+        headers: authorizationHeaders(),
+      })
+      await requireOk(response, 'Gmail 연결을 시작하지 못했습니다.')
+      const data = await response.json() as { authorizationUrl?: string }
+      if (!data.authorizationUrl) throw new Error('Gmail 인증 주소를 받지 못했습니다.')
+      const popup = window.open(data.authorizationUrl, 'gmail-connect', 'popup=yes,width=520,height=680,left=200,top=80')
+      if (!popup) window.alert('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해 주세요.')
       return
     }
     setSelectedService(service)
@@ -127,10 +159,10 @@ function IntegrationsSection() {
               {isGoogle && isConnected ? (
                 <button
                   type="button"
-                  disabled
-                  className="h-8 cursor-not-allowed rounded-md border border-[#e1e1e5] bg-[#f5f5f7] px-3 text-[10px] font-semibold text-[#8e8e93]"
+                  onClick={() => { void disconnectService(service) }}
+                  className="h-8 rounded-md border border-[#d9d9df] px-3 text-[10px] font-semibold hover:bg-[#f7f7f9]"
                 >
-                  연결됨
+                  연결 해제
                 </button>
               ) : isConnected ? (
                 <button
@@ -143,7 +175,7 @@ function IntegrationsSection() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => handleConnectClick(service)}
+                  onClick={() => { void handleConnectClick(service).catch((error) => window.alert(error instanceof Error ? error.message : '계정을 연결하지 못했습니다.')) }}
                   className="h-8 rounded-md bg-[#5146e5] px-3 text-[10px] font-semibold text-white transition hover:bg-[#4338ca]"
                 >
                   계정 연결하기
@@ -214,7 +246,7 @@ function ConnectDialog({ service, onConnect, onClose }: {
 
 function getConnections(): Connections {
   try {
-    const savedConnections = localStorage.getItem(STORAGE_KEY)
+    const savedConnections = readUserStorage(STORAGE_KEY)
     return savedConnections ? JSON.parse(savedConnections) : {}
   } catch {
     return {}
@@ -222,7 +254,7 @@ function getConnections(): Connections {
 }
 
 function saveConnections(connections: Connections) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(connections))
+  writeUserStorage(STORAGE_KEY, JSON.stringify(connections))
 }
 
 export default IntegrationsSection

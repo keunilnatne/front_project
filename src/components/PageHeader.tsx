@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getNotifications, markNotificationsRead, parseTimestamp, type NotificationItem } from '../users/notifications'
+import { addNotificationIfAbsent, getNotifications, markNotificationsRead, parseTimestamp, type NotificationItem } from '../users/notifications'
 import { fetchRecipients, type Recipient } from '../users/recipients'
 import { fetchHistory, type HistoryItem } from '../users/history'
 import { fetchConversations, type Conversation } from '../users/conversationArchive'
@@ -168,11 +168,7 @@ export default function PageHeader({
               }
             }
             if (newItems.length > 0) {
-              const merged = [...newItems, ...current]
-                .sort((a, b) => parseTimestamp(b.createdAt) - parseTimestamp(a.createdAt))
-                .slice(0, 50)
-              localStorage.setItem('ieum-notifications', JSON.stringify(merged))
-              window.dispatchEvent(new Event('notifications-updated'))
+              newItems.forEach(addNotificationIfAbsent)
             }
           }
         }

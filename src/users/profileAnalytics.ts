@@ -1,6 +1,8 @@
 import { fetchDashboardSummary } from './dashboard'
 import { fetchRecipients } from './recipients'
 import { getUserProfile } from './userProfile'
+import { authorizationHeaders, getAuthToken } from './authStorage'
+import { requireOk } from './apiClient'
 
 export type ProfileAnalytics = {
   analyzedMessageCount: number
@@ -93,19 +95,11 @@ export function subscribeToProfileAnalytics(
 
 export async function resetProfileAnalytics(): Promise<void> {
   const API_URL = import.meta.env.VITE_API_URL || ''
-  const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken') || ''
-  try {
-    if (token) {
-      await fetch(`${API_URL}/api/users/me/reset-personalization`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      })
-    }
-  } catch {
-    // ignore
-  }
+  if (!getAuthToken()) throw new Error('로그인 정보가 없습니다.')
+  const response = await fetch(`${API_URL}/api/users/me/reset-personalization`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
+  })
+  await requireOk(response, '개인화 분석을 초기화하지 못했습니다.')
   window.dispatchEvent(new CustomEvent(PROFILE_ANALYTICS_EVENT, { detail: emptyProfileAnalytics }))
 }

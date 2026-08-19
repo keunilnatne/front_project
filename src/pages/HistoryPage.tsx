@@ -410,7 +410,7 @@ export default function HistoryPage() {
                         if (window.confirm('이 기록을 삭제하시겠습니까?')) {
                           void deleteHistoryItem(item.id).then(() => {
                             setHistory((prev) => prev.filter((h) => h.id !== item.id))
-                          })
+                          }).catch((error) => window.alert(error instanceof Error ? error.message : '기록을 삭제하지 못했습니다.'))
                         }
                       }}
                       className="flex h-7 w-7 items-center justify-center rounded text-[#a0a0ab] hover:bg-[#fee2e2] hover:text-[#dc2626] transition cursor-pointer"
@@ -633,7 +633,7 @@ export default function HistoryPage() {
                     void deleteHistoryItem(selectedItem.id).then(() => {
                       setHistory((prev) => prev.filter((h) => h.id !== selectedItem.id))
                       setSelectedItem(null)
-                    })
+                    }).catch((error) => window.alert(error instanceof Error ? error.message : '기록을 삭제하지 못했습니다.'))
                   }
                 }}
                 className="h-10 rounded-lg border border-[#fca5a5] px-4 text-[13px] font-semibold text-[#dc2626] hover:bg-[#fef2f2] transition cursor-pointer"

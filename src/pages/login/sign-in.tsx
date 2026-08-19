@@ -4,6 +4,8 @@ import googleIcon from '../../images/google.png'
 import logo from '../../images/ieum-logo.png'
 import { authenticateAccount } from '../../users/auth'
 import { startOnboarding, completeOnboarding, fetchUserProfile } from '../../users/userProfile'
+import { setAuthToken } from '../../users/authStorage'
+import { requireOk } from '../../users/apiClient'
 
 const INPUT_CLASS = [
   'h-12 w-full rounded-lg border-2 border-black/20 px-5 text-sm outline-none',
@@ -34,8 +36,8 @@ function SignInPage() {
 
     try {
       authenticated = await authenticateAccount(email, password)
-    } catch {
-      setErrorMessage('로그인 처리 중 문제가 발생했습니다.')
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : '로그인 처리 중 문제가 발생했습니다.')
       setIsSubmitting(false)
       return
     }
@@ -175,18 +177,20 @@ function SocialLoginSection() {
 
   useEffect(() => {
     const handleGoogleAuthMessage = (event: MessageEvent<GoogleAuthMessage>) => {
+      const targetApi = import.meta.env.VITE_API_URL || window.location.origin
+      const expectedOrigin = new URL(targetApi, window.location.origin).origin
+      if (event.origin !== expectedOrigin) return
       if (!event.data || typeof event.data !== 'object') return
 
       if (event.data.type === 'google-auth-success' && event.data.email) {
         setIsConnecting(false)
         const email = event.data.email
+        if (event.data.token) {
+          setAuthToken(event.data.token)
+        }
         localStorage.setItem('auth.isGoogleLogin', 'true')
         localStorage.setItem('onboarding.gmail', 'true')
         localStorage.setItem('onboarding.gmailEmail', email)
-        if (event.data.token) {
-          localStorage.setItem('ieum.accessToken', event.data.token)
-          localStorage.setItem('ieum.token', event.data.token)
-        }
 
         if (event.data.isNewUser) {
           startOnboarding(email)
@@ -241,20 +245,15 @@ function SocialLoginSection() {
       const res = await fetch(`${targetApi}/api/auth/google?format=json`, {
         headers: { Accept: 'application/json' },
       })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.url) {
-          popup.location.href = data.url
-          popup.focus()
-          return
-        }
-      }
-      popup.location.href = targetApi ? `${targetApi}/api/auth/google` : 'http://localhost:4000/api/auth/google'
+      await requireOk(res, 'Google 로그인을 시작하지 못했습니다.')
+      const data = await res.json() as { url?: string }
+      if (!data.url) throw new Error('Google 인증 주소를 받지 못했습니다.')
+      popup.location.href = data.url
       popup.focus()
-    } catch {
-      const targetApi = import.meta.env.VITE_API_URL || ''
-      popup.location.href = targetApi ? `${targetApi}/api/auth/google` : 'http://localhost:4000/api/auth/google'
-      popup.focus()
+    } catch (error) {
+      popup.close()
+      setIsConnecting(false)
+      setGoogleError(error instanceof Error ? error.message : 'Google 로그인을 시작하지 못했습니다.')
     }
   }
 

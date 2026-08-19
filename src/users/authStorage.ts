@@ -1,4 +1,6 @@
 // 토큰 및 인증 스토리지 표준 유틸리티
+import { clearCurrentUserData, prepareStorageForToken } from './storage'
+
 const ACCESS_TOKEN_KEY = 'ieum.accessToken'
 const LEGACY_TOKEN_KEYS = ['ieum.token', 'token', 'accessToken'] as const
 
@@ -18,11 +20,13 @@ export function getAuthToken(): string | null {
 
 export function setAuthToken(token: string): void {
   if (!token) return
+  prepareStorageForToken(token)
   localStorage.setItem(ACCESS_TOKEN_KEY, token)
   localStorage.setItem('ieum.token', token)
 }
 
 export function clearAuthToken(): void {
+  clearCurrentUserData()
   localStorage.removeItem(ACCESS_TOKEN_KEY)
   for (const key of LEGACY_TOKEN_KEYS) {
     localStorage.removeItem(key)

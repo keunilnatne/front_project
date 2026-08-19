@@ -3,6 +3,7 @@ import PageHeader from '../components/PageHeader'
 import { getUserProfile } from '../users/userProfile'
 import { analyzeCompanyDNA, type RecipientAIProfile } from '../ai/aiInsights'
 import { emptyCompanyDNA, saveCompanyDNA, fetchCompanyDNA, type CompanyDNA, type CommunicationRule } from '../users/companyDna'
+import { authorizationHeaders } from '../users/authStorage'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -339,6 +340,7 @@ export default function CompanyDnaPage() {
 
       const response = await fetch(`${API_URL}/api/company-dna/extract/file`, {
         method: 'POST',
+        headers: authorizationHeaders(),
         body: formData,
       })
 
@@ -380,16 +382,11 @@ export default function CompanyDnaPage() {
     setExtractResult(null)
 
     try {
-      const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken')
-      if (!token) {
-        throw new Error('로그인이 필요합니다. 먼저 로그인해 주세요.')
-      }
-
       const response = await fetch(`${API_URL}/api/company-dna/extract/gmail`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...authorizationHeaders(),
         },
         body: JSON.stringify({ maxResults: 25 }),
       })

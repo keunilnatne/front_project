@@ -41,8 +41,12 @@ export default function DraftsPage() {
   const handleDeleteDraft = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
     if (!window.confirm('이 임시 저장 메시지를 삭제하시겠습니까?')) return
-    await deleteDraftFromServer(id)
-    setDrafts((prev) => prev.filter((d) => d.id !== id))
+    try {
+      await deleteDraftFromServer(id)
+      setDrafts((prev) => prev.filter((d) => d.id !== id))
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '임시저장을 삭제하지 못했습니다.')
+    }
   }
 
   const visible = drafts.filter((draft) =>

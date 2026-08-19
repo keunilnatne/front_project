@@ -18,6 +18,8 @@ export type Conversation = {
 }
 
 import { authorizationHeaders } from './authStorage'
+import { reportApiFailure, requireOk } from './apiClient'
+import { readUserStorage, writeUserStorage } from './storage'
 
 export type ConversationStyleAnalysis = {
   tone: string
@@ -42,7 +44,7 @@ function isConversation(value: unknown): value is Conversation {
 
 function readLocalConversations(): Conversation[] {
   try {
-    const savedData: unknown = JSON.parse(localStorage.getItem(CONVERSATIONS_KEY) || '[]')
+    const savedData: unknown = JSON.parse(readUserStorage(CONVERSATIONS_KEY) || '[]')
     return Array.isArray(savedData) ? savedData.filter(isConversation) : []
   } catch {
     return []
@@ -56,16 +58,17 @@ export async function fetchConversations(signal?: AbortSignal): Promise<Conversa
       signal,
       headers: authorizationHeaders(),
     })
-    if (response.ok) {
-      const data: unknown = await response.json()
-      if (Array.isArray(data)) {
-        const items = data.filter(isConversation)
-        localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(items))
-        return items.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-      }
+    await requireOk(response, '대화 목록을 불러오지 못했습니다.')
+    const data: unknown = await response.json()
+    if (Array.isArray(data)) {
+      const items = data.filter(isConversation)
+      writeUserStorage(CONVERSATIONS_KEY, JSON.stringify(items))
+      return items.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
     }
+    throw new Error('서버가 올바르지 않은 대화 목록을 반환했습니다.')
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error
+    reportApiFailure(error instanceof Error ? error.message : '대화 목록을 불러오지 못했습니다.', true)
   }
   return readLocalConversations().sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
 }
@@ -76,16 +79,13 @@ export function normalizeAnalysisConfidence(value: number) {
 }
 
 export async function deleteConversation(conversationId: string): Promise<void> {
-  try {
-    await fetch(`${API_URL}/api/conversations/${conversationId}`, {
-      method: 'DELETE',
-      headers: authorizationHeaders(),
-    })
-  } catch {
-    // ignore
-  }
+  const response = await fetch(`${API_URL}/api/conversations/${conversationId}`, {
+    method: 'DELETE',
+    headers: authorizationHeaders(),
+  })
+  await requireOk(response, '대화를 삭제하지 못했습니다.')
   const remainingConversations = readLocalConversations().filter(({ id }) => id !== conversationId)
-  localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(remainingConversations))
+  writeUserStorage(CONVERSATIONS_KEY, JSON.stringify(remainingConversations))
 }
 
 export async function saveConversation(conversation: Conversation): Promise<void> {
@@ -95,5 +95,5 @@ export async function saveConversation(conversation: Conversation): Promise<void
   if (existingIndex === -1) conversations.push(conversation)
   else conversations[existingIndex] = conversation
 
-  localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations))
+  writeUserStorage(CONVERSATIONS_KEY, JSON.stringify(conversations))
 }

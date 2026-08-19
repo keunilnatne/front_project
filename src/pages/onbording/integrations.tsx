@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import gmailLogo from '../../images/gmail.png'
+import { authorizationHeaders } from '../../users/authStorage'
+import { requireOk } from '../../users/apiClient'
 
 const TOTAL_STEPS = 6
 const CURRENT_STEP = 4
@@ -8,7 +10,7 @@ const BUTTON_CLASS = 'flex h-[58px] w-full items-center justify-center rounded-l
 
 
 type GoogleAuthMessage = {
-  type: 'google-auth-success' | 'google-auth-error'
+  type: 'gmail-auth-success' | 'gmail-auth-error'
   email?: string
   message?: string
 }
@@ -47,14 +49,17 @@ function Integrations() {
     }
 
     const handleGoogleAuthMessage = (event: MessageEvent<GoogleAuthMessage>) => {
+      const targetApi = import.meta.env.VITE_API_URL || window.location.origin
+      const expectedOrigin = new URL(targetApi, window.location.origin).origin
+      if (event.origin !== expectedOrigin) return
       if (!event.data || typeof event.data !== 'object') return
 
-      if (event.data.type === 'google-auth-success' && event.data.email) {
+      if (event.data.type === 'gmail-auth-success' && event.data.email) {
         completeGmailConnection(event.data.email)
         return
       }
 
-      if (event.data.type === 'google-auth-error') {
+      if (event.data.type === 'gmail-auth-error') {
         setIsConnecting(false)
         setGoogleError(event.data.message || 'Google 계정 연결에 실패했습니다.')
       }
@@ -68,7 +73,7 @@ function Integrations() {
     setGoogleError('')
     const popup = window.open(
       'about:blank',
-      'google-login',
+      'gmail-connect',
       'popup=yes,width=520,height=680,left=200,top=80',
     )
 
@@ -81,23 +86,18 @@ function Integrations() {
 
     try {
       const targetApi = import.meta.env.VITE_API_URL || ''
-      const res = await fetch(`${targetApi}/api/auth/google?format=json`, {
-        headers: { Accept: 'application/json' },
+      const res = await fetch(`${targetApi}/api/integrations/gmail/connect`, {
+        headers: { Accept: 'application/json', ...authorizationHeaders() },
       })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.url) {
-          popup.location.href = data.url
-          popup.focus()
-          return
-        }
-      }
-      popup.location.href = targetApi ? `${targetApi}/api/auth/google` : 'http://localhost:4000/api/auth/google'
+      await requireOk(res, 'Gmail 연결을 시작하지 못했습니다.')
+      const data = await res.json() as { authorizationUrl?: string }
+      if (!data.authorizationUrl) throw new Error('Gmail 인증 주소를 받지 못했습니다.')
+      popup.location.href = data.authorizationUrl
       popup.focus()
-    } catch {
-      const targetApi = import.meta.env.VITE_API_URL || ''
-      popup.location.href = targetApi ? `${targetApi}/api/auth/google` : 'http://localhost:4000/api/auth/google'
-      popup.focus()
+    } catch (error) {
+      popup.close()
+      setIsConnecting(false)
+      setGoogleError(error instanceof Error ? error.message : 'Gmail 연결을 시작하지 못했습니다.')
     }
   }
 

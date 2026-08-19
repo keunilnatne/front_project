@@ -297,15 +297,14 @@ export default function MessagesPage() {
         body,
         attachments,
       })
-    } catch {
-      // ignore
+      setDraftSaved(true)
+
+      window.setTimeout(() => {
+        setDraftSaved(false)
+      }, 1800)
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '임시저장에 실패했습니다.')
     }
-
-    setDraftSaved(true)
-
-    window.setTimeout(() => {
-      setDraftSaved(false)
-    }, 1800)
   }
 
   /* AI 최적화 */

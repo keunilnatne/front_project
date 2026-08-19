@@ -44,19 +44,24 @@ function isCompanyDNA(value: unknown): value is CompanyDNA {
 export async function fetchCompanyDNA(signal?: AbortSignal): Promise<CompanyDNA> {
   signal?.throwIfAborted()
   try {
-    const response = await fetch(`${API_URL}/api/company-dna`, { signal })
-    if (!response.ok) throw new Error()
+    const response = await fetch(`${API_URL}/api/company-dna`, {
+      signal,
+      headers: authorizationHeaders(),
+    })
+    await requireOk(response, 'Company DNA를 불러오지 못했습니다.')
     const data: unknown = await response.json()
     if (isCompanyDNA(data)) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+      writeUserStorage(STORAGE_KEY, JSON.stringify(data))
       return data
     }
+    throw new Error('서버가 올바르지 않은 Company DNA 데이터를 반환했습니다.')
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error
+    reportApiFailure(error instanceof Error ? error.message : 'Company DNA를 불러오지 못했습니다.', true)
   }
 
   try {
-    const local = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
+    const local = JSON.parse(readUserStorage(STORAGE_KEY) || 'null')
     return isCompanyDNA(local) ? local : emptyCompanyDNA
   } catch {
     return emptyCompanyDNA
@@ -64,21 +69,19 @@ export async function fetchCompanyDNA(signal?: AbortSignal): Promise<CompanyDNA>
 }
 
 export async function saveCompanyDNA(data: CompanyDNA): Promise<CompanyDNA> {
-  try {
-    const response = await fetch(`${API_URL}/api/company-dna`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-    if (!response.ok) throw new Error()
-    const result: unknown = await response.json()
-    if (isCompanyDNA(result)) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(result))
-      return result
-    }
-  } catch {
-    // 백엔드가 준비되기 전에도 동일한 계약으로 로컬 상태를 유지한다.
+  const response = await fetch(`${API_URL}/api/company-dna`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
+    body: JSON.stringify(data),
+  })
+  await requireOk(response, 'Company DNA를 저장하지 못했습니다.')
+  const result: unknown = await response.json()
+  if (!isCompanyDNA(result)) {
+    throw new Error('서버가 올바르지 않은 Company DNA 데이터를 반환했습니다.')
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-  return data
+  writeUserStorage(STORAGE_KEY, JSON.stringify(result))
+  return result
 }
+import { authorizationHeaders } from './authStorage'
+import { reportApiFailure, requireOk } from './apiClient'
+import { readUserStorage, writeUserStorage } from './storage'

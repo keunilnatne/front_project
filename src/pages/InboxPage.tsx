@@ -13,6 +13,9 @@ import {
 import { saveTeamMemoryPattern, type Pattern } from '../users/teamMemory'
 import { fetchRecipients, createRecipient } from '../users/recipients'
 import MarkdownViewer from '../components/MarkdownViewer'
+import { authorizationHeaders } from '../users/authStorage'
+import { requireOk } from '../users/apiClient'
+import { readUserStorage, writeUserStorage } from '../users/storage'
 
 function formatFileSize(bytes?: number): string {
   if (!bytes || bytes <= 0) return '0 B'
@@ -136,12 +139,16 @@ export default function InboxPage() {
 
     try {
       await saveTeamMemoryPattern(pattern)
-    } catch (err) {
-      console.error('Failed to save to team memory:', err)
+    } catch (error) {
+      setToastMessage(error instanceof Error ? error.message : '팀 일정 저장에 실패했습니다.')
+      setAddedDate(null)
+      setShowToast(true)
+      setTimeout(() => setShowToast(false), 4000)
+      return
     }
 
     try {
-      const stored = JSON.parse(localStorage.getItem('ieum.teamSchedules') || '[]')
+      const stored = JSON.parse(readUserStorage('ieum.teamSchedules') || '[]')
       const next = [
         {
           id: pattern.id,
@@ -153,7 +160,7 @@ export default function InboxPage() {
         },
         ...stored,
       ]
-      localStorage.setItem('ieum.teamSchedules', JSON.stringify(next))
+      writeUserStorage('ieum.teamSchedules', JSON.stringify(next))
     } catch {
       // ignore
     }
@@ -191,8 +198,30 @@ export default function InboxPage() {
     }
   }
 
+  async function handleGmailConnect() {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/integrations/gmail/connect`, {
+      headers: authorizationHeaders(),
+    })
+    await requireOk(response, 'Gmail 연결을 시작하지 못했습니다.')
+    const data = await response.json() as { authorizationUrl?: string }
+    if (!data.authorizationUrl) throw new Error('Gmail 인증 주소를 받지 못했습니다.')
+    const popup = window.open(data.authorizationUrl, 'gmail-connect', 'popup=yes,width=520,height=680,left=200,top=80')
+    if (!popup) throw new Error('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해 주세요.')
+  }
+
   useEffect(() => {
     void loadData()
+  }, [])
+
+  useEffect(() => {
+    const targetApi = import.meta.env.VITE_API_URL || window.location.origin
+    const expectedOrigin = new URL(targetApi, window.location.origin).origin
+    const handleMessage = (event: MessageEvent<{ type?: string }>) => {
+      if (event.origin !== expectedOrigin || event.data?.type !== 'gmail-auth-success') return
+      void loadData()
+    }
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
   }, [])
 
   // Load message detail when selected
@@ -381,9 +410,7 @@ export default function InboxPage() {
             <div className="mt-6 flex justify-center gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  window.location.href = `${import.meta.env.VITE_API_URL || ''}/api/auth/google`
-                }}
+                onClick={() => { void handleGmailConnect().catch((error) => window.alert(error instanceof Error ? error.message : 'Gmail 연결을 시작하지 못했습니다.')) }}
                 className="flex items-center gap-2 rounded-xl bg-[#4f46e5] px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[#4338ca]"
               >
                 <svg className="h-4 w-4 fill-white" viewBox="0 0 24 24">

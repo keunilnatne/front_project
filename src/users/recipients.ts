@@ -33,17 +33,11 @@ export type Recipient = {
 }
 
 import { getAuthToken, authorizationHeaders } from './authStorage'
+import { apiError as apiResponseError, reportApiFailure, requireOk } from './apiClient'
+import { readUserStorage, writeUserStorage } from './storage'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 const STORAGE_KEY = 'recipients-data'
-
-async function apiError(response: Response, fallback: string) {
-  if (response.status === 401) {
-    return new Error('로그인이 필요합니다. 먼저 로그인해주세요.')
-  }
-  const data = await response.json().catch(() => null) as { message?: string; error?: { message?: string } } | null
-  return new Error(data?.message || data?.error?.message || fallback)
-}
 
 export function sanitizeResponseSpeed(value: unknown): '빠름' | '보통' | '느림' | '' {
   if (!value) return ''
@@ -54,50 +48,51 @@ export function sanitizeResponseSpeed(value: unknown): '빠름' | '보통' | '�
   return ''
 }
 
-function normalizeRecipient(item: any): Recipient {
-  const speed = sanitizeResponseSpeed(item.responseSpeed)
-  const avgMinutes = typeof item.averageResponseMinutes === 'number' && item.averageResponseMinutes > 0
-    ? item.averageResponseMinutes
-    : (item.averageResponseMinutes && !isNaN(Number(item.averageResponseMinutes)) && Number(item.averageResponseMinutes) > 0 ? Number(item.averageResponseMinutes) : null)
+function normalizeRecipient(item: unknown): Recipient {
+  const source = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>
+  const speed = sanitizeResponseSpeed(source.responseSpeed)
+  const avgMinutes = typeof source.averageResponseMinutes === 'number' && source.averageResponseMinutes > 0
+    ? source.averageResponseMinutes
+    : (source.averageResponseMinutes && !isNaN(Number(source.averageResponseMinutes)) && Number(source.averageResponseMinutes) > 0 ? Number(source.averageResponseMinutes) : null)
 
   return {
-    id: Number(item.id),
-    name: String(item.name || ''),
-    email: item.email || '',
-    role: item.role || item.jobRole || item.position || '',
-    company: item.company || '',
-    country: item.country || 'South Korea',
-    language: item.language || 'Korean',
-    timezone: item.timezone || 'Asia/Seoul',
-    organizationRelation: item.organizationRelation || item.relationship || '팀원',
+    id: Number(source.id),
+    name: String(source.name || ''),
+    email: String(source.email || ''),
+    role: String(source.role || source.jobRole || source.position || ''),
+    company: String(source.company || ''),
+    country: String(source.country || 'South Korea'),
+    language: String(source.language || 'Korean'),
+    timezone: String(source.timezone || 'Asia/Seoul'),
+    organizationRelation: String(source.organizationRelation || source.relationship || '팀원'),
     responseSpeed: speed || null,
     averageResponseMinutes: avgMinutes,
-    collaborationActivity: item.collaborationActivity || null,
-    responseSampleCount: Number(item.responseSampleCount) || 0,
-    responseRate: item.responseRate !== null && item.responseRate !== undefined
-      ? Number(item.responseRate)
+    collaborationActivity: source.collaborationActivity ? String(source.collaborationActivity) : null,
+    responseSampleCount: Number(source.responseSampleCount) || 0,
+    responseRate: source.responseRate !== null && source.responseRate !== undefined
+      ? Number(source.responseRate)
       : null,
-    responseOpportunityCount: Number(item.responseOpportunityCount) || 0,
-    sentCount: Number(item.sentCount) || 0,
-    receivedCount: Number(item.receivedCount) || 0,
-    interactionCount: Number(item.interactionCount) || 0,
-    collaborationScore: item.collaborationScore !== null && item.collaborationScore !== undefined
-      ? Number(item.collaborationScore)
+    responseOpportunityCount: Number(source.responseOpportunityCount) || 0,
+    sentCount: Number(source.sentCount) || 0,
+    receivedCount: Number(source.receivedCount) || 0,
+    interactionCount: Number(source.interactionCount) || 0,
+    collaborationScore: source.collaborationScore !== null && source.collaborationScore !== undefined
+      ? Number(source.collaborationScore)
       : null,
-    responseBaselineMinutes: item.responseBaselineMinutes !== null && item.responseBaselineMinutes !== undefined
-      ? Number(item.responseBaselineMinutes)
+    responseBaselineMinutes: source.responseBaselineMinutes !== null && source.responseBaselineMinutes !== undefined
+      ? Number(source.responseBaselineMinutes)
       : null,
-    metricsWindowDays: Number(item.metricsWindowDays) || 90,
-    responseWindowDays: Number(item.responseWindowDays) || 7,
-    isOnline: Boolean(item.isOnline),
-    isFavorite: Boolean(item.isFavorite),
-    isRecent: item.isRecent !== undefined ? Boolean(item.isRecent) : true,
-    verifiedExpert: Boolean(item.verifiedExpert),
-    fullTime: item.fullTime !== undefined ? Boolean(item.fullTime) : true,
-    avatar: item.avatar || (item.name ? String(item.name).slice(0, 1) : '?'),
-    communicationStyle: Array.isArray(item.communicationStyle) ? item.communicationStyle : [],
-    preferredStyle: item.preferredStyle || '',
-    customStyle: item.customStyle || '',
+    metricsWindowDays: Number(source.metricsWindowDays) || 90,
+    responseWindowDays: Number(source.responseWindowDays) || 7,
+    isOnline: Boolean(source.isOnline),
+    isFavorite: Boolean(source.isFavorite),
+    isRecent: source.isRecent !== undefined ? Boolean(source.isRecent) : true,
+    verifiedExpert: Boolean(source.verifiedExpert),
+    fullTime: source.fullTime !== undefined ? Boolean(source.fullTime) : true,
+    avatar: String(source.avatar || (source.name ? String(source.name).slice(0, 1) : '?')),
+    communicationStyle: Array.isArray(source.communicationStyle) ? source.communicationStyle.map(String) : [],
+    preferredStyle: String(source.preferredStyle || ''),
+    customStyle: String(source.customStyle || ''),
   }
 }
 
@@ -109,7 +104,7 @@ function isRecipient(value: unknown): value is Recipient {
 
 function readLocalRecipients(): Recipient[] {
   try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+    const parsed: unknown = JSON.parse(readUserStorage(STORAGE_KEY) || '[]')
     return Array.isArray(parsed) ? parsed.filter(isRecipient).map(normalizeRecipient) : []
   } catch {
     return []
@@ -117,30 +112,30 @@ function readLocalRecipients(): Recipient[] {
 }
 
 export function persistRecipients(recipients: Recipient[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(recipients))
+  writeUserStorage(STORAGE_KEY, JSON.stringify(recipients))
 }
 
 export async function fetchRecipients(signal?: AbortSignal): Promise<Recipient[]> {
   signal?.throwIfAborted()
   try {
     const token = getAuthToken()
-    if (token) {
-      const response = await fetch(`${API_URL}/api/recipients`, {
-        signal,
-        cache: 'no-store',
-        headers: authorizationHeaders(),
-      })
-      if (response.ok) {
-        const data: unknown = await response.json()
-        if (Array.isArray(data)) {
-          const recipients = data.map(normalizeRecipient)
-          persistRecipients(recipients)
-          return recipients
-        }
-      }
+    if (!token) throw new Error('로그인 정보가 없습니다.')
+    const response = await fetch(`${API_URL}/api/recipients`, {
+      signal,
+      cache: 'no-store',
+      headers: authorizationHeaders(),
+    })
+    await requireOk(response, '수신자 목록을 불러오지 못했습니다.')
+    const data: unknown = await response.json()
+    if (Array.isArray(data)) {
+      const recipients = data.map(normalizeRecipient)
+      persistRecipients(recipients)
+      return recipients
     }
+    throw new Error('서버가 올바르지 않은 수신자 목록을 반환했습니다.')
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error
+    reportApiFailure(error instanceof Error ? error.message : '수신자 목록을 불러오지 못했습니다.', true)
   }
 
   return readLocalRecipients()
@@ -158,8 +153,8 @@ export async function createRecipient(recipient: CreateRecipientInput): Promise<
     headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
     body: JSON.stringify(recipient),
   })
-  if (!response.ok) throw await apiError(response, '수신자 저장에 실패했습니다.')
-  const item: any = await response.json()
+  if (!response.ok) throw await apiResponseError(response, '수신자 저장에 실패했습니다.')
+  const item: unknown = await response.json()
   const data = normalizeRecipient(item)
   const normalizedEmail = data.email?.trim().toLowerCase()
   const current = readLocalRecipients().filter((r) => (
@@ -174,7 +169,7 @@ export async function fetchIeumUserProfile(email: string): Promise<Recipient> {
     `${API_URL}/api/users/lookup?email=${encodeURIComponent(email.trim())}`,
     { cache: 'no-store', headers: authorizationHeaders() },
   )
-  if (!response.ok) throw await apiError(response, '이음에 가입된 회원을 찾을 수 없습니다.')
+  if (!response.ok) throw await apiResponseError(response, '이음에 가입된 회원을 찾을 수 없습니다.')
   const data = await response.json()
   return normalizeRecipient(data)
 }
@@ -189,7 +184,7 @@ export async function updateRecipient(recipient: Recipient): Promise<Recipient> 
     headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
     body: JSON.stringify(recipient),
   })
-  if (!response.ok) throw new Error('수신자 수정에 실패했습니다.')
+  await requireOk(response, '수신자 수정에 실패했습니다.')
   const data = await response.json()
   const normalized = normalizeRecipient(data)
   const current = readLocalRecipients().map((r) => (r.id === normalized.id ? normalized : r))
@@ -198,30 +193,16 @@ export async function updateRecipient(recipient: Recipient): Promise<Recipient> 
 }
 
 export async function toggleRecipientFavorite(id: number): Promise<Recipient | null> {
-  try {
-    const response = await fetch(`${API_URL}/api/recipients/${id}/favorite`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
-    })
-    if (response.ok) {
-      const data = await response.json()
-      const normalized = normalizeRecipient(data)
-      const current = readLocalRecipients().map((r) => (r.id === normalized.id ? normalized : r))
-      persistRecipients(current)
-      return normalized
-    }
-  } catch {
-    // offline fallback
-  }
-
-  const current = readLocalRecipients()
-  const target = current.find((r) => r.id === id)
-  if (target) {
-    const updated = { ...target, isFavorite: !target.isFavorite }
-    persistRecipients(current.map((r) => (r.id === id ? updated : r)))
-    return updated
-  }
-  return null
+  const response = await fetch(`${API_URL}/api/recipients/${id}/favorite`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
+  })
+  await requireOk(response, '즐겨찾기를 변경하지 못했습니다.')
+  const data = await response.json()
+  const normalized = normalizeRecipient(data)
+  const current = readLocalRecipients().map((r) => (r.id === normalized.id ? normalized : r))
+  persistRecipients(current)
+  return normalized
 }
 
 export async function deleteRecipient(id: number): Promise<void> {
@@ -229,7 +210,7 @@ export async function deleteRecipient(id: number): Promise<void> {
     method: 'DELETE',
     headers: authorizationHeaders(),
   })
-  if (!response.ok) throw await apiError(response, '수신자 삭제에 실패했습니다.')
+  if (!response.ok) throw await apiResponseError(response, '수신자 삭제에 실패했습니다.')
 
   const current = readLocalRecipients().filter((r) => r.id !== id)
   persistRecipients(current)

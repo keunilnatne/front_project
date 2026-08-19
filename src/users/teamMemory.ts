@@ -25,6 +25,8 @@ export type LearningLog = {
 }
 
 import { authorizationHeaders } from './authStorage'
+import { reportApiFailure, requireOk } from './apiClient'
+import { readUserStorage, writeUserStorage } from './storage'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 const PATTERN_KEY = 'ieum.teamMemory.patterns'
@@ -33,7 +35,7 @@ const LOG_KEY = 'ieum.teamMemory.logs'
 
 function read<T>(key: string, guard: (value: unknown) => value is T): T[] {
   try {
-    const data: unknown = JSON.parse(localStorage.getItem(key) || '[]')
+    const data: unknown = JSON.parse(readUserStorage(key) || '[]')
     return Array.isArray(data) ? data.filter(guard) : []
   } catch {
     return []
@@ -46,17 +48,18 @@ const isPattern = (value: unknown): value is Pattern => {
   return (typeof item.id === 'string' || typeof item.id === 'number') && typeof item.title === 'string'
 }
 
-function normalizePattern(item: any): Pattern {
+function normalizePattern(item: unknown): Pattern {
+  const source = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>
   return {
-    id: String(item.id),
-    title: item.title || '',
-    purpose: item.purpose || '',
-    reason: item.reason || '',
-    request: item.request || '',
-    deadline: item.deadline || '',
-    attachmentName: item.attachmentName || undefined,
-    updatedAt: item.updatedAt || undefined,
-    unread: Boolean(item.unread),
+    id: String(source.id || ''),
+    title: String(source.title || ''),
+    purpose: String(source.purpose || ''),
+    reason: String(source.reason || ''),
+    request: String(source.request || ''),
+    deadline: String(source.deadline || ''),
+    attachmentName: source.attachmentName ? String(source.attachmentName) : undefined,
+    updatedAt: source.updatedAt ? String(source.updatedAt) : undefined,
+    unread: Boolean(source.unread),
   }
 }
 
@@ -81,107 +84,90 @@ export async function fetchTeamMemory(signal?: AbortSignal): Promise<Pattern[]> 
       signal,
       headers: authorizationHeaders(),
     })
-    if (response.ok) {
-      const data: unknown = await response.json()
-      let rawList: any[] = []
-      if (Array.isArray(data)) {
-        rawList = data
-      } else if (data && typeof data === 'object' && Array.isArray((data as any).patterns)) {
-        rawList = (data as any).patterns
-      }
-      const patterns = rawList.map(normalizePattern)
-      localStorage.setItem(PATTERN_KEY, JSON.stringify(patterns))
-      return patterns
+    await requireOk(response, '팀 일정을 불러오지 못했습니다.')
+    const data: unknown = await response.json()
+    let rawList: unknown[]
+    if (Array.isArray(data)) {
+      rawList = data
+    } else if (data && typeof data === 'object' && Array.isArray((data as { patterns?: unknown }).patterns)) {
+      rawList = (data as { patterns: unknown[] }).patterns
+    } else {
+      throw new Error('서버가 올바르지 않은 팀 일정 목록을 반환했습니다.')
     }
+    const patterns = rawList.map(normalizePattern)
+    writeUserStorage(PATTERN_KEY, JSON.stringify(patterns))
+    return patterns
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error
+    reportApiFailure(error instanceof Error ? error.message : '팀 일정을 불러오지 못했습니다.', true)
   }
   return read(PATTERN_KEY, isPattern)
 }
 
 export async function saveTeamMemoryPattern(pattern: Pattern): Promise<Pattern> {
-  try {
-    const response = await fetch(`${API_URL}/api/team-memory/patterns`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authorizationHeaders(),
-      },
-      body: JSON.stringify(pattern),
-    })
-    if (response.ok) {
-      const data: any = await response.json()
-      const saved = normalizePattern(data)
-      const current = read(PATTERN_KEY, isPattern)
-      const next = [saved, ...current.filter((item) => String(item.id) !== String(saved.id))]
-      localStorage.setItem(PATTERN_KEY, JSON.stringify(next))
-      return saved
-    }
-  } catch (err) {
-    console.warn('Backend save failed, saving locally:', err)
-  }
-  const saved = pattern
+  const response = await fetch(`${API_URL}/api/team-memory/patterns`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authorizationHeaders(),
+    },
+    body: JSON.stringify(pattern),
+  })
+  await requireOk(response, '팀 일정을 저장하지 못했습니다.')
+  const data: unknown = await response.json()
+  const saved = normalizePattern(data)
   const current = read(PATTERN_KEY, isPattern)
   const next = [saved, ...current.filter((item) => String(item.id) !== String(saved.id))]
-  localStorage.setItem(PATTERN_KEY, JSON.stringify(next))
+  writeUserStorage(PATTERN_KEY, JSON.stringify(next))
   return saved
 }
 
 export async function updateTeamMemoryPattern(pattern: Pattern): Promise<Pattern> {
-  try {
-    const response = await fetch(`${API_URL}/api/team-memory/patterns/${pattern.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authorizationHeaders(),
-      },
-      body: JSON.stringify(pattern),
-    })
-    if (response.ok) {
-      const data: any = await response.json()
-      const updated = normalizePattern(data)
-      const current = read(PATTERN_KEY, isPattern)
-      const next = current.map((item) => (String(item.id) === String(updated.id) ? updated : item))
-      localStorage.setItem(PATTERN_KEY, JSON.stringify(next))
-      return updated
-    }
-  } catch (err) {
-    console.warn('Backend update failed, updating locally:', err)
-  }
-  const updated = pattern
+  const response = await fetch(`${API_URL}/api/team-memory/patterns/${pattern.id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authorizationHeaders(),
+    },
+    body: JSON.stringify(pattern),
+  })
+  await requireOk(response, '팀 일정을 수정하지 못했습니다.')
+  const data: unknown = await response.json()
+  const updated = normalizePattern(data)
   const current = read(PATTERN_KEY, isPattern)
   const next = current.map((item) => (String(item.id) === String(updated.id) ? updated : item))
-  localStorage.setItem(PATTERN_KEY, JSON.stringify(next))
+  writeUserStorage(PATTERN_KEY, JSON.stringify(next))
   return updated
 }
 
 export async function deleteTeamMemoryPattern(id: string): Promise<void> {
-  try {
-    await fetch(`${API_URL}/api/team-memory/patterns/${id}`, {
-      method: 'DELETE',
-      headers: authorizationHeaders(),
-    })
-  } catch (err) {
-    console.warn('Backend delete failed, deleting locally:', err)
-  }
+  const response = await fetch(`${API_URL}/api/team-memory/patterns/${id}`, {
+    method: 'DELETE',
+    headers: authorizationHeaders(),
+  })
+  await requireOk(response, '팀 일정을 삭제하지 못했습니다.')
   const current = read(PATTERN_KEY, isPattern)
   const next = current.filter((item) => String(item.id) !== String(id))
-  localStorage.setItem(PATTERN_KEY, JSON.stringify(next))
+  writeUserStorage(PATTERN_KEY, JSON.stringify(next))
 }
 
 export async function fetchTeamMemoryCandidates(signal?: AbortSignal): Promise<Candidate[]> {
   signal?.throwIfAborted()
   try {
-    const response = await fetch(`${API_URL}/api/team-memory/candidates`, { signal })
-    if (!response.ok) throw new Error()
+    const response = await fetch(`${API_URL}/api/team-memory/candidates`, {
+      signal,
+      headers: authorizationHeaders(),
+    })
+    await requireOk(response, '학습 후보를 불러오지 못했습니다.')
     const data: unknown = await response.json()
     if (Array.isArray(data)) {
       const candidates = data.filter(isCandidate)
-      localStorage.setItem(CANDIDATE_KEY, JSON.stringify(candidates))
+      writeUserStorage(CANDIDATE_KEY, JSON.stringify(candidates))
       return candidates
     }
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error
+    reportApiFailure(error instanceof Error ? error.message : '학습 후보를 불러오지 못했습니다.', true)
   }
   return read(CANDIDATE_KEY, isCandidate)
 }
@@ -191,5 +177,5 @@ export function getLocalLearningLogs() {
 }
 
 export function persistLearningLogs(logs: LearningLog[]) {
-  localStorage.setItem(LOG_KEY, JSON.stringify(logs))
+  writeUserStorage(LOG_KEY, JSON.stringify(logs))
 }

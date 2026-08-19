@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUserProfile, saveUserProfile } from '../../users/userProfile'
+import { authorizationHeaders, clearAuthToken } from '../../users/authStorage'
+import { requireOk } from '../../users/apiClient'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
-const PASSWORD_STORAGE_KEY = 'ieum.accountPassword'
 
 function AccountSection() {
   const navigate = useNavigate()
@@ -22,9 +23,7 @@ function AccountSection() {
   const handleLogout = () => {
     if (!window.confirm('로그아웃 하시겠습니까?')) return
 
-    localStorage.removeItem('ieum.token')
-    localStorage.removeItem('ieum.accessToken')
-    localStorage.removeItem('auth.isGoogleLogin')
+    clearAuthToken()
     navigate('/login', { replace: true })
   }
 
@@ -48,46 +47,26 @@ function AccountSection() {
     if (!window.confirm('회원 정보를 변경하시겠습니까?')) return
 
     setIsSubmitting(true)
-    const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken') || ''
-
     try {
-      // 1. 프로필 정보 백엔드 저장
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (token) headers['Authorization'] = `Bearer ${token}`
-
-      await fetch(`${API_URL}/api/users/me`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim(),
-        }),
-      }).catch(() => null)
-
-      // 2. 비밀번호 변경 요청
-      if (isChangingPassword) {
-        const passRes = await fetch(`${API_URL}/api/auth/password`, {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify({ oldPassword: oldPassword.trim(), newPassword: newPassword.trim() }),
-        }).catch(() => null)
-
-        if (passRes && !passRes.ok) {
-          const passData = await passRes.json().catch(() => ({}))
-          setErrorMessage(passData.message || '비밀번호 변경 중 오류가 발생했습니다.')
-        } else {
-          savePassword(newPassword)
-          closePasswordForm()
-        }
-      }
+      const headers = { 'Content-Type': 'application/json', ...authorizationHeaders() }
 
       await saveUserProfile({
         name: name.trim(),
         email: email.trim(),
       })
+
+      if (isChangingPassword) {
+        const passRes = await fetch(`${API_URL}/api/auth/password`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ oldPassword: oldPassword.trim(), newPassword: newPassword.trim() }),
+        })
+        await requireOk(passRes, '비밀번호 변경 중 오류가 발생했습니다.')
+        closePasswordForm()
+      }
       showSavedMessage()
-    } catch (err: any) {
-      setErrorMessage(err.message || '저장 중 오류가 발생했습니다.')
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.')
     } finally {
       setIsSubmitting(false)
     }
@@ -200,10 +179,6 @@ function AccountSection() {
       </div>
     </section>
   )
-}
-
-function savePassword(password: string) {
-  localStorage.setItem(PASSWORD_STORAGE_KEY, password)
 }
 
 export default AccountSection

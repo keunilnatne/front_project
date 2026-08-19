@@ -1,6 +1,8 @@
 import { type ReactNode, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authorizationHeaders, clearAuthToken, getAuthToken } from '../../users/authStorage'
+import { requireOk } from '../../users/apiClient'
+import { getUserScope } from '../../users/storage'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -8,7 +10,21 @@ const ACCOUNT_KEYS = [
   'ieum.accounts',
   'ieum.userProfile',
   'ieum.accountPassword',
+  'ieum.accessToken',
+  'ieum.token',
+  'ieum.storageOwner',
+  'ieum.savedLoginEmail',
 ]
+
+const SECRET_STORAGE_KEYS = new Set([
+  'ieum.accountPassword',
+  'ieum.accounts',
+  'ieum.accessToken',
+  'ieum.token',
+  'token',
+  'accessToken',
+  'ieum.storageOwner',
+])
 
 function SecurityPrivacySection() {
   const navigate = useNavigate()
@@ -21,16 +37,19 @@ function SecurityPrivacySection() {
     const headers = { 'Content-Type': 'application/json', ...authorizationHeaders() }
 
     try {
-      await fetch(`${API_URL}/api/users/me/reset-personalization`, {
+      const response = await fetch(`${API_URL}/api/users/me/reset-personalization`, {
         method: 'POST',
         headers,
-      }).catch(() => null)
+      })
+      await requireOk(response, '활동 및 학습 데이터를 초기화하지 못했습니다.')
 
       getAppStorageKeys()
-        .filter((key) => !ACCOUNT_KEYS.includes(key))
+        .filter((key) => !ACCOUNT_KEYS.some((accountKey) => key === accountKey || key.startsWith(`${accountKey}:user:`)))
         .forEach((key) => localStorage.removeItem(key))
 
       window.alert('활동 및 학습 데이터가 초기화되었습니다.')
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '활동 및 학습 데이터를 초기화하지 못했습니다.')
     } finally {
       setIsProcessing(false)
     }
@@ -157,12 +176,17 @@ function DangerRow({ title, description, button, onClick, strong = false }: {
 }
 
 function getAppStorageKeys() {
-  return Object.keys(localStorage).filter((key) => key.startsWith('ieum.') || key.startsWith('onboarding.'))
+  const userSuffix = `:user:${getUserScope()}`
+  return Object.keys(localStorage).filter((key) => (
+    key.startsWith('ieum.')
+    || key.startsWith('onboarding.')
+    || key.endsWith(userSuffix)
+  ))
 }
 
 function downloadPersonalData() {
   const data = getAppStorageKeys().reduce<Record<string, unknown>>((result, key) => {
-    if (key === 'ieum.accountPassword' || key === 'ieum.accounts') {
+    if (SECRET_STORAGE_KEYS.has(key)) {
       return result
     }
 

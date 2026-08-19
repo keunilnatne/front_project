@@ -20,7 +20,7 @@ export function parseTimestamp(dateStr?: string): number {
 
 function read(): NotificationItem[] {
   try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+    const value = JSON.parse(readUserStorage(STORAGE_KEY) || '[]')
     if (!Array.isArray(value)) return []
     return value.sort((a, b) => parseTimestamp(b.createdAt) - parseTimestamp(a.createdAt))
   } catch {
@@ -41,7 +41,7 @@ export function addNotification(item: Omit<NotificationItem, 'id' | 'createdAt' 
   }
   const current = read().filter((n) => n.id !== next.id)
   const merged = [next, ...current].sort((a, b) => parseTimestamp(b.createdAt) - parseTimestamp(a.createdAt)).slice(0, 50)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
+  writeUserStorage(STORAGE_KEY, JSON.stringify(merged))
   window.dispatchEvent(new Event('notifications-updated'))
   return next
 }
@@ -50,13 +50,14 @@ export function addNotificationIfAbsent(item: NotificationItem) {
   const current = read()
   if (current.some((n) => n.id === item.id)) return
   const merged = [item, ...current].sort((a, b) => parseTimestamp(b.createdAt) - parseTimestamp(a.createdAt)).slice(0, 50)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
+  writeUserStorage(STORAGE_KEY, JSON.stringify(merged))
   window.dispatchEvent(new Event('notifications-updated'))
 }
 
 export function markNotificationsRead() {
   const current = read()
   const updated = current.map((item) => ({ ...item, read: true }))
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+  writeUserStorage(STORAGE_KEY, JSON.stringify(updated))
   window.dispatchEvent(new Event('notifications-updated'))
 }
+import { readUserStorage, writeUserStorage } from './storage'

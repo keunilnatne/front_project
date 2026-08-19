@@ -1,5 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import { getUserProfile, saveUserProfile } from '../../users/userProfile'
+import { authorizationHeaders } from '../../users/authStorage'
+import { requireOk } from '../../users/apiClient'
+import { readUserStorage, writeUserStorage } from '../../users/storage'
 
 type Strength = 'low' | 'normal' | 'high'
 type PreferenceId = 'concise' | 'detailed' | 'conclusion' | 'context' | 'polite' | 'casual'
@@ -73,41 +76,37 @@ function AiPersonalizationSection() {
 
   const API_URL = import.meta.env.VITE_API_URL || ''
 
-  const updateSettings = (changes: Partial<AiSettings>) => {
+  const updateSettings = async (changes: Partial<AiSettings>) => {
     const nextSettings = { ...settings, ...changes }
+    if (changes.autoLearn !== undefined) {
+      const response = await fetch(`${API_URL}/api/users/me/ai-settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
+        body: JSON.stringify({ aiAutoSuggestion: nextSettings.autoLearn }),
+      })
+      await requireOk(response, 'AI 학습 설정을 저장하지 못했습니다.')
+    }
     setSettings(nextSettings)
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(nextSettings))
-
-    const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken') || ''
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (token) headers['Authorization'] = `Bearer ${token}`
-
-    fetch(`${API_URL}/api/users/me/ai-settings`, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify({
-        aiAutoSuggestion: nextSettings.autoLearn,
-      }),
-    }).catch(() => null)
+    writeUserStorage(SETTINGS_KEY, JSON.stringify(nextSettings))
   }
 
 
-  const removePreference = (preference: PreferenceId) => {
+  const removePreference = async (preference: PreferenceId) => {
     const nextPreferences = preferences.filter((item) => item !== preference)
+    await saveUserProfile({ communicationPreferences: nextPreferences })
     setPreferences(nextPreferences)
-    saveUserProfile({ communicationPreferences: nextPreferences })
 
     if (activePreference === preference) {
       setActivePreference(nextPreferences[0] ?? 'concise')
     }
   }
 
-  const addPreference = (preference: PreferenceId) => {
+  const addPreference = async (preference: PreferenceId) => {
     const nextPreferences = [...preferences, preference]
+    await saveUserProfile({ communicationPreferences: nextPreferences })
     setPreferences(nextPreferences)
     setActivePreference(preference)
     setShowTagOptions(false)
-    saveUserProfile({ communicationPreferences: nextPreferences })
   }
 
   const availablePreferences = (Object.keys(preferenceLabels) as PreferenceId[]).filter(
@@ -127,10 +126,10 @@ function AiPersonalizationSection() {
       <div className="p-6">
         <div className="space-y-3">
           <PreferenceRow title="AI 학습 활성화" description="과거 메시지와 문서를 기반으로 톤앤매너를 학습합니다.">
-            <Toggle checked={settings.autoLearn} label="AI 학습 활성화" onChange={() => updateSettings({ autoLearn: !settings.autoLearn })} />
+            <Toggle checked={settings.autoLearn} label="AI 학습 활성화" onChange={() => { void updateSettings({ autoLearn: !settings.autoLearn }).catch(() => undefined) }} />
           </PreferenceRow>
           <PreferenceRow title="자동 협업 프로파일 업데이트" description="자주 소통하는 팀원의 커뮤니케이션 선호도를 자동 반영합니다.">
-            <Toggle checked={settings.autoUpdate} label="자동 협업 프로파일 업데이트" onChange={() => updateSettings({ autoUpdate: !settings.autoUpdate })} />
+            <Toggle checked={settings.autoUpdate} label="자동 협업 프로파일 업데이트" onChange={() => { void updateSettings({ autoUpdate: !settings.autoUpdate }).catch(() => undefined) }} />
           </PreferenceRow>
         </div>
 
@@ -142,7 +141,7 @@ function AiPersonalizationSection() {
                 key={option.id}
                 type="button"
                 aria-pressed={settings.strength === option.id}
-                onClick={() => updateSettings({ strength: option.id })}
+                onClick={() => { void updateSettings({ strength: option.id }).catch(() => undefined) }}
                 className={`h-17 rounded-lg border text-center transition-colors ${settings.strength === option.id ? 'border-[#aaa2f3] bg-[#dedbff] text-[#332d7d] shadow-[0_0_0_1px_rgba(170,162,243,0.2)]' : 'border-[#e2e2e5] bg-white hover:bg-[#faf9ff]'}`}
               >
                 <strong className="block text-[12px] font-medium">{option.label}</strong>
@@ -163,7 +162,7 @@ function AiPersonalizationSection() {
                 label={preferenceLabels[preference]}
                 selected={activePreference === preference}
                 onSelect={() => setActivePreference(preference)}
-                onRemove={() => removePreference(preference)}
+                onRemove={() => { void removePreference(preference).catch(() => undefined) }}
               />
             ))}
 
@@ -176,7 +175,7 @@ function AiPersonalizationSection() {
             {showTagOptions && (
               <div className="absolute top-8 left-0 z-10 flex max-w-[320px] flex-wrap gap-2 rounded-lg border border-[#d8d5e7] bg-white p-3 shadow-lg">
                 {availablePreferences.map((preference) => (
-                  <button key={preference} type="button" onClick={() => addPreference(preference)} className="rounded-full bg-[#f0edff] px-3 py-1 text-[10px] text-[#5146e5] hover:bg-[#e3deff]">
+                  <button key={preference} type="button" onClick={() => { void addPreference(preference).catch(() => undefined) }} className="rounded-full bg-[#f0edff] px-3 py-1 text-[10px] text-[#5146e5] hover:bg-[#e3deff]">
                     {preferenceLabels[preference]}
                   </button>
                 ))}
@@ -256,7 +255,7 @@ function getSettings(): AiSettings {
   const defaultSettings: AiSettings = { autoLearn: true, autoUpdate: true, strength: 'normal' }
 
   try {
-    const savedSettings = localStorage.getItem(SETTINGS_KEY)
+    const savedSettings = readUserStorage(SETTINGS_KEY)
     return savedSettings ? { ...defaultSettings, ...JSON.parse(savedSettings) } : defaultSettings
   } catch {
     return defaultSettings

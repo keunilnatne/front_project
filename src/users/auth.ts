@@ -48,9 +48,9 @@ export async function registerAccount(input: RegisterInput): Promise<void> {
     const token = data.accessToken || data.token
     if (!token) throw new Error('회원가입 응답에 인증 토큰이 없습니다.')
     setAuthToken(token)
-  } catch (error: any) {
-    if (error?.message?.includes('Failed to fetch')) {
-      throw new Error('서버와 통신할 수 없습니다. 네트워크 연결을 확인해 주세요.')
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message.includes('Failed to fetch')) {
+      throw new Error('서버와 통신할 수 없습니다. 네트워크 연결을 확인해 주세요.', { cause: error })
     }
     throw error
   }
@@ -62,7 +62,8 @@ export async function authenticateAccount(email: string, password: string): Prom
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: normalizeEmail(email), password }),
   })
-  if (!response.ok) return false
+  if (response.status === 401) return false
+  if (!response.ok) throw await responseError(response, '로그인 처리 중 문제가 발생했습니다.')
 
   const data = await response.json() as AuthResponse
   const token = data.accessToken || data.token

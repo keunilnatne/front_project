@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet, Link } from 'react-router-dom'
+import { NavLink, Outlet, Link, Navigate } from 'react-router-dom'
 import { getUserProfile, fetchUserProfile } from '../users/userProfile'
+import { getAuthToken } from '../users/authStorage'
+import type { ApiStatusDetail } from '../users/apiClient'
 import logo from '../images/logo.png'
 
 type NavigationItem = {
@@ -203,13 +205,27 @@ function SettingsIcon() {
 
 function AppLayout() {
   const [profile, setProfile] = useState(getUserProfile)
+  const [apiStatus, setApiStatus] = useState<ApiStatusDetail | null>(null)
+  const token = getAuthToken()
   useEffect(() => {
-    void fetchUserProfile().then((p) => setProfile(p))
+    if (token) void fetchUserProfile().then((p) => setProfile(p))
     const updateProfile = () => setProfile(getUserProfile())
+    const updateApiStatus = (event: Event) => {
+      const detail = (event as CustomEvent<ApiStatusDetail>).detail
+      setApiStatus(detail.state === 'error' ? detail : null)
+    }
     window.addEventListener('profile-updated', updateProfile)
     window.addEventListener('storage', updateProfile)
-    return () => { window.removeEventListener('profile-updated', updateProfile); window.removeEventListener('storage', updateProfile) }
-  }, [])
+    window.addEventListener('ieum-api-status', updateApiStatus)
+    return () => {
+      window.removeEventListener('profile-updated', updateProfile)
+      window.removeEventListener('storage', updateProfile)
+      window.removeEventListener('ieum-api-status', updateApiStatus)
+    }
+  }, [token])
+
+  if (!token) return <Navigate to="/login" replace />
+
   return (
     <div className="flex min-h-screen bg-[#f8f9fc]">
       {/* Sidebar */}
@@ -295,6 +311,15 @@ function AppLayout() {
 
       {/* Content */}
       <main className="min-w-0 flex-1">
+        {apiStatus && (
+          <div role="status" className="sticky top-0 z-50 flex min-h-10 items-center justify-between gap-4 border-b border-[#f2c879] bg-[#fff8e7] px-5 py-2 text-[12px] text-[#72521b]">
+            <span>
+              {apiStatus.message || '서버와 통신하지 못했습니다.'}
+              {apiStatus.usingCachedData ? ' 저장된 데이터를 표시하고 있습니다.' : ''}
+            </span>
+            <button type="button" onClick={() => setApiStatus(null)} className="shrink-0 rounded px-2 py-1 font-semibold hover:bg-black/5">닫기</button>
+          </div>
+        )}
         <Outlet />
       </main>
     </div>

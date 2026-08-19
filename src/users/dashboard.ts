@@ -1,4 +1,5 @@
 import { getAuthToken, authorizationHeaders } from './authStorage'
+import { reportApiFailure, requireOk } from './apiClient'
 
 export type DashboardSummary = {
   sentMessages: number
@@ -13,23 +14,22 @@ export async function fetchDashboardSummary(signal?: AbortSignal): Promise<Dashb
   signal?.throwIfAborted()
   try {
     const token = getAuthToken()
-    if (token) {
-      const response = await fetch(`${API_URL}/api/dashboard/summary`, {
-        signal,
-        headers: authorizationHeaders(),
-      })
-      if (response.ok) {
-        const data = await response.json()
-        return {
-          sentMessages: Number(data.sentMessages ?? data.sent ?? 0),
-          aiConversions: Number(data.aiConversions ?? data.aiOptimizedResults ?? 0),
-          recipients: Number(data.recipients ?? data.totalRecipients ?? 0),
-          totalMessages: Number(data.totalMessages ?? 0),
-        }
+    if (!token) throw new Error('로그인 정보가 없습니다.')
+    const response = await fetch(`${API_URL}/api/dashboard/summary`, {
+      signal,
+      headers: authorizationHeaders(),
+    })
+    await requireOk(response, '대시보드 통계를 불러오지 못했습니다.')
+    const data = await response.json()
+    return {
+      sentMessages: Number(data.sentMessages ?? data.sent ?? 0),
+      aiConversions: Number(data.aiConversions ?? data.aiOptimizedResults ?? 0),
+      recipients: Number(data.recipients ?? data.totalRecipients ?? 0),
+      totalMessages: Number(data.totalMessages ?? 0),
       }
-    }
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error
+    reportApiFailure(error instanceof Error ? error.message : '대시보드 통계를 불러오지 못했습니다.')
   }
 
   return {

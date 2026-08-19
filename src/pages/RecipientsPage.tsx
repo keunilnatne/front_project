@@ -7,7 +7,6 @@ import {
   deleteRecipient,
   fetchRecipientByEmail,
   fetchRecipients,
-  persistRecipients,
   toggleRecipientFavorite,
   type Recipient,
 } from '../users/recipients'
@@ -1235,23 +1234,15 @@ function RecipientsPage() {
   }
 
   const toggleFavorite = async (id: number) => {
-    // 낙관적 UI 업데이트
-    setRecipientList((current) => {
-      const updated = current.map((recipient) =>
-        recipient.id === id
-          ? { ...recipient, isFavorite: !recipient.isFavorite }
-          : recipient,
-      )
-      persistRecipients(updated)
-      return updated
-    })
-
-    // 백엔드 API 호출
-    const result = await toggleRecipientFavorite(id)
-    if (result) {
-      setRecipientList((current) =>
-        current.map((r) => (r.id === result.id ? result : r)),
-      )
+    try {
+      const result = await toggleRecipientFavorite(id)
+      if (result) {
+        setRecipientList((current) =>
+          current.map((r) => (r.id === result.id ? result : r)),
+        )
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '즐겨찾기를 변경하지 못했습니다.')
     }
   }
 
