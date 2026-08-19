@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './layouts/AppLayout'
-import CompanyDnaPage from './pages/CompanyDnaPage'
 import DashboardPage from './pages/DashboardPage'
 import HistoryPage from './pages/HistoryPage'
 import SignInPage from './pages/login/sign-in'
@@ -20,6 +19,7 @@ import Integrations from './pages/onbording/integrations'
 import InboxPage from './pages/InboxPage'
 import Complete from './pages/onbording/complete'
 import NoticeAdminPage from './pages/NoticeAdminPage'
+import { RequireAdmin, RequireAuth } from './routes/AuthGuards'
 
 function App() {
   return (
@@ -29,31 +29,34 @@ function App() {
       <Route path="/login" element={<SignInPage />} />
       <Route path="/sign-up" element={<SignUpPage />} />
 
-      {/* 온보딩 */}
-      <Route path="/welcome" element={<Welcome />} />
-      <Route path="/profile-setup" element={<ProfileSetup />} />
-      <Route path="/communication" element={<Communication />} />
-      <Route path="/add-recipient" element={<AddRecipient />} />
-      <Route path="/integrations" element={<Integrations />} />
-      <Route path="/complete" element={<Complete />} />
+      <Route element={<RequireAuth />}>
+        {/* 온보딩 */}
+        <Route path="/welcome" element={<Welcome />} />
+        <Route path="/profile-setup" element={<ProfileSetup />} />
+        <Route path="/communication" element={<Communication />} />
+        <Route path="/add-recipient" element={<AddRecipient />} />
+        <Route path="/integrations" element={<Integrations />} />
+        <Route path="/complete" element={<Complete />} />
 
-      {/* 메인 서비스 */}
-      <Route element={<AppLayout />}>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/inbox" element={<InboxPage />} />
-        <Route path="/messages" element={<MessagesPage />} />
-        <Route
-          path="/messages/optimized"
-          element={<MessageOptimizedPage />}
-        />
-        <Route path="/messages/drafts" element={<DraftsPage />} />
-        <Route path="/recipients" element={<RecipientsPage />} />
-        <Route path="/company-dna" element={<CompanyDnaPage />} />
-        <Route path="/team-memory" element={<TeamMemoryPage />} />
-        <Route path="/history" element={<HistoryPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/my-profile" element={<MyProfilePage />} />
-        <Route path="/admin/notices" element={<NoticeAdminPage />} />
+        {/* 메인 서비스 */}
+        <Route element={<AppLayout />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/inbox" element={<InboxPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
+          <Route
+            path="/messages/optimized"
+            element={<MessageOptimizedPage />}
+          />
+          <Route path="/messages/drafts" element={<DraftsPage />} />
+          <Route path="/recipients" element={<RecipientsPage />} />
+          <Route path="/team-memory" element={<TeamMemoryPage />} />
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/my-profile" element={<MyProfilePage />} />
+          <Route element={<RequireAdmin />}>
+            <Route path="/admin/notices" element={<NoticeAdminPage />} />
+          </Route>
+        </Route>
       </Route>
 
       {/* 존재하지 않는 페이지 */}

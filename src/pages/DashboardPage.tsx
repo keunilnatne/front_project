@@ -488,7 +488,7 @@ export default function DashboardPage() {
             </h3>
 
             <div className="mt-3 rounded-xl bg-[#f9f9fb] p-4 text-[13px] leading-6 text-[#555] whitespace-pre-line">
-              {notices[0]?.content || `• 실시간 비즈니스 메시지 AI 최적화 지원\n• 조직 맞춤형 Company DNA 자동 분석 탑재\n• 수신자별 맞춤형 문체 및 어조 조율 강화\n• Gmail 실시간 수신함 연동 및 스마트 AI 일정 추출`}
+              {notices[0]?.content || '등록된 새로운 소식이 없습니다.'}
             </div>
 
             {notices.length > 1 && (

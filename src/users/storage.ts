@@ -6,7 +6,6 @@ const LEGACY_USER_DATA_KEYS = [
   'message-drafts',
   'ieum.history',
   'ieum.conversations',
-  'ieum.companyDNA',
   'ieum.teamMemory.patterns',
   'ieum.teamMemory.candidates',
   'ieum.teamMemory.logs',
@@ -16,6 +15,8 @@ const LEGACY_USER_DATA_KEYS = [
   'ieum.notices',
   'ieum.integrations',
   'ieum.aiPersonalization',
+  // 제거된 기능의 이전 브라우저 캐시도 로그아웃/계정 전환 시 함께 정리한다.
+  'ieum.companyDNA',
   'ieum.accountPassword',
 ] as const
 

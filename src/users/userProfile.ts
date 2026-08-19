@@ -13,6 +13,7 @@ export type UserProfile = {
   communicationPreferences: string[]
   customStyle: string
   onboardingCompleted: boolean
+  admin: boolean
 }
 
 export const defaultUserProfile: UserProfile = {
@@ -30,6 +31,7 @@ export const defaultUserProfile: UserProfile = {
   communicationPreferences: [],
   customStyle: '',
   onboardingCompleted: false,
+  admin: false,
 }
 
 const API_URL = import.meta.env.VITE_API_URL || ''
@@ -82,6 +84,7 @@ export async function fetchUserProfile(): Promise<UserProfile> {
         communicationPreferences: data.communicationPreferences || [],
         customStyle: data.customStyle || data.preferredStyle || '',
         onboardingCompleted: data.onboardingCompleted === true,
+        admin: data.admin === true,
       }
       writeUserStorage(STORAGE_KEY, JSON.stringify(profile))
       if (profile.onboardingCompleted) {

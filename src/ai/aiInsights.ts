@@ -55,7 +55,3 @@ export async function analyzeMessageMetadata(payload: unknown): Promise<{
 export async function analyzeHistory(history: unknown): Promise<HistoryAIInsight | null> {
   return postAI<HistoryAIInsight>('/api/ai/history/analyze', { history })
 }
-
-export async function analyzeCompanyDNA(payload: unknown): Promise<RecipientAIProfile | null> {
-  return postAI<RecipientAIProfile>('/api/ai/company-dna/analyze', payload)
-}

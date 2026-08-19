@@ -42,12 +42,6 @@ const navigationItems: NavigationItem[] = [
     path: '/team-memory',
     icon: 'memory',
   },
-  // Company DNA 메뉴는 임시 숨김 처리 (추후 재활성화를 위해 코드 및 컴포넌트 보존)
-  // {
-  //   label: 'Company DNA',
-  //   path: '/company-dna',
-  //   icon: 'dna',
-  // },
 ]
 
 function MenuIcon({
@@ -127,23 +121,6 @@ function MenuIcon({
     )
   }
 
-  if (type === 'dna') {
-    return (
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke={color}
-        strokeWidth="1.8"
-      >
-        <path d="M7 3c6 4 6 14 0 18" />
-        <path d="M17 3c-6 4-6 14 0 18" />
-        <path d="M8 7h8M7 12h10M8 17h8" />
-      </svg>
-    )
-  }
-
   if (type === 'memory') {
     return (
       <svg
@@ -161,16 +138,14 @@ function MenuIcon({
     )
   }
 
-  /*
-  if (type === 'global') {
+  if (type === 'notice') {
     return (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8">
-        <circle cx="12" cy="12" r="8.5" />
-        <path d="M3.8 9h16.4M3.8 15h16.4M12 3.5c2.2 2.3 3.4 5.1 3.4 8.5S14.2 18.2 12 20.5C9.8 18.2 8.6 15.4 8.6 12S9.8 5.8 12 3.5Z" />
+        <path d="M6 4h12v16H6z" />
+        <path d="M9 8h6M9 12h6M9 16h4" />
       </svg>
     )
   }
-  */
 
   return (
     <svg
@@ -226,6 +201,10 @@ function AppLayout() {
 
   if (!token) return <Navigate to="/login" replace />
 
+  const visibleNavigationItems = profile.admin
+    ? [...navigationItems, { label: '공지 관리', path: '/admin/notices', icon: 'notice' }]
+    : navigationItems
+
   return (
     <div className="flex min-h-screen bg-[#f8f9fc]">
       {/* Sidebar */}
@@ -240,7 +219,7 @@ function AppLayout() {
         {/* Navigation */}
         <nav className="flex-1 px-4 pt-4">
           <div className="flex flex-col gap-1">
-            {navigationItems.map((item) => (
+            {visibleNavigationItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}

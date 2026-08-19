@@ -138,7 +138,7 @@ export default function NoticeAdminPage() {
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     rows={6}
-                    placeholder={`• 실시간 비즈니스 메시지 AI 최적화 지원\n• 조직 맞춤형 Company DNA 자동 분석 탑재\n• 수신자별 맞춤형 문체 및 어조 조율 강화`}
+                    placeholder={`• 실시간 비즈니스 메시지 AI 최적화 지원\n• 수신자별 맞춤형 문체 및 어조 조율 강화`}
                     className="w-full rounded-xl border border-[#dedee5] p-3.5 text-[13px] leading-relaxed outline-none focus:border-[#6844e2]"
                   />
                 </div>
