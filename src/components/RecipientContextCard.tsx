@@ -1,3 +1,5 @@
+import { formatCommunicationStyleLabel } from '../users/communicationStyles'
+
 export type RecipientContextData = {
   id: string | number
   name: string
@@ -10,15 +12,6 @@ export type RecipientContextData = {
   communicationStyle?: string[]
   preferredStyle?: string
   customStyle?: string
-}
-
-const STYLE_LABELS: Record<string, string> = {
-  concise: '간결하게',
-  detailed: '자세하게',
-  conclusion: '결론부터',
-  context: '맥락부터',
-  polite: '정중하게',
-  casual: '편하게',
 }
 
 function getRecipientWorkStatus(timezone = 'Asia/Seoul') {
@@ -53,8 +46,8 @@ function getCommunicationStyles(recipient: RecipientContextData) {
   const customStyle = String(recipient.customStyle || '').trim()
 
   return Array.from(new Set([
-    ...savedStyles.map((style) => STYLE_LABELS[style] || style),
-    ...(customStyle ? [STYLE_LABELS[customStyle] || customStyle] : []),
+    ...savedStyles.map(formatCommunicationStyleLabel),
+    ...(customStyle ? [formatCommunicationStyleLabel(customStyle)] : []),
   ]))
 }
 

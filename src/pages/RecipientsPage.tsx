@@ -13,6 +13,7 @@ import {
 } from '../users/recipients'
 import { analyzeRecipient, type RecipientAIProfile } from '../ai/aiInsights'
 import { getCountryInfo } from '../users/countryTimezones'
+import { formatCommunicationStyleLabel } from '../users/communicationStyles'
 
 function formatCountry(country?: string): string {
   if (!country) return '대한민국'
@@ -1245,6 +1246,7 @@ function RecipientsPage() {
         recipient: {
           id: String(recipient.id),
           name: recipient.name,
+          email: recipient.email,
           position: recipient.role,
           company: recipient.company,
           country: recipient.country,
@@ -1257,6 +1259,12 @@ function RecipientsPage() {
           speed: recipient.responseSpeed,
           collaboration:
             recipient.collaborationActivity,
+          communicationStyle:
+            recipient.communicationStyle,
+          preferredStyle:
+            recipient.preferredStyle,
+          customStyle:
+            recipient.customStyle,
         },
       },
     })
@@ -1668,20 +1676,17 @@ function RecipientsPage() {
               <div className="mt-4 pt-3 border-t border-[#e2dcfa] flex items-start gap-3 text-[13px]">
                 <span className="w-24 shrink-0 text-[12px] font-medium text-[#7b7b84] pt-0.5">선호 소통 스타일</span>
                 <div className="flex flex-wrap gap-1.5">
-                  {Array.isArray(selectedRecipient.communicationStyle) && selectedRecipient.communicationStyle.length > 0 ? (
-                    selectedRecipient.communicationStyle.map((style) => (
+                  {(Array.isArray(selectedRecipient.communicationStyle) && selectedRecipient.communicationStyle.length > 0
+                    ? selectedRecipient.communicationStyle
+                    : String(selectedRecipient.preferredStyle || '명확한 표현 선호').split(',').map((style) => style.trim()).filter(Boolean)
+                  ).map((style) => (
                       <span
                         key={style}
                         className="rounded-md bg-white border border-[#d8d2f5] px-2.5 py-1 text-[11px] font-medium text-[#5143d1] shadow-xs"
                       >
-                        {style}
+                        {formatCommunicationStyleLabel(style)}
                       </span>
-                    ))
-                  ) : (
-                    <span className="rounded-md bg-white border border-[#d8d2f5] px-2.5 py-1 text-[11px] font-medium text-[#5143d1] shadow-xs">
-                      {selectedRecipient.preferredStyle || '명확한 표현 선호'}
-                    </span>
-                  )}
+                    ))}
                 </div>
               </div>
 
