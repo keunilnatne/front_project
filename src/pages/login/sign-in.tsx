@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import googleIcon from '../../images/google.png'
 import logo from '../../images/ieum-logo.png'
 import { authenticateAccount } from '../../users/auth'
-import { startOnboarding, isOnboardingCompleted } from '../../users/userProfile'
+import { startOnboarding, isOnboardingCompleted, completeOnboarding, fetchUserProfile } from '../../users/userProfile'
 
 const INPUT_CLASS = [
   'h-12 w-full rounded-lg border-2 border-black/20 px-5 text-sm outline-none',
@@ -58,7 +58,11 @@ function SignInPage() {
     localStorage.removeItem('auth.isGoogleLogin')
     localStorage.removeItem('onboarding.gmail')
 
-    if (isOnboardingCompleted(email)) {
+    const userProfile = await fetchUserProfile()
+    if (userProfile && (userProfile.position || userProfile.role || userProfile.company || (userProfile.name && userProfile.name !== email.split('@')[0]))) {
+      completeOnboarding(email)
+      navigate('/dashboard')
+    } else if (isOnboardingCompleted(email)) {
       navigate('/dashboard')
     } else {
       startOnboarding(email)
@@ -187,12 +191,17 @@ function SocialLoginSection() {
           localStorage.setItem('ieum.token', event.data.token)
         }
 
-        if (isOnboardingCompleted(email)) {
-          navigate('/dashboard')
-        } else {
-          startOnboarding(email)
-          navigate('/welcome')
-        }
+        void fetchUserProfile().then((userProfile) => {
+          if (userProfile && (userProfile.position || userProfile.role || userProfile.company || (userProfile.name && userProfile.name !== email.split('@')[0]))) {
+            completeOnboarding(email)
+            navigate('/dashboard')
+          } else if (isOnboardingCompleted(email)) {
+            navigate('/dashboard')
+          } else {
+            startOnboarding(email)
+            navigate('/welcome')
+          }
+        })
         return
       }
 

@@ -1,6 +1,7 @@
+import { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import welcomeIllustration from '../../images/welcome-illustration.png'
-import { skipOnboarding, getUserProfile } from '../../users/userProfile'
+import { skipOnboarding, getUserProfile, fetchUserProfile, completeOnboarding, isOnboardingCompleted } from '../../users/userProfile'
 
 const START_BUTTON_CLASS = [
   'mt-12 flex h-12 w-full max-w-80 items-center justify-center rounded-lg',
@@ -35,6 +36,17 @@ function ProgressIndicator() {
 
 function Welcome() {
   const navigate = useNavigate()
+
+  useEffect(() => {
+    void fetchUserProfile().then((profile) => {
+      if (profile && (profile.position || profile.role || profile.company || (profile.name && profile.name !== profile.email?.split('@')[0]))) {
+        completeOnboarding(profile.email)
+        navigate('/dashboard', { replace: true })
+      } else if (isOnboardingCompleted(profile?.email)) {
+        navigate('/dashboard', { replace: true })
+      }
+    })
+  }, [navigate])
 
   const handleSkip = () => {
     const profile = getUserProfile()

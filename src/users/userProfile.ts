@@ -66,6 +66,9 @@ export async function fetchUserProfile(): Promise<UserProfile> {
         customStyle: data.customStyle || data.preferredStyle || '',
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
+      if (profile.position || profile.role || profile.company || (profile.name && profile.name !== profile.email?.split('@')[0])) {
+        completeOnboarding(profile.email)
+      }
       window.dispatchEvent(new Event('profile-updated'))
       return profile
     }
@@ -100,8 +103,8 @@ export async function saveUserProfile(profile: Partial<UserProfile>): Promise<Us
           workHours: updated.workHours,
           tools: updated.tools,
           communicationPreferences: updated.communicationPreferences,
-          customStyle: updated.customStyle,
           preferredStyle: updated.customStyle || (updated.communicationPreferences?.join(', ') ?? ''),
+          customStyle: updated.customStyle,
         }),
       })
     }
@@ -122,7 +125,21 @@ export function isOnboardingCompleted(email = ''): boolean {
     const key = `onboarding.completed_${email.trim().toLowerCase()}`
     if (localStorage.getItem(key) === 'true') return true
   }
-  return localStorage.getItem('onboarding.completed') === 'true'
+  if (localStorage.getItem('onboarding.completed') === 'true') return true
+
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      if (parsed && (parsed.position || parsed.role || parsed.company || (parsed.name && parsed.name !== parsed.email?.split('@')[0]))) {
+        return true
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return false
 }
 
 export function completeOnboarding(email = '') {
