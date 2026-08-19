@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUserProfile, saveUserProfile } from '../../users/userProfile'
+import { getCountryInfo } from '../../users/countryTimezones'
 
 const roles = ['PM', '기획자', '디자이너', '개발자', '마케터', '팀 리더', '기타'] as const
 
@@ -39,10 +40,21 @@ function ProfileSetup() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const profile = getUserProfile()
 
+  const [selectedCountry, setSelectedCountry] = useState(profile.country || '대한민국')
+  const [selectedLanguage, setSelectedLanguage] = useState(profile.language || 'Korean')
+  const [selectedTimezone, setSelectedTimezone] = useState(profile.timezone || 'Asia/Seoul')
+
   const rawHours = profile.workHours || '09:00 - 18:00'
   const parts = rawHours.split(/[-~]/).map((s) => s.trim())
   const [startHour, setStartHour] = useState(parts[0] || '09:00')
   const [endHour, setEndHour] = useState(parts[1] || '18:00')
+
+  const onCountryChange = (countryName: string) => {
+    setSelectedCountry(countryName)
+    const info = getCountryInfo(countryName)
+    setSelectedLanguage(info.language)
+    setSelectedTimezone(info.defaultTimezone)
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -55,6 +67,9 @@ function ProfileSetup() {
       name: String(form.get('name')),
       company: String(form.get('company')),
       position: String(form.get('position')),
+      country: selectedCountry,
+      language: selectedLanguage,
+      timezone: selectedTimezone,
       role,
       workHours,
     })
@@ -97,6 +112,50 @@ function ProfileSetup() {
                     {TIME_OPTIONS.map((t) => <option key={`onboard-e-${t}`} value={t}>{t}</option>)}
                   </select>
                 </div>
+              </Field>
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-3 max-sm:grid-cols-1">
+              <Field label="국가">
+                <select
+                  value={selectedCountry}
+                  onChange={(e) => onCountryChange(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-[#e5e7ef] bg-white px-2 text-xs font-normal text-[#241912] outline-none focus:border-[#6a54ee]"
+                >
+                  <option value="대한민국">대한민국</option>
+                  <option value="미국">미국</option>
+                  <option value="일본">일본</option>
+                  <option value="중국">중국</option>
+                  <option value="영국">영국</option>
+                  <option value="독일">독일</option>
+                  <option value="프랑스">프랑스</option>
+                  <option value="싱가포르">싱가포르</option>
+                  <option value="인도">인도</option>
+                  <option value="호주">호주</option>
+                  <option value="캐나다">캐나다</option>
+                  <option value="베트남">베트남</option>
+                </select>
+              </Field>
+
+              <Field label="언어">
+                <input
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className={inputClass}
+                  placeholder="Korean, English 등"
+                />
+              </Field>
+
+              <Field label="시간대">
+                <select
+                  value={selectedTimezone}
+                  onChange={(e) => setSelectedTimezone(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-[#e5e7ef] bg-white px-2 text-xs font-normal text-[#241912] outline-none focus:border-[#6a54ee]"
+                >
+                  {getCountryInfo(selectedCountry).availableTimezones.map((tz) => (
+                    <option key={`profile-tz-${tz.value}`} value={tz.value}>{tz.label}</option>
+                  ))}
+                </select>
               </Field>
             </div>
 

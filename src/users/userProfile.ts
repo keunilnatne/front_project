@@ -4,6 +4,9 @@ export type UserProfile = {
   company: string
   position: string
   role: string
+  country?: string
+  language?: string
+  timezone?: string
   workHours: string
   tools: string[]
   communicationPreferences: string[]
@@ -16,6 +19,9 @@ export const defaultUserProfile: UserProfile = {
   company: '',
   position: '',
   role: '',
+  country: 'South Korea',
+  language: 'Korean',
+  timezone: 'Asia/Seoul',
   workHours: '09:00 - 18:00',
   tools: [],
   communicationPreferences: [],
@@ -60,6 +66,9 @@ export async function fetchUserProfile(): Promise<UserProfile> {
         company: data.companyName || data.company?.name || '',
         position: data.position || data.jobTitle || '',
         role: data.jobRole || data.role || '',
+        country: data.country || 'South Korea',
+        language: data.language || data.defaultLanguage || 'Korean',
+        timezone: data.timezone || 'Asia/Seoul',
         workHours: data.workHours || '09:00 - 18:00',
         tools: data.tools || ['Slack', 'Notion', 'Gmail'],
         communicationPreferences: data.communicationPreferences || [],
@@ -100,6 +109,9 @@ export async function saveUserProfile(profile: Partial<UserProfile>): Promise<Us
           jobTitle: updated.position,
           role: updated.role,
           jobRole: updated.role,
+          country: updated.country,
+          language: updated.language,
+          timezone: updated.timezone,
           workHours: updated.workHours,
           tools: updated.tools,
           communicationPreferences: updated.communicationPreferences,

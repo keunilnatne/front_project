@@ -5,6 +5,7 @@ import { ConversationLearningDrawer } from '../components/ConversationLearningDr
 import { resetProfileAnalytics } from '../users/profileAnalytics'
 import { getUserProfile, saveUserProfile, resetUserProfile } from '../users/userProfile'
 import { useProfileAnalytics } from '../users/useProfileAnalytics'
+import { getCountryInfo } from '../users/countryTimezones'
 
 const allPreferences = [
   ['concise', '간결하게'],
@@ -56,11 +57,21 @@ function MyProfilePage() {
   const [editCompany, setEditCompany] = useState('')
   const [editRole, setEditRole] = useState('')
   const [editPosition, setEditPosition] = useState('')
+  const [editCountry, setEditCountry] = useState('대한민국')
+  const [editLanguage, setEditLanguage] = useState('Korean')
+  const [editTimezone, setEditTimezone] = useState('Asia/Seoul')
   const [editStartHour, setEditStartHour] = useState('09:00')
   const [editEndHour, setEditEndHour] = useState('18:00')
   const [isFlexibleWork, setIsFlexibleWork] = useState(false)
   const [editPreferences, setEditPreferences] = useState<string[]>([])
   const [editCustomStyle, setEditCustomStyle] = useState('')
+
+  const handleCountryChange = (countryName: string) => {
+    setEditCountry(countryName)
+    const info = getCountryInfo(countryName)
+    setEditLanguage(info.language)
+    setEditTimezone(info.defaultTimezone)
+  }
 
   const analytics = useProfileAnalytics()
   const preferences = profile.communicationPreferences
@@ -72,6 +83,9 @@ function MyProfilePage() {
     setEditCompany(p.company || '')
     setEditRole(p.role || '')
     setEditPosition(p.position || '')
+    setEditCountry(p.country || '대한민국')
+    setEditLanguage(p.language || 'Korean')
+    setEditTimezone(p.timezone || 'Asia/Seoul')
 
     const rawHours = p.workHours || '09:00 - 18:00'
     if (rawHours.includes('자율')) {
@@ -98,6 +112,9 @@ function MyProfilePage() {
       company: editCompany.trim(),
       role: editRole.trim(),
       position: editPosition.trim(),
+      country: editCountry,
+      language: editLanguage,
+      timezone: editTimezone,
       workHours: finalWorkHours,
       communicationPreferences: editPreferences,
       customStyle: editCustomStyle.trim(),
@@ -308,6 +325,50 @@ function MyProfilePage() {
                     onChange={(e) => setEditPosition(e.target.value)}
                     className="w-full h-9 rounded-lg border border-[#ddd] px-3 text-xs outline-none focus:border-[#5531e8]"
                   />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <label className="block">
+                  <span className="font-semibold text-[#555] block mb-1">국가</span>
+                  <select
+                    value={editCountry}
+                    onChange={(e) => handleCountryChange(e.target.value)}
+                    className="w-full h-9 rounded-lg border border-[#ddd] px-2 text-xs outline-none focus:border-[#5531e8] bg-white"
+                  >
+                    <option value="대한민국">대한민국</option>
+                    <option value="미국">미국</option>
+                    <option value="일본">일본</option>
+                    <option value="중국">중국</option>
+                    <option value="영국">영국</option>
+                    <option value="독일">독일</option>
+                    <option value="프랑스">프랑스</option>
+                    <option value="싱가포르">싱가포르</option>
+                    <option value="인도">인도</option>
+                    <option value="호주">호주</option>
+                    <option value="캐나다">캐나다</option>
+                    <option value="베트남">베트남</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="font-semibold text-[#555] block mb-1">언어</span>
+                  <input
+                    value={editLanguage}
+                    onChange={(e) => setEditLanguage(e.target.value)}
+                    className="w-full h-9 rounded-lg border border-[#ddd] px-3 text-xs outline-none focus:border-[#5531e8]"
+                  />
+                </label>
+                <label className="block">
+                  <span className="font-semibold text-[#555] block mb-1">시간대</span>
+                  <select
+                    value={editTimezone}
+                    onChange={(e) => setEditTimezone(e.target.value)}
+                    className="w-full h-9 rounded-lg border border-[#ddd] px-2 text-xs outline-none focus:border-[#5531e8] bg-white"
+                  >
+                    {getCountryInfo(editCountry).availableTimezones.map((tz) => (
+                      <option key={`edit-tz-${tz.value}`} value={tz.value}>{tz.label}</option>
+                    ))}
+                  </select>
                 </label>
               </div>
 
