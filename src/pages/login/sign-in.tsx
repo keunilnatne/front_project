@@ -11,9 +11,7 @@ const INPUT_CLASS = [
   'focus:border-[#4338ca] focus:ring-4 focus:ring-[#4338ca]/10',
 ].join(' ')
 
-// 백엔드 작업: 실제 Google OAuth 시작 API 경로가 다르면 .env의
-// VITE_GOOGLE_AUTH_URL 값을 백엔드 엔드포인트로 설정해 주세요.
-const GOOGLE_AUTH_URL = import.meta.env.VITE_GOOGLE_AUTH_URL || '/api/auth/google'
+
 
 function SignInPage() {
   const navigate = useNavigate()
@@ -216,13 +214,11 @@ function SocialLoginSection() {
   }, [navigate])
 
 
-  const openGoogleLogin = () => {
+  const openGoogleLogin = async () => {
     setGoogleError('')
 
-    // Google 이메일과 비밀번호는 이 앱에서 입력X
-    // 백엔드 OAuth 시작 API가 Google 공식 로그인 화면으로 리다이렉트해야 합니다.
     const popup = window.open(
-      GOOGLE_AUTH_URL,
+      'about:blank',
       'google-login',
       'popup=yes,width=520,height=680,left=200,top=80',
     )
@@ -233,7 +229,27 @@ function SocialLoginSection() {
     }
 
     setIsConnecting(true)
-    popup.focus()
+
+    try {
+      const targetApi = import.meta.env.VITE_API_URL || ''
+      const res = await fetch(`${targetApi}/api/auth/google?format=json`, {
+        headers: { Accept: 'application/json' },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.url) {
+          popup.location.href = data.url
+          popup.focus()
+          return
+        }
+      }
+      popup.location.href = targetApi ? `${targetApi}/api/auth/google` : 'http://localhost:4000/api/auth/google'
+      popup.focus()
+    } catch {
+      const targetApi = import.meta.env.VITE_API_URL || ''
+      popup.location.href = targetApi ? `${targetApi}/api/auth/google` : 'http://localhost:4000/api/auth/google'
+      popup.focus()
+    }
   }
 
   return (
