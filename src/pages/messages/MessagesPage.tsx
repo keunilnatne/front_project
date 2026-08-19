@@ -915,30 +915,49 @@ export default function MessagesPage() {
                   placeholder="메시지를 입력하세요"
                 />
 
-                {/* ATTACHMENT PREVIEW (compact) */}
+                {/* ATTACHMENT PREVIEW (compact with capacity display) */}
                 {attachments.length > 0 && (
                   <div className="border-t border-[#eeeeef] bg-[#fafaff] px-5 py-3">
+                    <div className="flex items-center justify-between mb-2 text-[11px] text-[#6b7280]">
+                      <span className="font-semibold text-[#4f46e5]">
+                        📎 첨부된 파일 ({attachments.length}개)
+                      </span>
+                      <span className="font-medium text-[#716b78]">
+                        총 {((attachments.reduce((acc, f) => acc + (f.size || 0), 0)) / (1024 * 1024) >= 1
+                          ? `${((attachments.reduce((acc, f) => acc + (f.size || 0), 0)) / (1024 * 1024)).toFixed(1)} MB`
+                          : `${Math.round((attachments.reduce((acc, f) => acc + (f.size || 0), 0)) / 1024)} KB`)} / 최대 50 MB
+                      </span>
+                    </div>
                     <div className="flex flex-wrap gap-2">
-                      {attachments.map((file, idx) => (
-                        <div key={`${file.name}-${idx}`} className="group flex items-center gap-2 rounded-lg border border-[#e5e3ec] bg-white px-3 py-2 text-[12px]">
-                          {file.type?.startsWith('image/') && file.data ? (
-                            <img src={file.data} alt={file.name} className="h-6 w-6 rounded object-cover" />
-                          ) : (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-                              <path d="M14 2v6h6" />
-                            </svg>
-                          )}
-                          <span className="max-w-[120px] truncate text-[#555]">{file.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                            className="ml-1 text-[#bbb] transition hover:text-[#d04a5a]"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
+                      {attachments.map((file, idx) => {
+                        const sizeStr = file.size
+                          ? file.size >= 1024 * 1024
+                            ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+                            : `${Math.round(file.size / 1024)} KB`
+                          : ''
+                        return (
+                          <div key={`${file.name}-${idx}`} className="group flex items-center gap-2 rounded-lg border border-[#e5e3ec] bg-white px-3 py-2 text-[12px] shadow-2xs">
+                            {file.type?.startsWith('image/') && file.data ? (
+                              <img src={file.data} alt={file.name} className="h-6 w-6 rounded object-cover" />
+                            ) : (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                                <path d="M14 2v6h6" />
+                              </svg>
+                            )}
+                            <span className="max-w-[130px] truncate text-[#444] font-medium">{file.name}</span>
+                            {sizeStr && <span className="text-[10px] text-[#9ca3af]">({sizeStr})</span>}
+                            <button
+                              type="button"
+                              onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                              className="ml-1 text-[#bbb] transition hover:text-[#d04a5a] cursor-pointer"
+                              title="삭제"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}

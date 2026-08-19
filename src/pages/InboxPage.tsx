@@ -49,6 +49,57 @@ function formatFullDateTime(dateStr: string): string {
   }
 }
 
+export type ScheduleInfo = {
+  quote: string
+  title: string
+  dateTime: string
+  source: string
+}
+
+function extractScheduleFromEmail(msg: InboxMessage): ScheduleInfo {
+  const content = msg.body || msg.snippet || ''
+  const lines = content.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  
+  const scheduleRegex = /(?:내일|오늘|모레|\d{1,2}월\s*\d{1,2}일|\d{1,2}\/\d{1,2}|[월화수목금토일]요일|오전|오후|\d{1,2}시|마감|회의|미팅|일정|까지)/i
+  const matchedLine = lines.find((l) => scheduleRegex.test(l)) || lines[0] || msg.subject || '일정 확인 부탁드립니다.'
+
+  let title = msg.subject.replace(/^(?:Re:\s*|Fwd:\s*|\[.*?\]\s*)+/i, '').trim()
+  if (!title) title = '업무 일정'
+
+  let dateTime = '8.18 오후 3:00'
+  const dateMatch = content.match(/(\d{1,2})월\s*(\d{1,2})일/)
+  const timeMatch = content.match(/(오전|오후)\s*(\d{1,2})(?:시|:(\d{2}))?/)
+  
+  if (dateMatch && timeMatch) {
+    dateTime = `${dateMatch[1]}.${dateMatch[2]} ${timeMatch[1]} ${timeMatch[2]}:${timeMatch[3] || '00'}`
+  } else if (dateMatch) {
+    dateTime = `${dateMatch[1]}.${dateMatch[2]} 오후 2:00`
+  } else if (timeMatch) {
+    dateTime = `내일 ${timeMatch[1]} ${timeMatch[2]}:${timeMatch[3] || '00'}`
+  } else if (msg.date) {
+    try {
+      const d = new Date(msg.date)
+      if (!isNaN(d.getTime())) {
+        const month = d.getMonth() + 1
+        const day = d.getDate()
+        const hours = d.getHours()
+        const ampm = hours >= 12 ? '오후' : '오전'
+        const h12 = hours % 12 || 12
+        dateTime = `${month}.${day} ${ampm} ${h12}:00`
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  return {
+    quote: matchedLine.slice(0, 120),
+    title,
+    dateTime,
+    source: '메일 내용 기반',
+  }
+}
+
 export default function InboxPage() {
   const navigate = useNavigate()
   const [messages, setMessages] = useState<InboxMessage[]>(() => getCachedInboxMessages())
@@ -63,6 +114,41 @@ export default function InboxPage() {
   const [status, setStatus] = useState<GmailStatus>({ connected: false, email: null })
   const [notConnected, setNotConnected] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [scheduleCard, setScheduleCard] = useState<ScheduleInfo | null>(null)
+  const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState('팀 일정에 추가되었어요.')
+
+  const handleRecommendSchedule = (msg: InboxMessage) => {
+    const info = extractScheduleFromEmail(msg)
+    setScheduleCard(info)
+  }
+
+  const handleAddSchedule = () => {
+    if (!scheduleCard) return
+    try {
+      const stored = JSON.parse(localStorage.getItem('ieum.teamSchedules') || '[]')
+      const next = [
+        {
+          id: `schedule-${Date.now()}`,
+          title: scheduleCard.title,
+          dateTime: scheduleCard.dateTime,
+          quote: scheduleCard.quote,
+          source: scheduleCard.source,
+          createdAt: new Date().toISOString(),
+        },
+        ...stored,
+      ]
+      localStorage.setItem('ieum.teamSchedules', JSON.stringify(next))
+    } catch {
+      // ignore
+    }
+    setScheduleCard(null)
+    setToastMessage('팀 일정에 추가되었어요.')
+    setShowToast(true)
+    setTimeout(() => {
+      setShowToast(false)
+    }, 4000)
+  }
 
   async function loadData() {
     setNotConnected(false)
@@ -329,7 +415,7 @@ export default function InboxPage() {
                         <button
                           type="button"
                           onClick={() => handleCopyBody(selectedDetail.body || selectedDetail.snippet)}
-                          className="flex items-center gap-1.5 rounded-lg border border-[#dedee3] bg-white px-3 py-1.5 text-[11px] font-medium text-[#555] transition hover:bg-[#f7f7fa]"
+                          className="flex items-center gap-1.5 rounded-lg border border-[#dedee3] bg-white px-3 py-2 text-[12px] font-medium text-[#555] transition hover:bg-[#f7f7fa] cursor-pointer"
                         >
                           <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <rect x="8" y="8" width="12" height="12" rx="2" />
@@ -337,16 +423,33 @@ export default function InboxPage() {
                           </svg>
                           {copied ? '복사 완료!' : '본문 복사'}
                         </button>
+
+                        {/* Button 1: AI 일정 추천 */}
+                        <button
+                          type="button"
+                          onClick={() => handleRecommendSchedule(selectedDetail)}
+                          className="flex items-center gap-1.5 rounded-lg bg-[#5338ec] px-4 py-2 text-[12px] font-semibold text-white shadow-xs transition hover:bg-[#432bc6] cursor-pointer"
+                        >
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                          </svg>
+                          <span>AI 일정 추천</span>
+                        </button>
+
+                        {/* Button 2: AI 답장 작성 */}
                         <button
                           type="button"
                           onClick={() => handleReplyWithAi(selectedDetail)}
-                          className="flex items-center gap-1.5 rounded-lg bg-[#4f46e5] px-4 py-1.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#4338ca]"
+                          className="flex items-center gap-1.5 rounded-lg border border-[#d1d0d7] bg-white px-4 py-2 text-[12px] font-semibold text-[#374151] shadow-2xs transition hover:bg-[#f9fafb] hover:border-[#9ca3af] cursor-pointer"
                         >
-                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z" />
-                            <path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z" />
+                          <svg className="h-3.5 w-3.5 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                           </svg>
-                          ⚡ AI 답장 작성
+                          <span>AI 답장 작성</span>
                         </button>
                       </div>
                     </div>
@@ -458,6 +561,124 @@ export default function InboxPage() {
           </div>
         )}
       </div>
+
+      {/* AI Analysis Card Modal (Figma design) */}
+      {scheduleCard && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onMouseDown={() => setScheduleCard(null)}
+        >
+          <div
+            className="w-full max-w-[440px] rounded-[24px] bg-white p-7 shadow-2xl transition-all animate-in fade-in zoom-in-95 duration-200"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f0edff] text-[#6b47ed]">
+                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="10" rx="2" />
+                  <circle cx="12" cy="5" r="2" />
+                  <path d="M12 7v4" />
+                  <line x1="8" y1="16" x2="8" y2="16" />
+                  <line x1="16" y1="16" x2="16" y2="16" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-[17px] font-bold text-[#1f1e24] tracking-[-0.01em]">
+                  AI가 일정 관련 내용을 분석했어요
+                </h3>
+                <p className="text-[12px] text-[#716b78] mt-0.5">
+                  메일에서 일정을 추출해 추천드려요.
+                </p>
+              </div>
+            </div>
+
+            {/* Quote Snippet Box */}
+            <div className="mt-5 rounded-xl bg-[#f8f9fb] p-4 text-[13px] font-medium leading-relaxed text-[#374151]">
+              "{scheduleCard.quote}"
+            </div>
+
+            {/* Detail Box */}
+            <div className="mt-4 rounded-xl border border-[#ededf2] bg-white p-4.5 space-y-3 text-[13px]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[#6b7280]">
+                  <svg className="h-4 w-4 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                  <span>제목</span>
+                </div>
+                <span className="font-semibold text-[#1f2937] text-right max-w-[240px] truncate">
+                  {scheduleCard.title}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[#6b7280]">
+                  <svg className="h-4 w-4 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  <span>일시</span>
+                </div>
+                <span className="font-semibold text-[#1f2937]">
+                  {scheduleCard.dateTime}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[#6b7280]">
+                  <svg className="h-4 w-4 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                  <span>출처</span>
+                </div>
+                <span className="font-medium text-[#6b7280]">
+                  {scheduleCard.source}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setScheduleCard(null)}
+                className="flex-1 h-11.5 rounded-xl border border-[#dedee5] bg-[#f9fafb] text-[13px] font-semibold text-[#4b5563] hover:bg-[#f3f4f6] transition cursor-pointer"
+              >
+                삭제
+              </button>
+              <button
+                type="button"
+                onClick={handleAddSchedule}
+                className="flex-1 h-11.5 rounded-xl bg-[#4338ca] text-[13px] font-semibold text-white hover:bg-[#3730a3] transition cursor-pointer shadow-sm"
+              >
+                추가
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification (Figma design top-right) */}
+      {showToast && (
+        <div className="fixed top-6 right-6 z-50 flex items-center gap-3 rounded-full border border-[#d1fae5] bg-white px-5 py-3 shadow-xl transition-all animate-in slide-in-from-top-2 duration-200">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#dcfce7] text-[#16a34a]">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <span className="text-[13px] font-semibold text-[#1f2937]">{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setShowToast(false)}
+            className="ml-2 text-[#9ca3af] hover:text-[#4b5563] cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   )
 }
