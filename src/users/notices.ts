@@ -1,12 +1,16 @@
+import { authorizationHeaders } from './authStorage'
+
 export type NoticeItem = {
-  id: string
+  id: string | number
   title: string
-  subtitle?: string
+  subtitle?: string | null
   content: string
-  tag?: string
+  tag?: string | null
   createdAt: string
+  updatedAt?: string
 }
 
+const API_URL = import.meta.env.VITE_API_URL || ''
 const STORAGE_KEY = 'ieum.notices'
 
 export const defaultNotices: NoticeItem[] = [
@@ -23,6 +27,28 @@ export const defaultNotices: NoticeItem[] = [
   },
 ]
 
+export async function fetchNotices(): Promise<NoticeItem[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/notices`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...authorizationHeaders(),
+      },
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (Array.isArray(data) && data.length > 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+        return data
+      }
+    }
+  } catch {
+    // network / offline fallback
+  }
+
+  return getNotices()
+}
+
 export function getNotices(): NoticeItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -37,7 +63,26 @@ export function getNotices(): NoticeItem[] {
   }
 }
 
-export function saveNotice(notice: Omit<NoticeItem, 'id' | 'createdAt'>): NoticeItem {
+export async function saveNotice(notice: Omit<NoticeItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<NoticeItem> {
+  try {
+    const res = await fetch(`${API_URL}/api/notices`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authorizationHeaders(),
+      },
+      body: JSON.stringify(notice),
+    })
+    if (res.ok) {
+      const created = await res.json()
+      const current = getNotices().filter((n) => n.id !== created.id)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([created, ...current]))
+      return created
+    }
+  } catch {
+    // offline fallback
+  }
+
   const list = getNotices()
   const newItem: NoticeItem = {
     id: `notice-${Date.now()}`,
@@ -49,7 +94,18 @@ export function saveNotice(notice: Omit<NoticeItem, 'id' | 'createdAt'>): Notice
   return newItem
 }
 
-export function deleteNotice(id: string): void {
-  const list = getNotices().filter((n) => n.id !== id)
+export async function deleteNotice(id: string | number): Promise<void> {
+  try {
+    await fetch(`${API_URL}/api/notices/${id}`, {
+      method: 'DELETE',
+      headers: {
+        ...authorizationHeaders(),
+      },
+    })
+  } catch {
+    // ignore
+  }
+
+  const list = getNotices().filter((n) => String(n.id) !== String(id))
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list.length > 0 ? list : defaultNotices))
 }

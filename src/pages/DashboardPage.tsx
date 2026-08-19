@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import { fetchDashboardSummary } from '../users/dashboard'
-import { getNotices, type NoticeItem } from '../users/notices'
+import { fetchNotices, getNotices, type NoticeItem } from '../users/notices'
 
 import DocumentIcon from '../images/dashboard/DocumentImg.png'
 import DocumentInBox from '../images/dashboard/DocumentInBox.png'
@@ -26,10 +26,14 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showNews, setShowNews] = useState(false)
-  const [notices, setNotices] = useState<NoticeItem[]>([])
+  const [notices, setNotices] = useState<NoticeItem[]>(getNotices())
 
   useEffect(() => {
-    setNotices(getNotices())
+    void fetchNotices().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setNotices(data)
+      }
+    })
   }, [])
 
   useEffect(() => {

@@ -1,44 +1,55 @@
 import { useState, useEffect } from 'react'
-import { getNotices, saveNotice, deleteNotice, type NoticeItem } from '../users/notices'
+import { fetchNotices, getNotices, saveNotice, deleteNotice, type NoticeItem } from '../users/notices'
 
 export default function NoticeAdminPage() {
-  const [notices, setNotices] = useState<NoticeItem[]>([])
+  const [notices, setNotices] = useState<NoticeItem[]>(getNotices())
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
   const [tag, setTag] = useState('new')
   const [content, setContent] = useState('')
   const [message, setMessage] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const reloadNotices = async () => {
+    const data = await fetchNotices()
+    setNotices(data)
+  }
 
   useEffect(() => {
-    setNotices(getNotices())
+    void reloadNotices()
   }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) {
       alert('공지 제목을 입력해주세요.')
       return
     }
 
-    saveNotice({
-      title: title.trim(),
-      subtitle: subtitle.trim() || '새로운 소식을 확인해보세요.',
-      tag: tag.trim() || 'new',
-      content: content.trim() || title.trim(),
-    })
+    setSubmitting(true)
+    try {
+      await saveNotice({
+        title: title.trim(),
+        subtitle: subtitle.trim() || '새로운 소식을 확인해보세요.',
+        tag: tag.trim() || 'new',
+        content: content.trim() || title.trim(),
+      })
 
-    setNotices(getNotices())
-    setTitle('')
-    setSubtitle('')
-    setContent('')
-    setMessage('공지사항이 성공적으로 등록되었습니다! 대시보드에 즉시 반영됩니다.')
-    setTimeout(() => setMessage(''), 3000)
+      await reloadNotices()
+      setTitle('')
+      setSubtitle('')
+      setContent('')
+      setMessage('공지사항이 데이터베이스에 성공적으로 등록되었습니다! 대시보드에 즉시 반영됩니다.')
+      setTimeout(() => setMessage(''), 4000)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string | number) => {
     if (!window.confirm('이 공지사항을 삭제하시겠습니까?')) return
-    deleteNotice(id)
-    setNotices(getNotices())
+    await deleteNotice(id)
+    await reloadNotices()
   }
 
   return (
@@ -128,9 +139,10 @@ export default function NoticeAdminPage() {
 
                 <button
                   type="submit"
-                  className="w-full rounded-xl bg-[#5035dc] py-3 text-[13px] font-semibold text-white transition hover:bg-[#432ec4] cursor-pointer shadow-sm"
+                  disabled={submitting}
+                  className="w-full rounded-xl bg-[#5035dc] py-3 text-[13px] font-semibold text-white transition hover:bg-[#432ec4] disabled:opacity-60 cursor-pointer shadow-sm"
                 >
-                  공지 등록하기
+                  {submitting ? '등록 중...' : '공지 등록하기'}
                 </button>
               </form>
             </div>
