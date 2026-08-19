@@ -10,6 +10,7 @@ import {
   type InboxMessage,
   type GmailStatus,
 } from '../users/inbox'
+import { saveTeamMemoryPattern, type Pattern } from '../users/teamMemory'
 import MarkdownViewer from '../components/MarkdownViewer'
 
 function formatFileSize(bytes?: number): string {
@@ -101,15 +102,40 @@ export default function InboxPage() {
     }
   }
 
-  const handleAddSchedule = () => {
+  const handleAddSchedule = async () => {
     if (!scheduleCard) return
+
+    let deadlineStr = scheduleCard.dateTime.trim()
+    const currentYear = new Date().getFullYear()
+    if (!/^\d{4}/.test(deadlineStr)) {
+      deadlineStr = `${currentYear}.${deadlineStr}`
+    }
+
+    const pattern: Pattern = {
+      id: `schedule-${Date.now()}`,
+      title: scheduleCard.title.trim() || '이메일 추천 일정',
+      purpose: scheduleCard.title.trim() || '이메일 추천 일정',
+      reason: scheduleCard.quote.trim() || '이메일 연동',
+      request: scheduleCard.quote.trim() || '이메일 내용 기반 AI 추출 일정',
+      deadline: deadlineStr,
+      attachmentName: 'purple',
+      updatedAt: new Date().toISOString(),
+      unread: false,
+    }
+
+    try {
+      await saveTeamMemoryPattern(pattern)
+    } catch (err) {
+      console.error('Failed to save to team memory:', err)
+    }
+
     try {
       const stored = JSON.parse(localStorage.getItem('ieum.teamSchedules') || '[]')
       const next = [
         {
-          id: `schedule-${Date.now()}`,
-          title: scheduleCard.title,
-          dateTime: scheduleCard.dateTime,
+          id: pattern.id,
+          title: pattern.title,
+          dateTime: deadlineStr,
           quote: scheduleCard.quote,
           source: scheduleCard.source,
           createdAt: new Date().toISOString(),
@@ -120,6 +146,7 @@ export default function InboxPage() {
     } catch {
       // ignore
     }
+
     setScheduleCard(null)
     setToastMessage('팀 일정에 추가되었어요.')
     setShowToast(true)

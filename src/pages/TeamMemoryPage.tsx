@@ -139,9 +139,15 @@ function getCalendarDays(
 function parseDeadline(
   deadline: string,
 ) {
+  if (!deadline) return null
   const value = deadline.trim()
 
-  const dateMatch =
+  let year = new Date().getFullYear()
+  let month = 1
+  let day = 1
+  let hasDate = false
+
+  const ymdMatch =
     value.match(
       /(\d{4})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})/,
     ) ||
@@ -149,13 +155,29 @@ function parseDeadline(
       /(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/,
     )
 
-  if (!dateMatch) {
-    return null
+  if (ymdMatch) {
+    year = Number(ymdMatch[1])
+    month = Number(ymdMatch[2])
+    day = Number(ymdMatch[3])
+    hasDate = true
+  } else {
+    const mdMatch =
+      value.match(
+        /(\d{1,2})[.\-/월]\s*(\d{1,2})/,
+      ) ||
+      value.match(
+        /(\d{1,2})\s*월\s*(\d{1,2})\s*일/,
+      )
+    if (mdMatch) {
+      month = Number(mdMatch[1])
+      day = Number(mdMatch[2])
+      hasDate = true
+    }
   }
 
-  const year = Number(dateMatch[1])
-  const month = Number(dateMatch[2])
-  const day = Number(dateMatch[3])
+  if (!hasDate) {
+    return null
+  }
 
   const date = new Date(
     year,
