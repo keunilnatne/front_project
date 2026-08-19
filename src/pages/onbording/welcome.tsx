@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import welcomeIllustration from '../../images/welcome-illustration.png'
-import { skipOnboarding, startOnboarding, getUserProfile, fetchUserProfile, completeOnboarding, isOnboardingCompleted, hasCompletedOnboardingProfile } from '../../users/userProfile'
+import { skipOnboarding, startOnboarding, getUserProfile, fetchUserProfile, completeOnboarding } from '../../users/userProfile'
 
 const START_BUTTON_CLASS = [
   'mt-12 flex h-12 w-full max-w-80 items-center justify-center rounded-lg',
@@ -46,19 +46,21 @@ function Welcome() {
     }
 
     void fetchUserProfile().then((profile) => {
-      if (hasCompletedOnboardingProfile(profile)) {
+      if (profile.onboardingCompleted) {
         completeOnboarding(profile.email)
-        navigate('/dashboard', { replace: true })
-      } else if (isOnboardingCompleted(profile?.email)) {
         navigate('/dashboard', { replace: true })
       }
     })
   }, [navigate, searchParams])
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
     const profile = getUserProfile()
-    skipOnboarding(profile.email)
-    navigate('/dashboard', { replace: true })
+    try {
+      await skipOnboarding(profile.email)
+      navigate('/dashboard', { replace: true })
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '온보딩 상태를 저장하지 못했습니다.')
+    }
   }
 
 

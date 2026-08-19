@@ -12,6 +12,7 @@ export type UserProfile = {
   tools: string[]
   communicationPreferences: string[]
   customStyle: string
+  onboardingCompleted: boolean
 }
 
 export const defaultUserProfile: UserProfile = {
@@ -28,10 +29,7 @@ export const defaultUserProfile: UserProfile = {
   tools: [],
   communicationPreferences: [],
   customStyle: '',
-}
-
-export function hasCompletedOnboardingProfile(profile?: Partial<UserProfile> | null): boolean {
-  return Boolean(profile && (profile.position || profile.role || profile.company))
+  onboardingCompleted: false,
 }
 
 const API_URL = import.meta.env.VITE_API_URL || ''
@@ -80,9 +78,10 @@ export async function fetchUserProfile(): Promise<UserProfile> {
         tools: data.tools || ['Slack', 'Notion', 'Gmail'],
         communicationPreferences: data.communicationPreferences || [],
         customStyle: data.customStyle || data.preferredStyle || '',
+        onboardingCompleted: data.onboardingCompleted === true,
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
-      if (hasCompletedOnboardingProfile(profile)) {
+      if (profile.onboardingCompleted) {
         completeOnboarding(profile.email)
       }
       window.dispatchEvent(new Event('profile-updated'))
@@ -140,30 +139,6 @@ export function resetUserProfile() {
   window.dispatchEvent(new Event('profile-updated'))
 }
 
-export function isOnboardingCompleted(email = ''): boolean {
-  const normalizedEmail = email.trim().toLowerCase()
-  if (normalizedEmail) {
-    const key = `onboarding.completed_${normalizedEmail}`
-    if (localStorage.getItem(key) === 'true') return true
-  }
-
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored) as Partial<UserProfile>
-      const storedEmail = String(parsed.email || '').trim().toLowerCase()
-      const sameAccount = !normalizedEmail || storedEmail === normalizedEmail
-      if (sameAccount && hasCompletedOnboardingProfile(parsed)) {
-        return true
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  return !normalizedEmail && localStorage.getItem('onboarding.completed') === 'true'
-}
-
 export function completeOnboarding(email = '') {
   const normalizedEmail = email.trim().toLowerCase()
   if (normalizedEmail) {
@@ -172,6 +147,24 @@ export function completeOnboarding(email = '') {
   } else {
     localStorage.setItem('onboarding.completed', 'true')
   }
+}
+
+export async function finishOnboarding(email = ''): Promise<void> {
+  const token = getAuthToken()
+  if (!token) throw new Error('로그인 정보가 없습니다. 다시 로그인해 주세요.')
+
+  const response = await fetch(`${API_URL}/api/users/me/onboarding`, {
+    method: 'PATCH',
+    headers: authorizationHeaders(),
+  })
+  if (!response.ok) {
+    throw new Error('온보딩 완료 상태를 저장하지 못했습니다. 다시 시도해 주세요.')
+  }
+
+  const profile = { ...getUserProfile(), onboardingCompleted: true }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
+  completeOnboarding(email || profile.email)
+  window.dispatchEvent(new Event('profile-updated'))
 }
 
 export function startOnboarding(email = '') {
@@ -185,10 +178,10 @@ export function startOnboarding(email = '') {
   window.dispatchEvent(new Event('profile-updated'))
 }
 
-export function skipOnboarding(email = '') {
+export async function skipOnboarding(email = ''): Promise<void> {
   localStorage.removeItem(STORAGE_KEY)
   ONBOARDING_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key))
   localStorage.setItem('onboarding.skipped', 'true')
-  completeOnboarding(email)
+  await finishOnboarding(email)
   window.dispatchEvent(new Event('profile-updated'))
 }

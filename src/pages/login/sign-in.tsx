@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import googleIcon from '../../images/google.png'
 import logo from '../../images/ieum-logo.png'
 import { authenticateAccount } from '../../users/auth'
-import { startOnboarding, isOnboardingCompleted, completeOnboarding, fetchUserProfile, hasCompletedOnboardingProfile } from '../../users/userProfile'
+import { startOnboarding, completeOnboarding, fetchUserProfile } from '../../users/userProfile'
 
 const INPUT_CLASS = [
   'h-12 w-full rounded-lg border-2 border-black/20 px-5 text-sm outline-none',
@@ -57,10 +57,8 @@ function SignInPage() {
     localStorage.removeItem('onboarding.gmail')
 
     const userProfile = await fetchUserProfile()
-    if (hasCompletedOnboardingProfile(userProfile)) {
+    if (userProfile.onboardingCompleted) {
       completeOnboarding(email)
-      navigate('/dashboard')
-    } else if (isOnboardingCompleted(email)) {
       navigate('/dashboard')
     } else {
       startOnboarding(email)
@@ -200,10 +198,8 @@ function SocialLoginSection() {
         }
 
         void fetchUserProfile().then((userProfile) => {
-          if (hasCompletedOnboardingProfile(userProfile)) {
+          if (userProfile.onboardingCompleted) {
             completeOnboarding(email)
-            navigate('/dashboard')
-          } else if (isOnboardingCompleted(email)) {
             navigate('/dashboard')
           } else {
             startOnboarding(email)

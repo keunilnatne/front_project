@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import completeImage from '../../images/onboarding-complete.png'
-import { getUserProfile, completeOnboarding } from '../../users/userProfile'
+import { getUserProfile, finishOnboarding } from '../../users/userProfile'
 
 const summaryItems = [
   { key: 'profile', label: '내 프로필 설정 완료' },
@@ -57,11 +58,18 @@ function SummaryIcon({ name }: { name: SummaryKey }) {
 
 function Complete() {
   const navigate = useNavigate()
+  const [isFinishing, setIsFinishing] = useState(false)
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     const profile = getUserProfile()
-    completeOnboarding(profile.email)
-    navigate('/dashboard')
+    setIsFinishing(true)
+    try {
+      await finishOnboarding(profile.email)
+      navigate('/dashboard')
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '온보딩 완료 상태를 저장하지 못했습니다.')
+      setIsFinishing(false)
+    }
   }
 
   return (
@@ -95,7 +103,7 @@ function Complete() {
           </ul>
         </section>
 
-        <button type="button" onClick={handleFinish} className="mt-10 flex h-[58px] w-full items-center justify-center gap-2 rounded-lg bg-white px-6 py-4 text-lg leading-[26px] text-[#5d5d5d] shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition hover:bg-[#fafafa] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#4338ca]/15">
+        <button type="button" onClick={handleFinish} disabled={isFinishing} className="mt-10 flex h-[58px] w-full items-center justify-center gap-2 rounded-lg bg-white px-6 py-4 text-lg leading-[26px] text-[#5d5d5d] shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition hover:bg-[#fafafa] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#4338ca]/15 disabled:cursor-wait disabled:opacity-60">
           첫 메시지 작성하기 <span aria-hidden="true" className="text-xl leading-none">→</span>
         </button>
       </div>
