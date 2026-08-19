@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import { fetchDashboardSummary } from '../users/dashboard'
 import { fetchNotices, getNotices, type NoticeItem } from '../users/notices'
+import { fetchTeamMemory } from '../users/teamMemory'
 
 import DocumentIcon from '../images/dashboard/DocumentImg.png'
 import DocumentInBox from '../images/dashboard/DocumentInBox.png'
@@ -13,10 +14,50 @@ type DashboardStats = {
   recipients: number
 }
 
+type TodayScheduleEvent = {
+  id: string
+  title: string
+  start: string
+  end: string
+  place: string
+  source: 'email' | 'manual'
+}
+
 const fallbackStats: DashboardStats = {
   sentMessages: 0,
   aiConversions: 0,
   recipients: 0,
+}
+
+function getDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function parseDeadline(raw?: string): { date: string; start: string; end: string } | null {
+  if (!raw) return null
+  const trimmed = raw.trim()
+  const match = trimmed.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/)
+  if (!match) return null
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(year, month - 1, day)
+  if (isNaN(date.getTime())) return null
+
+  const timeMatch = trimmed.match(/(오전|오후|AM|PM)?\s*(\d{1,2}):(\d{2})?/i)
+  if (!timeMatch) {
+    return { date: getDateKey(date), start: '종일', end: '' }
+  }
+  let hour = Number(timeMatch[2])
+  const minute = Number(timeMatch[3] || 0)
+  const period = timeMatch[1]?.toUpperCase()
+  if ((period === '오후' || period === 'PM') && hour < 12) hour += 12
+  if ((period === '오전' || period === 'AM') && hour === 12) hour = 0
+  const start = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+  const endDate = new Date(date)
+  endDate.setHours(hour, minute + 60)
+  const end = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
+  return { date: getDateKey(date), start, end }
 }
 
 export default function DashboardPage() {
@@ -27,6 +68,9 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('')
   const [showNews, setShowNews] = useState(false)
   const [notices, setNotices] = useState<NoticeItem[]>(getNotices())
+
+  const [todayEvents, setTodayEvents] = useState<TodayScheduleEvent[]>([])
+  const [teamScheduleLoading, setTeamScheduleLoading] = useState(false)
 
   useEffect(() => {
     void fetchNotices().then((data) => {
@@ -56,6 +100,38 @@ export default function DashboardPage() {
     }
     void loadStats()
     return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    const loadSchedule = async () => {
+      setTeamScheduleLoading(true)
+      try {
+        const patterns = await fetchTeamMemory()
+        const todayKey = getDateKey(new Date())
+        const events = patterns
+          .map((p) => {
+            const parsed = parseDeadline(p.deadline)
+            if (!parsed || parsed.date !== todayKey) return null
+            const isEmail = (p.reason || '').includes('이메일') || (p.reason || '').includes('email') || (p.attachmentName || '').includes('email')
+            return {
+              id: String(p.id),
+              title: p.title.trim() || p.request.trim() || '팀 일정',
+              start: parsed.start,
+              end: parsed.end,
+              place: p.reason && !p.reason.includes('직접 추가') && !p.reason.includes('이메일') && p.reason.length < 25 ? p.reason.trim() : '',
+              source: isEmail ? ('email' as const) : ('manual' as const),
+            }
+          })
+          .filter(Boolean) as TodayScheduleEvent[]
+        events.sort((a, b) => (a.start === '종일' ? -1 : b.start === '종일' ? 1 : a.start.localeCompare(b.start)))
+        setTodayEvents(events)
+      } catch {
+        // fallback
+      } finally {
+        setTeamScheduleLoading(false)
+      }
+    }
+    void loadSchedule()
   }, [])
 
   const guideItems = useMemo(
@@ -92,7 +168,6 @@ export default function DashboardPage() {
     navigate('/messages')
   }
 
-
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
       {/* 상단 검색 영역 */}
@@ -124,8 +199,6 @@ export default function DashboardPage() {
                   <span className="text-[18px]">♢</span>
                   새 메시지 작성
                 </button>
-
-
               </div>
             </div>
 
@@ -170,30 +243,132 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* 빈 메시지 영역 */}
-          <div className="mt-5.25 flex h-107.25 flex-col items-center justify-center rounded-xl border border-[#dedee4] bg-white">
-            <img
-              src={DocumentInBox}
-              alt=""
-              className="h-28.75 w-28.25 object-contain"
-            />
+          {/* 메시지 작성 유무에 따른 조건부 렌더링 */}
+          {stats.sentMessages === 0 ? (
+            /* 빈 메시지 영역 */
+            <div className="mt-5.25 flex h-107.25 flex-col items-center justify-center rounded-xl border border-[#dedee4] bg-white">
+              <img
+                src={DocumentInBox}
+                alt=""
+                className="h-28.75 w-28.25 object-contain"
+              />
 
-            <h2 className="mt-3.25 text-[17px] font-bold text-[#282328]">
-              아직 작성한 메시지가 없어요
-            </h2>
+              <h2 className="mt-3.25 text-[17px] font-bold text-[#282328]">
+                아직 작성한 메시지가 없어요
+              </h2>
 
-            <p className="mt-2 text-[13px] text-[#777]">
-              첫 메시지를 작성하고 스마트한 커뮤니케이션을 경험해보세요!
-            </p>
+              <p className="mt-2 text-[13px] text-[#777]">
+                첫 메시지를 작성하고 스마트한 커뮤니케이션을 경험해보세요!
+              </p>
 
-            <button
-              type="button"
-              onClick={handleCreateMessage}
-              className="mt-6 rounded-lg bg-[#f2efff] px-5 py-2.5 text-[12px] font-semibold text-[#6844e2] transition hover:bg-[#e9e4ff]"
-            >
-              첫 메시지 작성하기
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={handleCreateMessage}
+                className="mt-6 rounded-lg bg-[#f2efff] px-5 py-2.5 text-[12px] font-semibold text-[#6844e2] transition hover:bg-[#e9e4ff]"
+              >
+                첫 메시지 작성하기
+              </button>
+            </div>
+          ) : (
+            /* 오늘의 팀 일정 카드 */
+            <div className="mt-5.25 rounded-xl border border-[#dedee4] bg-white p-6 shadow-xs">
+              <div className="flex items-center justify-between border-b border-[#f0f0f4] pb-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f0edff] text-[18px] text-[#5531e8]">
+                    📅
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-[17px] font-bold text-[#282328]">
+                        오늘의 팀 일정
+                      </h2>
+                      <span className="rounded-full bg-[#f0edff] px-2.5 py-0.5 text-[11px] font-semibold text-[#5531e8]">
+                        {todayEvents.length}개
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-[#888] mt-0.5">
+                      {new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date())}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => navigate('/team-memory')}
+                  className="flex items-center gap-1 text-[12px] font-semibold text-[#5531e8] hover:underline cursor-pointer bg-[#f8f7ff] border border-[#e4ddff] px-3 py-1.5 rounded-lg transition hover:bg-[#eee9ff]"
+                >
+                  <span>팀 일정 전체보기</span>
+                  <span>→</span>
+                </button>
+              </div>
+
+              <div className="mt-5">
+                {teamScheduleLoading ? (
+                  <div className="py-12 text-center text-[13px] text-[#999]">일정을 불러오는 중입니다...</div>
+                ) : todayEvents.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f8f9fc] text-xl">☕</div>
+                    <p className="mt-3 text-[14px] font-semibold text-[#444]">오늘 예정된 팀 일정이 없습니다</p>
+                    <p className="mt-1 text-[12px] text-[#888]">여유롭고 집중도 높은 하루를 보내세요!</p>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/team-memory')}
+                      className="mt-4 rounded-lg bg-[#f0edff] px-4 py-2 text-[12px] font-semibold text-[#5531e8] hover:bg-[#e7e1ff] transition cursor-pointer"
+                    >
+                      + 새 일정 추가하러 가기
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {todayEvents.map((evt) => (
+                      <div
+                        key={evt.id}
+                        onClick={() => navigate('/team-memory')}
+                        className="group flex items-center justify-between rounded-xl border border-[#e8e8ed] bg-[#fafafc] p-4 transition hover:border-[#cfc7ff] hover:bg-[#f6f4ff] cursor-pointer shadow-2xs"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0 pr-2">
+                          <div className="flex flex-col items-center justify-center rounded-lg bg-white border border-[#e2e2e8] px-3 py-1.5 text-center shrink-0 min-w-[72px]">
+                            <span className="text-[12px] font-bold text-[#5531e8]">
+                              {evt.start}
+                            </span>
+                            {evt.end && evt.end !== evt.start && (
+                              <span className="text-[10px] text-[#888]">~ {evt.end}</span>
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="text-[14px] font-bold text-[#222] truncate group-hover:text-[#5531e8] transition">
+                              {evt.title}
+                            </p>
+                            {evt.place && (
+                              <p className="mt-0.5 text-[11px] text-[#777] truncate flex items-center gap-1">
+                                <span>📍</span> {evt.place}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {evt.source === 'email' ? (
+                            <span className="rounded-md bg-[#ecfdf5] border border-[#a7f3d0] px-2 py-0.5 text-[10px] font-semibold text-[#059669]">
+                              이메일 연동
+                            </span>
+                          ) : (
+                            <span className="rounded-md bg-[#f0edff] border border-[#dcd6fa] px-2 py-0.5 text-[10px] font-semibold text-[#5531e8]">
+                              직접 추가
+                            </span>
+                          )}
+                          <span className="text-[13px] text-[#bbb] group-hover:text-[#5531e8] group-hover:translate-x-0.5 transition-all">
+                            →
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* 오른쪽 */}

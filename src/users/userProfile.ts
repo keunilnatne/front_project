@@ -8,6 +8,7 @@ export type UserProfile = {
   language?: string
   timezone?: string
   workHours: string
+  lunchHours?: string
   tools: string[]
   communicationPreferences: string[]
   customStyle: string
@@ -23,6 +24,7 @@ export const defaultUserProfile: UserProfile = {
   language: 'Korean',
   timezone: 'Asia/Seoul',
   workHours: '09:00 - 18:00',
+  lunchHours: '12:00 - 13:00',
   tools: [],
   communicationPreferences: [],
   customStyle: '',
@@ -70,6 +72,7 @@ export async function fetchUserProfile(): Promise<UserProfile> {
         language: data.language || data.defaultLanguage || 'Korean',
         timezone: data.timezone || 'Asia/Seoul',
         workHours: data.workHours || '09:00 - 18:00',
+        lunchHours: data.lunchHours || '12:00 - 13:00',
         tools: data.tools || ['Slack', 'Notion', 'Gmail'],
         communicationPreferences: data.communicationPreferences || [],
         customStyle: data.customStyle || data.preferredStyle || '',
@@ -113,6 +116,7 @@ export async function saveUserProfile(profile: Partial<UserProfile>): Promise<Us
           language: updated.language,
           timezone: updated.timezone,
           workHours: updated.workHours,
+          lunchHours: updated.lunchHours,
           tools: updated.tools,
           communicationPreferences: updated.communicationPreferences,
           preferredStyle: updated.customStyle || (updated.communicationPreferences?.join(', ') ?? ''),

@@ -63,6 +63,9 @@ function MyProfilePage() {
   const [editStartHour, setEditStartHour] = useState('09:00')
   const [editEndHour, setEditEndHour] = useState('18:00')
   const [isFlexibleWork, setIsFlexibleWork] = useState(false)
+  const [editLunchStartHour, setEditLunchStartHour] = useState('12:00')
+  const [editLunchEndHour, setEditLunchEndHour] = useState('13:00')
+  const [isNoLunchTime, setIsNoLunchTime] = useState(false)
   const [editPreferences, setEditPreferences] = useState<string[]>([])
   const [editCustomStyle, setEditCustomStyle] = useState('')
 
@@ -99,6 +102,18 @@ function MyProfilePage() {
       setEditEndHour(parts[1] || '18:00')
     }
 
+    const rawLunch = p.lunchHours || '12:00 - 13:00'
+    if (rawLunch === '미설정' || rawLunch === '없음') {
+      setIsNoLunchTime(true)
+      setEditLunchStartHour('12:00')
+      setEditLunchEndHour('13:00')
+    } else {
+      setIsNoLunchTime(false)
+      const lparts = rawLunch.split(/[-~]/).map((s) => s.trim())
+      setEditLunchStartHour(lparts[0] || '12:00')
+      setEditLunchEndHour(lparts[1] || '13:00')
+    }
+
     setEditPreferences(p.communicationPreferences || [])
     setEditCustomStyle(p.customStyle || '')
     setIsEditModalOpen(true)
@@ -107,6 +122,7 @@ function MyProfilePage() {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     const finalWorkHours = isFlexibleWork ? '자율 근무' : `${editStartHour} - ${editEndHour}`
+    const finalLunchHours = isNoLunchTime ? '미설정' : `${editLunchStartHour} - ${editLunchEndHour}`
     await saveUserProfile({
       name: editName.trim(),
       company: editCompany.trim(),
@@ -116,6 +132,7 @@ function MyProfilePage() {
       language: editLanguage,
       timezone: editTimezone,
       workHours: finalWorkHours,
+      lunchHours: finalLunchHours,
       communicationPreferences: editPreferences,
       customStyle: editCustomStyle.trim(),
     })
@@ -197,6 +214,7 @@ function MyProfilePage() {
                   ['직무', profile.role],
                   ['직급', profile.position],
                   ['업무 시간', profile.workHours || '09:00 - 18:00'],
+                  ['점심 시간', profile.lunchHours || '12:00 - 13:00'],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-4">
                     <dt className="text-[#888]">{label}</dt>
@@ -235,19 +253,6 @@ function MyProfilePage() {
               </div>
               {profile.customStyle && <p className="mt-3 rounded-lg bg-[#f8f7ff] p-3 text-xs text-[#675f5a]">
                 추가 스타일: {profile.customStyle}</p>}
-              <div className="mt-4 rounded-lg px-4 pt-6 pb-4">
-                <div className="flex justify-between text-xs"><span>AI 스타일 모델 완성도</span>
-                <strong className="text-[#4338ca]">{analytics.modelCompleteness}%</strong></div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#ddc1ae4d]" role="progressbar" 
-                aria-label="AI 스타일 모델 완성도" aria-valuemin={0} aria-valuemax={100} aria-valuenow={analytics.modelCompleteness}>
-                  <div className="h-full rounded-full bg-[#4338ca] transition-[width] duration-500 ease-out" 
-                  style={{ width: `${analytics.modelCompleteness}%` }} />
-                </div>
-                <p className="pt-3 text-xs text-[#786f69]">{analytics.analyzedMessageCount === 0 ? 
-                '대화 데이터가 쌓이면 AI가 커뮤니케이션 스타일을 분석합니다.' : '최근 30일 동안 작성한 메시지 데이터를 기반으로 프로파일이 최적화되었습니다.'}</p>
-                <div className="pt-3 text-right">
-                  <button type="button" onClick={() => setIsLearningManagerOpen(true)} className="h-8 rounded-lg bg-[#4338ca] px-4 text-xs font-semibold text-white shadow-sm hover:bg-[#35248f]">학습 데이터 관리 →</button></div>
-              </div>
             </section>
 
             <section className="rounded-xl border border-[#d5d5d5] bg-white p-6 shadow-xs">
@@ -454,6 +459,95 @@ function MyProfilePage() {
                 ) : (
                   <div className="rounded-lg border border-[#d8d2f5] bg-[#f8f6ff] p-2.5 text-center text-xs text-[#5531e8] font-medium">
                     ✨ 정해진 출퇴근 시간 없이 자율적으로 근무합니다.
+                  </div>
+                )}
+              </div>
+
+              {/* 점심 시간 설정 */}
+              <div className="rounded-xl border border-[#e4e4ed] bg-[#fafafc] p-3.5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-semibold text-[#444] flex items-center gap-1.5 text-xs">
+                    <svg className="w-3.5 h-3.5 text-[#5531e8]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    점심 시간 (휴게 시간)
+                  </span>
+                  {!isNoLunchTime && (
+                    <span className="text-[11px] font-semibold text-[#5531e8] bg-[#eeebff] px-2 py-0.5 rounded-full">
+                      총 {calculateDuration(editLunchStartHour, editLunchEndHour)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5 mb-2.5">
+                  {[
+                    { label: '12:00 - 13:00', start: '12:00', end: '13:00', sub: '기본형' },
+                    { label: '12:30 - 13:30', start: '12:30', end: '13:30', sub: '30분 늦게' },
+                    { label: '13:00 - 14:00', start: '13:00', end: '14:00', sub: '1시간 늦게' },
+                    { label: '미설정', start: '미설정', end: '', sub: '휴게 미지정' },
+                  ].map((preset) => {
+                    const isSelected = preset.start === '미설정'
+                      ? isNoLunchTime
+                      : (!isNoLunchTime && editLunchStartHour === preset.start && editLunchEndHour === preset.end)
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          if (preset.start === '미설정') {
+                            setIsNoLunchTime(true)
+                          } else {
+                            setIsNoLunchTime(false)
+                            setEditLunchStartHour(preset.start)
+                            setEditLunchEndHour(preset.end)
+                          }
+                        }}
+                        className={`py-1.5 px-1 rounded-lg text-[11px] transition text-center font-medium cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#5531e8] text-white shadow-xs font-semibold'
+                            : 'bg-white border border-[#dedee5] text-[#555] hover:bg-[#f0f0f5]'
+                        }`}
+                      >
+                        <div className="truncate text-[10px]">{preset.label}</div>
+                        <div className={`text-[9px] ${isSelected ? 'text-white/80' : 'text-[#888]'}`}>{preset.sub}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {!isNoLunchTime ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-[#e0e0e8] bg-white p-2.5">
+                    <div className="flex-1">
+                      <span className="block text-[10px] text-[#777] mb-1 font-medium">시작 (점심시간 시작)</span>
+                      <select
+                        value={editLunchStartHour}
+                        onChange={(e) => setEditLunchStartHour(e.target.value)}
+                        className="w-full h-8 rounded-md border border-[#dedee5] bg-white px-2 text-xs font-medium text-[#333] outline-none focus:border-[#5531e8]"
+                      >
+                        {TIME_OPTIONS.map((t) => (
+                          <option key={`lunch-s-${t}`} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <span className="text-[#888] font-bold text-sm pt-4">~</span>
+
+                    <div className="flex-1">
+                      <span className="block text-[10px] text-[#777] mb-1 font-medium">종료 (점심시간 종료)</span>
+                      <select
+                        value={editLunchEndHour}
+                        onChange={(e) => setEditLunchEndHour(e.target.value)}
+                        className="w-full h-8 rounded-md border border-[#dedee5] bg-white px-2 text-xs font-medium text-[#333] outline-none focus:border-[#5531e8]"
+                      >
+                        {TIME_OPTIONS.map((t) => (
+                          <option key={`lunch-e-${t}`} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-[#d8d2f5] bg-[#f8f6ff] p-2.5 text-center text-xs text-[#5531e8] font-medium">
+                    ☕ 별도의 점심시간을 지정하지 않습니다.
                   </div>
                 )}
               </div>

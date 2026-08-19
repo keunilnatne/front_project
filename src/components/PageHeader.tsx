@@ -340,37 +340,6 @@ export default function PageHeader({
             </div>
           )}
         </div>
-
-        <button
-          type="button"
-          aria-label="도움말"
-          title="도움말"
-          style={iconButtonStyle}
-          onClick={() =>
-            window.alert(
-              '검색어를 입력하면 해당 페이지의 검색 기능을 이용할 수 있습니다.',
-            )
-          }
-        >
-          <span
-            aria-hidden="true"
-            style={{
-              width: 18,
-              height: 18,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid currentColor',
-              borderRadius: '50%',
-              fontSize: 11,
-              fontWeight: 600,
-              lineHeight: 1,
-              boxSizing: 'border-box',
-            }}
-          >
-            ?
-          </span>
-        </button>
       </div>
     </header>
   )

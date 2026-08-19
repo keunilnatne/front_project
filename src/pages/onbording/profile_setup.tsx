@@ -49,6 +49,11 @@ function ProfileSetup() {
   const [startHour, setStartHour] = useState(parts[0] || '09:00')
   const [endHour, setEndHour] = useState(parts[1] || '18:00')
 
+  const rawLunch = profile.lunchHours || '12:00 - 13:00'
+  const lunchParts = rawLunch.split(/[-~]/).map((s) => s.trim())
+  const [lunchStartHour, setLunchStartHour] = useState(lunchParts[0] || '12:00')
+  const [lunchEndHour, setLunchEndHour] = useState(lunchParts[1] || '13:00')
+
   const onCountryChange = (countryName: string) => {
     setSelectedCountry(countryName)
     const info = getCountryInfo(countryName)
@@ -63,6 +68,7 @@ function ProfileSetup() {
       ? String(form.get('customRole')).trim()
       : selectedRole || profile.role
     const workHours = `${startHour} - ${endHour}`
+    const lunchHours = `${lunchStartHour} - ${lunchEndHour}`
     await saveUserProfile({
       name: String(form.get('name')),
       company: String(form.get('company')),
@@ -72,6 +78,7 @@ function ProfileSetup() {
       timezone: selectedTimezone,
       role,
       workHours,
+      lunchHours,
     })
     localStorage.setItem('onboarding.profile', 'true')
     navigate('/communication')
@@ -110,6 +117,28 @@ function ProfileSetup() {
                     className="h-9.5 flex-1 rounded-md border border-[#ddc1ae] bg-white px-2 text-xs font-medium text-[#564334] outline-none focus:border-[#5b3df5]"
                   >
                     {TIME_OPTIONS.map((t) => <option key={`onboard-e-${t}`} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </Field>
+            </div>
+
+            <div className="mt-4">
+              <Field label="점심 시간 (휴게 시간)">
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={lunchStartHour}
+                    onChange={(e) => setLunchStartHour(e.target.value)}
+                    className="h-9.5 flex-1 rounded-md border border-[#ddc1ae] bg-white px-2 text-xs font-medium text-[#564334] outline-none focus:border-[#5b3df5]"
+                  >
+                    {TIME_OPTIONS.map((t) => <option key={`onboard-ls-${t}`} value={t}>{t}</option>)}
+                  </select>
+                  <span className="text-[#888] font-semibold text-xs">~</span>
+                  <select
+                    value={lunchEndHour}
+                    onChange={(e) => setLunchEndHour(e.target.value)}
+                    className="h-9.5 flex-1 rounded-md border border-[#ddc1ae] bg-white px-2 text-xs font-medium text-[#564334] outline-none focus:border-[#5b3df5]"
+                  >
+                    {TIME_OPTIONS.map((t) => <option key={`onboard-le-${t}`} value={t}>{t}</option>)}
                   </select>
                 </div>
               </Field>
