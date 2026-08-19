@@ -11,6 +11,16 @@ export type Recipient = {
   responseSpeed?: '빠름' | '보통' | '느림' | string | null
   averageResponseMinutes?: number | null
   collaborationActivity?: 'High' | 'Medium' | 'Low' | string | null
+  responseSampleCount?: number
+  responseRate?: number | null
+  responseOpportunityCount?: number
+  sentCount?: number
+  receivedCount?: number
+  interactionCount?: number
+  collaborationScore?: number | null
+  responseBaselineMinutes?: number | null
+  metricsWindowDays?: number
+  responseWindowDays?: number
   isOnline: boolean
   isFavorite: boolean
   isRecent: boolean
@@ -63,6 +73,22 @@ function normalizeRecipient(item: any): Recipient {
     responseSpeed: speed || null,
     averageResponseMinutes: avgMinutes,
     collaborationActivity: item.collaborationActivity || null,
+    responseSampleCount: Number(item.responseSampleCount) || 0,
+    responseRate: item.responseRate !== null && item.responseRate !== undefined
+      ? Number(item.responseRate)
+      : null,
+    responseOpportunityCount: Number(item.responseOpportunityCount) || 0,
+    sentCount: Number(item.sentCount) || 0,
+    receivedCount: Number(item.receivedCount) || 0,
+    interactionCount: Number(item.interactionCount) || 0,
+    collaborationScore: item.collaborationScore !== null && item.collaborationScore !== undefined
+      ? Number(item.collaborationScore)
+      : null,
+    responseBaselineMinutes: item.responseBaselineMinutes !== null && item.responseBaselineMinutes !== undefined
+      ? Number(item.responseBaselineMinutes)
+      : null,
+    metricsWindowDays: Number(item.metricsWindowDays) || 90,
+    responseWindowDays: Number(item.responseWindowDays) || 7,
     isOnline: Boolean(item.isOnline),
     isFavorite: Boolean(item.isFavorite),
     isRecent: item.isRecent !== undefined ? Boolean(item.isRecent) : true,

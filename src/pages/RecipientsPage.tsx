@@ -42,6 +42,24 @@ function formatLanguage(language?: string): string {
   return language
 }
 
+function formatResponseDuration(minutes?: number | null): string {
+  if (minutes === null || minutes === undefined || !Number.isFinite(minutes)) return '-'
+  if (minutes < 60) return `${Math.max(1, Math.round(minutes))}분`
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = Math.round(minutes % 60)
+  if (hours < 24) return remainingMinutes ? `${hours}시간 ${remainingMinutes}분` : `${hours}시간`
+  const days = Math.floor(hours / 24)
+  const remainingHours = hours % 24
+  return remainingHours ? `${days}일 ${remainingHours}시간` : `${days}일`
+}
+
+function formatCollaborationActivity(activity?: string | null): string {
+  if (activity === 'High') return '높음'
+  if (activity === 'Medium') return '보통'
+  if (activity === 'Low') return '낮음'
+  return '-'
+}
+
 type TabId = 'all' | 'favorite' | 'recent'
 
 type CollaborationModalProps = {
@@ -1180,9 +1198,6 @@ function RecipientsPage() {
         language: newRecipient.language.trim() || 'Korean',
         timezone: newRecipient.timezone.trim() || 'Asia/Seoul',
         organizationRelation: newRecipient.organizationRelation.trim() || '팀원',
-        responseSpeed: '보통',
-        averageResponseMinutes: 0,
-        collaborationActivity: 'Medium',
         isOnline: false,
         isFavorite: false,
         isRecent: true,
@@ -1667,7 +1682,7 @@ function RecipientsPage() {
                 <div className="flex items-center gap-2">
                   <span className="w-16 shrink-0 text-[12px] font-medium text-[#7b7b84]">응답 속도</span>
                   <span className="font-medium text-[#3b3c48]">
-                    {selectedRecipient.responseSpeed ? `${selectedRecipient.responseSpeed}${selectedRecipient.averageResponseMinutes ? ` (평균 ${selectedRecipient.averageResponseMinutes}분)` : ''}` : '-'}
+                    {selectedRecipient.responseSpeed ? `${selectedRecipient.responseSpeed}${selectedRecipient.averageResponseMinutes ? ` (평균 ${formatResponseDuration(selectedRecipient.averageResponseMinutes)})` : ''}` : '-'}
                   </span>
                 </div>
               </div>
@@ -1724,25 +1739,18 @@ function RecipientsPage() {
                   </span>
 
                   <h3 className="text-[16px] font-semibold text-[#292b38]">
-                    Response Time Metrics
+                    응답 시간 지표
                   </h3>
                 </div>
                 <span className="text-[10px] text-[#8a8790]">
-                  {selectedRecipient.averageResponseMinutes || selectedRecipient.responseSpeed ? '분석 데이터 반영됨' : '데이터 집계 대기 중'}
+                  {(selectedRecipient.responseSampleCount || 0) > 0 ? '실제 메일 이력 반영됨' : '데이터 집계 대기 중'}
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-5">
                 <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#4c3ddd]">
-                    {selectedRecipient.averageResponseMinutes ? (
-                      <>
-                        {selectedRecipient.averageResponseMinutes}
-                        <span className="ml-1 text-[14px]">min</span>
-                      </>
-                    ) : (
-                      <span className="text-[20px] text-[#9ca3af]">-</span>
-                    )}
+                    {formatResponseDuration(selectedRecipient.averageResponseMinutes)}
                   </div>
 
                   <p className="mt-1 text-[11px] text-[#8d8e96]">
@@ -1752,13 +1760,7 @@ function RecipientsPage() {
 
                 <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#7a57ee]">
-                    {selectedRecipient.responseSpeed === '빠름'
-                      ? 'Fast'
-                      : selectedRecipient.responseSpeed === '느림'
-                        ? 'Slow'
-                        : selectedRecipient.responseSpeed === '보통'
-                          ? 'Normal'
-                          : <span className="text-[20px] text-[#9ca3af]">-</span>}
+                    {selectedRecipient.responseSpeed || <span className="text-[20px] text-[#9ca3af]">-</span>}
                   </div>
 
                   <p className="mt-1 text-[11px] text-[#8d8e96]">
@@ -1768,7 +1770,7 @@ function RecipientsPage() {
 
                 <div className="flex h-[92px] flex-col items-center justify-center rounded-[18px] bg-[#f8f9fb]">
                   <div className="text-[25px] font-medium text-[#9a58ed]">
-                    {selectedRecipient.collaborationActivity || (selectedRecipient.averageResponseMinutes ? 'Medium' : <span className="text-[20px] text-[#9ca3af]">-</span>)}
+                    {formatCollaborationActivity(selectedRecipient.collaborationActivity)}
                   </div>
 
                   <p className="mt-1 text-[11px] text-[#8d8e96]">
@@ -1777,14 +1779,10 @@ function RecipientsPage() {
                 </div>
               </div>
 
-              <div className="mt-5 rounded-full bg-[#f6f7f9] px-5 py-3 text-center text-[11px] text-[#777880]">
-                {selectedRecipient.responseSpeed === '빠름'
-                  ? '업무시간 중 메시지를 확인하면 비교적 빠르게 응답하는 편입니다.'
-                  : selectedRecipient.responseSpeed === '느림'
-                    ? '응답까지 시간이 걸릴 수 있어 미리 일정을 공유하는 것이 좋습니다.'
-                    : selectedRecipient.responseSpeed === '보통'
-                      ? '일반적인 업무시간 내에 응답하는 편입니다.'
-                      : '메시지 송수신 데이터가 누적되면 AI가 수신자의 응답 속도와 협업 패턴을 자동으로 분석합니다.'}
+              <div className="mt-5 rounded-2xl bg-[#f6f7f9] px-5 py-3 text-center text-[11px] leading-5 text-[#777880]">
+                {(selectedRecipient.responseSampleCount || 0) > 0
+                  ? `최근 ${selectedRecipient.metricsWindowDays || 90}일 기준 · ${selectedRecipient.responseWindowDays || 7}일 이내 응답 ${selectedRecipient.responseSampleCount}건 · 응답률 ${selectedRecipient.responseRate ?? 0}% · 내 전체 수신자 기준 ${formatResponseDuration(selectedRecipient.responseBaselineMinutes)}`
+                  : `최근 ${selectedRecipient.metricsWindowDays || 90}일 동안 이음에서 보낸 메일에 대한 ${selectedRecipient.responseWindowDays || 7}일 이내 회신이 쌓이면 자동 계산됩니다.`}
               </div>
             </div>
           </div>
