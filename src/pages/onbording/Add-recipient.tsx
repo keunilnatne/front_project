@@ -55,6 +55,8 @@ function AddRecipient() {
   const [submitting, setSubmitting] = useState(false)
   const [lookupLoading, setLookupLoading] = useState(false)
   const [lookupMessage, setLookupMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [showLookupModal, setShowLookupModal] = useState(false)
+  const [lookupEmail, setLookupEmail] = useState('')
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -79,15 +81,28 @@ function AddRecipient() {
     setTimezone(info.defaultTimezone)
   }
 
+  const openLookupModal = () => {
+    setLookupEmail(email)
+    setLookupMessage(null)
+    setShowLookupModal(true)
+  }
+
+  const closeLookupModal = () => {
+    if (lookupLoading) return
+    setShowLookupModal(false)
+    setLookupMessage(null)
+  }
+
   const handleLookupProfile = async () => {
-    if (!email || !email.includes('@')) {
+    const targetEmail = lookupEmail.trim().toLowerCase()
+    if (!targetEmail || !targetEmail.includes('@')) {
       setLookupMessage({ type: 'error', text: '올바른 이메일 주소를 입력해 주세요.' })
       return
     }
     setLookupLoading(true)
     setLookupMessage(null)
     try {
-      const found = await fetchRecipientByEmail(email)
+      const found = await fetchRecipientByEmail(targetEmail)
       const rawComm = found.communicationStyle as unknown
       const commStyles = Array.isArray(rawComm) && rawComm.length
         ? (rawComm as string[])
@@ -96,6 +111,7 @@ function AddRecipient() {
           : (found.preferredStyle ? found.preferredStyle.split(',').map((s: string) => s.trim()).filter(Boolean) : []))
 
       if (found.name) setName(found.name)
+      setEmail(found.email || targetEmail)
       if (found.role) setRole(found.role)
       if (found.company) setCompany(found.company)
       if (found.country) {
@@ -117,6 +133,7 @@ function AddRecipient() {
         type: 'success',
         text: `가입된 회원 정보를 불러왔습니다: ${found.name || '이름 미설정'} (${found.company || '회사 미설정'})`,
       })
+      setShowLookupModal(false)
     } catch {
       setLookupMessage({
         type: 'error',
@@ -200,11 +217,10 @@ function AddRecipient() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleLookupProfile}
-                  disabled={lookupLoading}
+                  onClick={openLookupModal}
                   className="rounded-lg border border-[#5b3df5]/30 bg-[#f4f2ff] px-3 py-1.5 text-[11px] font-semibold text-[#5b3df5] transition hover:bg-[#eae6ff] active:scale-95 disabled:opacity-50"
                 >
-                  {lookupLoading ? '조회 중...' : '🔍 이메일로 프로필 불러오기'}
+                  🔍 이메일로 프로필 불러오기
                 </button>
               </div>
             </div>
@@ -379,6 +395,92 @@ function AddRecipient() {
           </div>
         </form>
       </div>
+
+      {showLookupModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/35 px-4"
+          onMouseDown={closeLookupModal}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="email-profile-lookup-title"
+            className="my-8 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="email-profile-lookup-title" className="text-[18px] font-semibold text-[#282328]">
+                  이메일로 프로필 불러오기
+                </h2>
+                <p className="mt-0.5 text-[12px] text-[#716b78]">
+                  이음에 가입된 동료의 이메일을 입력하면 프로필 정보를 자동으로 채웁니다.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeLookupModal}
+                disabled={lookupLoading}
+                aria-label="프로필 불러오기 창 닫기"
+                className="text-xl text-[#888] hover:text-[#333] disabled:opacity-40"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-[#e2e0fb] bg-[#f8f7ff] p-4">
+              <label htmlFor="profile-lookup-email" className="block text-[11px] font-semibold text-[#4f46e5]">
+                동료 이메일
+              </label>
+              <div className="mt-2 flex items-center gap-2 max-sm:flex-col">
+                <input
+                  id="profile-lookup-email"
+                  type="email"
+                  value={lookupEmail}
+                  onChange={(event) => {
+                    setLookupEmail(event.target.value)
+                    if (lookupMessage) setLookupMessage(null)
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      void handleLookupProfile()
+                    }
+                  }}
+                  autoFocus
+                  placeholder="name@company.com"
+                  className="h-10 min-w-0 flex-1 rounded-lg border border-[#d8d5f5] bg-white px-3 text-[12px] outline-none placeholder:text-[#999] focus:border-[#4f46e5] max-sm:w-full"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleLookupProfile()}
+                  disabled={lookupLoading}
+                  className="h-10 shrink-0 rounded-lg bg-[#4f46e5] px-4 text-[12px] font-medium text-white transition hover:bg-[#4338ca] disabled:cursor-wait disabled:opacity-50 max-sm:w-full"
+                >
+                  {lookupLoading ? '조회 중...' : '불러오기'}
+                </button>
+              </div>
+
+              {lookupMessage && (
+                <p className={`mt-3 text-[11px] font-medium ${lookupMessage.type === 'error' ? 'text-[#d97706]' : 'text-[#16a34a]'}`}>
+                  {lookupMessage.text}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={closeLookupModal}
+                disabled={lookupLoading}
+                className="h-9 rounded-lg border border-[#dddde3] px-4 text-[12px] font-medium text-[#5d5565] hover:bg-[#f7f7fa] disabled:opacity-40"
+              >
+                취소
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   )
 }

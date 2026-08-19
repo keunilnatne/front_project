@@ -36,7 +36,7 @@ export function authorizationHeaders(): Record<string, string> {
 
 export function handle401Unauthorized(): void {
   clearAuthToken()
-  if (typeof window !== 'undefined' && window.location.pathname !== '/sign-in') {
-    window.location.href = '/sign-in'
+  if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+    window.location.href = '/login'
   }
 }

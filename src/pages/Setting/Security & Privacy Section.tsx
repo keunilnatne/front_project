@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { authorizationHeaders, clearAuthToken, getAuthToken } from '../../users/authStorage'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -17,9 +18,7 @@ function SecurityPrivacySection() {
     if (!window.confirm('모든 활동 및 학습 데이터를 정말 삭제하시겠습니까?')) return
 
     setIsProcessing(true)
-    const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken') || ''
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (token) headers['Authorization'] = `Bearer ${token}`
+    const headers = { 'Content-Type': 'application/json', ...authorizationHeaders() }
 
     try {
       await fetch(`${API_URL}/api/users/me/reset-personalization`, {
@@ -40,10 +39,14 @@ function SecurityPrivacySection() {
   const deleteAccount = async () => {
     if (!window.confirm('계정을 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return
 
+    if (!getAuthToken()) {
+      window.alert('로그인 세션이 없습니다. 다시 로그인한 뒤 계정 삭제를 진행해 주세요.')
+      navigate('/login', { replace: true })
+      return
+    }
+
     setIsProcessing(true)
-    const token = localStorage.getItem('ieum.token') || localStorage.getItem('ieum.accessToken') || ''
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (token) headers['Authorization'] = `Bearer ${token}`
+    const headers = { 'Content-Type': 'application/json', ...authorizationHeaders() }
 
     try {
       const response = await fetch(`${API_URL}/api/users/me`, {
@@ -52,6 +55,13 @@ function SecurityPrivacySection() {
       })
 
       if (!response.ok) {
+        if (response.status === 401) {
+          clearAuthToken()
+          window.alert('로그인 세션이 만료되었습니다. 다시 로그인한 뒤 계정 삭제를 진행해 주세요.')
+          navigate('/login', { replace: true })
+          return
+        }
+
         const data = await response.json().catch(() => null) as {
           message?: string
           error?: { message?: string }
