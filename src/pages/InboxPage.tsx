@@ -6,6 +6,7 @@ import {
   downloadInboxAttachment,
   getGmailStatus,
   getCachedInboxMessages,
+  extractScheduleFromAi,
   type InboxMessage,
   type GmailStatus,
 } from '../users/inbox'
@@ -56,50 +57,6 @@ export type ScheduleInfo = {
   source: string
 }
 
-function extractScheduleFromEmail(msg: InboxMessage): ScheduleInfo {
-  const content = msg.body || msg.snippet || ''
-  const lines = content.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-  
-  const scheduleRegex = /(?:내일|오늘|모레|\d{1,2}월\s*\d{1,2}일|\d{1,2}\/\d{1,2}|[월화수목금토일]요일|오전|오후|\d{1,2}시|마감|회의|미팅|일정|까지)/i
-  const matchedLine = lines.find((l) => scheduleRegex.test(l)) || lines[0] || msg.subject || '일정 확인 부탁드립니다.'
-
-  let title = msg.subject.replace(/^(?:Re:\s*|Fwd:\s*|\[.*?\]\s*)+/i, '').trim()
-  if (!title) title = '업무 일정'
-
-  let dateTime = '8.18 오후 3:00'
-  const dateMatch = content.match(/(\d{1,2})월\s*(\d{1,2})일/)
-  const timeMatch = content.match(/(오전|오후)\s*(\d{1,2})(?:시|:(\d{2}))?/)
-  
-  if (dateMatch && timeMatch) {
-    dateTime = `${dateMatch[1]}.${dateMatch[2]} ${timeMatch[1]} ${timeMatch[2]}:${timeMatch[3] || '00'}`
-  } else if (dateMatch) {
-    dateTime = `${dateMatch[1]}.${dateMatch[2]} 오후 2:00`
-  } else if (timeMatch) {
-    dateTime = `내일 ${timeMatch[1]} ${timeMatch[2]}:${timeMatch[3] || '00'}`
-  } else if (msg.date) {
-    try {
-      const d = new Date(msg.date)
-      if (!isNaN(d.getTime())) {
-        const month = d.getMonth() + 1
-        const day = d.getDate()
-        const hours = d.getHours()
-        const ampm = hours >= 12 ? '오후' : '오전'
-        const h12 = hours % 12 || 12
-        dateTime = `${month}.${day} ${ampm} ${h12}:00`
-      }
-    } catch {
-      // fallback
-    }
-  }
-
-  return {
-    quote: matchedLine.slice(0, 120),
-    title,
-    dateTime,
-    source: '메일 내용 기반',
-  }
-}
-
 export default function InboxPage() {
   const navigate = useNavigate()
   const [messages, setMessages] = useState<InboxMessage[]>(() => getCachedInboxMessages())
@@ -115,12 +72,33 @@ export default function InboxPage() {
   const [notConnected, setNotConnected] = useState(false)
   const [copied, setCopied] = useState(false)
   const [scheduleCard, setScheduleCard] = useState<ScheduleInfo | null>(null)
+  const [scheduleLoading, setScheduleLoading] = useState(false)
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('팀 일정에 추가되었어요.')
 
-  const handleRecommendSchedule = (msg: InboxMessage) => {
-    const info = extractScheduleFromEmail(msg)
-    setScheduleCard(info)
+  const handleRecommendSchedule = async (msg: InboxMessage) => {
+    setScheduleLoading(true)
+    try {
+      const result = await extractScheduleFromAi(msg)
+      if (!result.hasSchedule) {
+        setToastMessage('이 메일에는 마감 또는 회의 일정이 포함되어 있지 않습니다.')
+        setShowToast(true)
+        setTimeout(() => setShowToast(false), 4000)
+      } else {
+        setScheduleCard({
+          quote: result.quote,
+          title: result.title,
+          dateTime: result.dateTime,
+          source: result.source,
+        })
+      }
+    } catch {
+      setToastMessage('일정 분석에 실패했습니다. 다시 시도해주세요.')
+      setShowToast(true)
+      setTimeout(() => setShowToast(false), 4000)
+    } finally {
+      setScheduleLoading(false)
+    }
   }
 
   const handleAddSchedule = () => {
@@ -427,16 +405,28 @@ export default function InboxPage() {
                         {/* Button 1: AI 일정 추천 */}
                         <button
                           type="button"
-                          onClick={() => handleRecommendSchedule(selectedDetail)}
-                          className="flex items-center gap-1.5 rounded-lg bg-[#5338ec] px-4 py-2 text-[12px] font-semibold text-white shadow-xs transition hover:bg-[#432bc6] cursor-pointer"
+                          onClick={() => void handleRecommendSchedule(selectedDetail)}
+                          disabled={scheduleLoading}
+                          className="flex items-center gap-1.5 rounded-lg bg-[#5338ec] px-4 py-2 text-[12px] font-semibold text-white shadow-xs transition hover:bg-[#432bc6] disabled:opacity-60 disabled:cursor-wait cursor-pointer"
                         >
-                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                            <line x1="16" y1="2" x2="16" y2="6" />
-                            <line x1="8" y1="2" x2="8" y2="6" />
-                            <line x1="3" y1="10" x2="21" y2="10" />
-                          </svg>
-                          <span>AI 일정 추천</span>
+                          {scheduleLoading ? (
+                            <>
+                              <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="10" />
+                              </svg>
+                              <span>일정 분석 중...</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" />
+                                <line x1="8" y1="2" x2="8" y2="6" />
+                                <line x1="3" y1="10" x2="21" y2="10" />
+                              </svg>
+                              <span>AI 일정 추천</span>
+                            </>
+                          )}
                         </button>
 
                         {/* Button 2: AI 답장 작성 */}
@@ -593,48 +583,66 @@ export default function InboxPage() {
               </div>
             </div>
 
-            {/* Quote Snippet Box */}
-            <div className="mt-5 rounded-xl bg-[#f8f9fb] p-4 text-[13px] font-medium leading-relaxed text-[#374151]">
-              "{scheduleCard.quote}"
+            {/* Quote Snippet Box (editable) */}
+            <div className="mt-5 rounded-xl bg-[#f8f9fb] p-3.5 border border-[#ececf2]">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-semibold text-[#6b7280]">발췌된 메일 본문</span>
+                <span className="text-[10px] text-[#9ca3af]">직접 수정 가능</span>
+              </div>
+              <textarea
+                value={scheduleCard.quote}
+                onChange={(e) => setScheduleCard((prev) => (prev ? { ...prev, quote: e.target.value } : null))}
+                rows={2}
+                className="w-full resize-none rounded-lg bg-white/70 p-2 text-[13px] font-medium leading-relaxed text-[#374151] border border-transparent focus:border-[#5338ec] focus:bg-white outline-none"
+                placeholder="일정 관련 본문 내용"
+              />
             </div>
 
-            {/* Detail Box */}
-            <div className="mt-4 rounded-xl border border-[#ededf2] bg-white p-4.5 space-y-3 text-[13px]">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[#6b7280]">
+            {/* Detail Box (editable) */}
+            <div className="mt-4 rounded-xl border border-[#ededf2] bg-white p-4 space-y-3 text-[13px]">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-[#6b7280] w-14 shrink-0 font-medium">
                   <svg className="h-4 w-4 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                   </svg>
                   <span>제목</span>
                 </div>
-                <span className="font-semibold text-[#1f2937] text-right max-w-[240px] truncate">
-                  {scheduleCard.title}
-                </span>
+                <input
+                  type="text"
+                  value={scheduleCard.title}
+                  onChange={(e) => setScheduleCard((prev) => (prev ? { ...prev, title: e.target.value } : null))}
+                  className="flex-1 rounded-lg border border-[#e5e7eb] px-3 py-1.5 text-[13px] font-semibold text-[#1f2937] outline-none focus:border-[#5338ec]"
+                  placeholder="예: 보고서 마감"
+                />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[#6b7280]">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-[#6b7280] w-14 shrink-0 font-medium">
                   <svg className="h-4 w-4 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10" />
                     <polyline points="12 6 12 12 16 14" />
                   </svg>
                   <span>일시</span>
                 </div>
-                <span className="font-semibold text-[#1f2937]">
-                  {scheduleCard.dateTime}
-                </span>
+                <input
+                  type="text"
+                  value={scheduleCard.dateTime}
+                  onChange={(e) => setScheduleCard((prev) => (prev ? { ...prev, dateTime: e.target.value } : null))}
+                  className="flex-1 rounded-lg border border-[#e5e7eb] px-3 py-1.5 text-[13px] font-semibold text-[#1f2937] outline-none focus:border-[#5338ec]"
+                  placeholder="예: 8.20 오후 3:00"
+                />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[#6b7280]">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-[#6b7280] w-14 shrink-0 font-medium">
                   <svg className="h-4 w-4 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                     <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                   </svg>
                   <span>출처</span>
                 </div>
-                <span className="font-medium text-[#6b7280]">
+                <span className="font-medium text-[#6b7280] px-3 py-1.5">
                   {scheduleCard.source}
                 </span>
               </div>

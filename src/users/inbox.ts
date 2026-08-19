@@ -191,3 +191,57 @@ export async function downloadInboxAttachment(messageId: string, attachment: Inb
     alert('첨부파일 다운로드 중 오류가 발생했습니다.')
   }
 }
+
+export type ExtractedScheduleResult = {
+  hasSchedule: boolean
+  quote: string
+  title: string
+  dateTime: string
+  source: string
+}
+
+export async function extractScheduleFromAi(message: {
+  id?: string
+  subject: string
+  body?: string
+  snippet?: string
+  from?: string
+  date?: string
+}): Promise<ExtractedScheduleResult> {
+  try {
+    const response = await fetch(`${API_URL}/api/gmail/schedule/extract`, {
+      method: 'POST',
+      headers: {
+        ...authorizationHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subject: message.subject,
+        body: message.body || message.snippet,
+        snippet: message.snippet,
+        from: message.from,
+        date: message.date,
+      }),
+    })
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        hasSchedule: data.hasSchedule !== false,
+        quote: data.quote || '',
+        title: data.title || message.subject || '업무 일정',
+        dateTime: data.dateTime || '',
+        source: data.source || '메일 내용 기반',
+      }
+    }
+  } catch {
+    // fallback
+  }
+
+  return {
+    hasSchedule: true,
+    quote: message.snippet || message.subject || '',
+    title: message.subject || '업무 일정',
+    dateTime: '일정 확인 필요',
+    source: '메일 내용 기반',
+  }
+}
