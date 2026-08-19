@@ -51,7 +51,9 @@ function SignUpPage() {
     <main className="min-h-screen bg-[#f8f9fc] px-5 py-12 text-[#202027]">
       <section className="mx-auto w-full max-w-125 rounded-2xl border border-[#e1e1e5] bg-white p-8 shadow-sm max-sm:p-5">
         <header className="text-center">
-          <img src={logo} alt="이음 로고" className="mx-auto h-24 w-44 object-contain" />
+          <Link to="/login" className="inline-block transition hover:opacity-90">
+            <img src={logo} alt="이음 로고" className="mx-auto h-24 w-44 object-contain" />
+          </Link>
           <h1 className="text-2xl font-bold">회원가입</h1>
           <p className="mt-2 text-sm text-[#777981]">
             계정을 만든 뒤 로그인하면 온보딩이 시작됩니다.

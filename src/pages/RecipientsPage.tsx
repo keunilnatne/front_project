@@ -1,9 +1,45 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { createRecipient, fetchRecipientByEmail, fetchRecipients, persistRecipients, toggleRecipientFavorite, type Recipient } from '../users/recipients'
+import {
+  createRecipient,
+  updateRecipient,
+  deleteRecipient,
+  fetchRecipientByEmail,
+  fetchRecipients,
+  persistRecipients,
+  toggleRecipientFavorite,
+  type Recipient,
+} from '../users/recipients'
 import { analyzeRecipient, type RecipientAIProfile } from '../ai/aiInsights'
 import { getCountryInfo } from '../users/countryTimezones'
+
+function formatCountry(country?: string): string {
+  if (!country) return '대한민국'
+  if (country === 'South Korea' || country === 'Korea') return '대한민국'
+  if (country === 'United States' || country === 'USA' || country === 'US') return '미국'
+  if (country === 'Japan') return '일본'
+  if (country === 'China') return '중국'
+  if (country === 'United Kingdom' || country === 'UK') return '영국'
+  if (country === 'Germany') return '독일'
+  if (country === 'France') return '프랑스'
+  if (country === 'Singapore') return '싱가포르'
+  if (country === 'Canada') return '캐나다'
+  if (country === 'Australia') return '호주'
+  if (country === 'Vietnam') return '베트남'
+  return country
+}
+
+function formatLanguage(language?: string): string {
+  if (!language) return '한국어'
+  if (language === 'Korean') return '한국어'
+  if (language === 'English') return '영어'
+  if (language === 'Japanese') return '일본어'
+  if (language === 'Chinese') return '중국어'
+  if (language === 'German') return '독일어'
+  if (language === 'French') return '프랑스어'
+  return language
+}
 
 type TabId = 'all' | 'favorite' | 'recent'
 
@@ -918,6 +954,7 @@ function RecipientsPage() {
   ] = useState<Recipient | null>(null)
 
   const [showAddRecipient, setShowAddRecipient] = useState(false)
+  const [editingRecipient, setEditingRecipient] = useState<Recipient | null>(null)
   const [lookupEmail, setLookupEmail] = useState('')
   const [lookupLoading, setLookupLoading] = useState(false)
   const [lookupMessage, setLookupMessage] = useState<{ text: string; isError?: boolean } | null>(null)
@@ -965,6 +1002,80 @@ function RecipientsPage() {
   const openAddRecipientModal = () => {
     resetAddRecipientState()
     setShowAddRecipient(true)
+  }
+
+  const openEditRecipientModal = (recipient: Recipient) => {
+    setEditingRecipient(recipient)
+    setNewRecipient({
+      name: recipient.name || '',
+      email: recipient.email || '',
+      role: recipient.role || '',
+      company: recipient.company || '',
+      country: recipient.country || 'South Korea',
+      language: recipient.language || 'Korean',
+      timezone: recipient.timezone || 'Asia/Seoul',
+      organizationRelation: recipient.organizationRelation || '팀원',
+      customStyle: recipient.preferredStyle || '명확하고 간결하게',
+    })
+    setSelectedStyles(recipient.communicationStyle?.length ? recipient.communicationStyle : ['명확하고 간결하게'])
+    setFormErrorMessage('')
+  }
+
+  const closeEditRecipientModal = () => {
+    setEditingRecipient(null)
+    resetAddRecipientState()
+  }
+
+  const handleDeleteRecipient = async (id: number) => {
+    const target = recipientList.find((r) => r.id === id)
+    if (!window.confirm(`'${target?.name || '수신자'}' 님을 삭제하시겠습니까?`)) return
+    try {
+      await deleteRecipient(id)
+      const nextList = recipientList.filter((r) => r.id !== id)
+      setRecipientList(nextList)
+      if (selectedId === id && nextList.length) {
+        setSelectedId(nextList[0].id)
+      }
+    } catch {
+      alert('수신자 삭제에 실패했습니다.')
+    }
+  }
+
+  const handleSaveEditRecipient = async () => {
+    if (!editingRecipient) return
+    const name = newRecipient.name.trim()
+    const email = newRecipient.email.trim()
+    const role = newRecipient.role.trim()
+
+    if (!name) { setFormErrorMessage('이름을 입력해주세요.'); return }
+    if (!email || !email.includes('@')) { setFormErrorMessage('올바른 이메일 주소를 입력해주세요.'); return }
+    if (!role) { setFormErrorMessage('직무를 입력해주세요.'); return }
+
+    setRecipientSaving(true)
+    setFormErrorMessage('')
+    try {
+      const styles = selectedStyles.length ? selectedStyles : ['명확하고 간결하게']
+      const updated = await updateRecipient({
+        ...editingRecipient,
+        name,
+        email,
+        role,
+        company: newRecipient.company.trim(),
+        country: newRecipient.country.trim() || 'South Korea',
+        language: newRecipient.language.trim() || 'Korean',
+        timezone: newRecipient.timezone.trim() || 'Asia/Seoul',
+        organizationRelation: newRecipient.organizationRelation.trim() || '팀원',
+        communicationStyle: styles,
+        preferredStyle: styles.join(', '),
+      })
+      setRecipientList((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
+      setEditingRecipient(null)
+      resetAddRecipientState()
+    } catch (error) {
+      setFormErrorMessage(error instanceof Error ? error.message : '수신자 수정에 실패했습니다.')
+    } finally {
+      setRecipientSaving(false)
+    }
   }
 
   useEffect(() => {
@@ -1403,7 +1514,34 @@ function RecipientsPage() {
                 </p>
               </div>
 
-              <div className="flex shrink-0 gap-2">
+              <div className="flex shrink-0 items-center gap-2">
+                {/* Edit */}
+                <button
+                  type="button"
+                  onClick={() => openEditRecipientModal(selectedRecipient)}
+                  className="flex h-11 items-center gap-1.5 rounded-lg border border-[#dedde3] bg-white px-3.5 text-[13px] font-medium text-[#494b57] hover:bg-[#f8f9fc] transition cursor-pointer shadow-2xs"
+                  title="수신자 정보 수정"
+                >
+                  <svg className="h-4 w-4 text-[#666]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                  수정
+                </button>
+
+                {/* Delete */}
+                <button
+                  type="button"
+                  onClick={() => handleDeleteRecipient(selectedRecipient.id)}
+                  className="flex h-11 items-center gap-1.5 rounded-lg border border-[#fca5a5] bg-white px-3 text-[13px] font-medium text-[#dc2626] hover:bg-[#fef2f2] transition cursor-pointer shadow-2xs"
+                  title="수신자 삭제"
+                >
+                  <svg className="h-4 w-4 text-[#dc2626]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" />
+                  </svg>
+                  삭제
+                </button>
+
                 {/* Favorite */}
                 <button
                   type="button"
@@ -1475,12 +1613,12 @@ function RecipientsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3.5 text-[13px]">
                 <div className="flex items-center gap-2">
                   <span className="w-16 shrink-0 text-[12px] font-medium text-[#7b7b84]">국가</span>
-                  <span className="font-medium text-[#3b3c48]">{selectedRecipient.country}</span>
+                  <span className="font-medium text-[#3b3c48]">{formatCountry(selectedRecipient.country)}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <span className="w-16 shrink-0 text-[12px] font-medium text-[#7b7b84]">언어</span>
-                  <span className="font-medium text-[#3b3c48]">{selectedRecipient.language}</span>
+                  <span className="font-medium text-[#3b3c48]">{formatLanguage(selectedRecipient.language)}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1830,10 +1968,202 @@ function RecipientsPage() {
               type="button"
               onClick={addRecipient}
               disabled={recipientSaving}
-              className="mt-5 w-full rounded-lg bg-[#4d3bd5] py-3 text-[12px] font-semibold text-white transition hover:bg-[#4331cb] disabled:cursor-wait disabled:opacity-60"
+              className="mt-5 w-full rounded-lg bg-[#4d3bd5] py-3 text-[12px] font-semibold text-white transition hover:bg-[#4331cb] disabled:cursor-wait disabled:opacity-60 cursor-pointer"
             >
               {recipientSaving ? '저장 중...' : '수신자 추가하기'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {editingRecipient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 overflow-y-auto" onMouseDown={closeEditRecipientModal}>
+          <div className="my-8 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-[18px] font-semibold text-[#282328]">수신자 정보 수정</h2>
+                <p className="text-[12px] text-[#716b78] mt-0.5">수신자의 기본 정보와 맞춤 소통 스타일을 수정합니다.</p>
+              </div>
+              <button type="button" onClick={closeEditRecipientModal} className="text-xl text-[#888] hover:text-[#333] cursor-pointer">×</button>
+            </div>
+
+            <div className="mt-4">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-[11px] text-[#777]">
+                  <span className="mb-1 block font-semibold text-[#5d5565]">이름 *</span>
+                  <input
+                    value={newRecipient.name}
+                    onChange={(e) => setNewRecipient((v) => ({ ...v, name: e.target.value }))}
+                    placeholder="예: 김민수"
+                    className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                  />
+                </label>
+
+                <label className="text-[11px] text-[#777]">
+                  <span className="mb-1 block font-semibold text-[#5d5565]">이메일 *</span>
+                  <input
+                    type="email"
+                    value={newRecipient.email}
+                    onChange={(e) => setNewRecipient((v) => ({ ...v, email: e.target.value }))}
+                    placeholder="example@company.com"
+                    className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                  />
+                </label>
+
+                <label className="text-[11px] text-[#777]">
+                  <span className="mb-1 block font-semibold text-[#5d5565]">직무 *</span>
+                  <input
+                    value={newRecipient.role}
+                    onChange={(e) => setNewRecipient((v) => ({ ...v, role: e.target.value }))}
+                    placeholder="예: Product Designer"
+                    className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                  />
+                </label>
+
+                <label className="text-[11px] text-[#777]">
+                  <span className="mb-1 block font-semibold text-[#5d5565]">회사</span>
+                  <input
+                    value={newRecipient.company}
+                    onChange={(e) => setNewRecipient((v) => ({ ...v, company: e.target.value }))}
+                    placeholder="예: ABC Corp"
+                    className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                  />
+                </label>
+
+                <label className="text-[11px] text-[#777]">
+                  <span className="mb-1 block font-semibold text-[#5d5565]">국가</span>
+                  <select
+                    value={newRecipient.country}
+                    onChange={(e) => {
+                      const sel = e.target.value
+                      const info = getCountryInfo(sel)
+                      setNewRecipient((v) => ({
+                        ...v,
+                        country: sel,
+                        language: info.language,
+                        timezone: info.defaultTimezone,
+                      }))
+                    }}
+                    className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"
+                  >
+                    <option value="South Korea">대한민국</option>
+                    <option value="United States">미국</option>
+                    <option value="Japan">일본</option>
+                    <option value="China">중국</option>
+                    <option value="United Kingdom">영국</option>
+                    <option value="Germany">독일</option>
+                    <option value="France">프랑스</option>
+                    <option value="Singapore">싱가포르</option>
+                    <option value="India">인도</option>
+                    <option value="Australia">호주</option>
+                    <option value="Canada">캐나다</option>
+                    <option value="Vietnam">베트남</option>
+                  </select>
+                </label>
+
+                <label className="text-[11px] text-[#777]">
+                  <span className="mb-1 block font-semibold text-[#5d5565]">언어</span>
+                  <input
+                    value={newRecipient.language}
+                    onChange={(e) => setNewRecipient((v) => ({ ...v, language: e.target.value }))}
+                    className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                    placeholder="Korean, English 등"
+                  />
+                </label>
+
+                <label className="text-[11px] text-[#777]">
+                  <span className="mb-1 block font-semibold text-[#5d5565]">시간대</span>
+                  <select
+                    value={newRecipient.timezone}
+                    onChange={(e) => setNewRecipient((v) => ({ ...v, timezone: e.target.value }))}
+                    className="h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none focus:border-[#6650df]"
+                  >
+                    {getCountryInfo(newRecipient.country).availableTimezones.map((tz) => (
+                      <option key={tz.value} value={tz.value}>{tz.label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="text-[11px] text-[#777]">
+                  <span className="mb-1 block font-semibold text-[#5d5565]">조직 관계</span>
+                  <input
+                    value={newRecipient.organizationRelation}
+                    onChange={(e) => setNewRecipient((v) => ({ ...v, organizationRelation: e.target.value }))}
+                    placeholder="예: 팀원, 외부 파트너"
+                    className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* 추구하는 소통 스타일 (태그 선택) */}
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-semibold text-[#5d5565]">
+                  추구하는 소통 스타일 (태그 선택)
+                </span>
+                <span className="text-[10px] text-[#716b78]">
+                  {selectedStyles.length}개 선택됨
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {[
+                  '편안하고 친근하게',
+                  '명확하고 간결하게',
+                  '격식 있고 정중하게',
+                  '핵심 요약 위주',
+                  '상세한 설명 선호',
+                  '빠른 피드백 선호',
+                  '논리적/데이터 중심',
+                ].map((styleTag) => {
+                  const isSelected = selectedStyles.includes(styleTag)
+                  return (
+                    <button
+                      key={styleTag}
+                      type="button"
+                      onClick={() => {
+                        setSelectedStyles((prev) =>
+                          prev.includes(styleTag)
+                            ? prev.filter((t) => t !== styleTag)
+                            : [...prev, styleTag]
+                        )
+                      }}
+                      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition cursor-pointer ${
+                        isSelected
+                          ? 'border border-[#4f46e5] bg-[#4f46e5] text-white shadow-sm'
+                          : 'border border-[#d8d5f5] bg-[#f8f7ff] text-[#4f46e5] hover:bg-[#eceaff]'
+                      }`}
+                    >
+                      <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
+                      <span>{styleTag}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {formErrorMessage && (
+              <p className="mt-3 text-[11px] font-medium text-[#dc2626]">{formErrorMessage}</p>
+            )}
+
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={closeEditRecipientModal}
+                className="flex-1 rounded-lg border border-[#dedde3] bg-white py-3 text-[12px] font-medium text-[#555] hover:bg-[#fafafa] cursor-pointer"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditRecipient}
+                disabled={recipientSaving}
+                className="flex-2 rounded-lg bg-[#4d3bd5] py-3 text-[12px] font-semibold text-white transition hover:bg-[#4331cb] disabled:cursor-wait disabled:opacity-60 cursor-pointer"
+              >
+                {recipientSaving ? '저장 중...' : '수정 완료'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -107,3 +107,20 @@ export async function createHistoryItem(item: HistoryItem): Promise<HistoryItem>
   persistHistory([saved, ...readLocalHistory().filter((entry) => entry.id !== saved.id)])
   return saved
 }
+
+export async function deleteHistoryItem(id: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_URL}/api/history/${id}`, {
+      method: 'DELETE',
+      headers: authorizationHeaders(),
+    })
+    if (response.ok) {
+      persistHistory(readLocalHistory().filter((entry) => entry.id !== id))
+      return true
+    }
+  } catch {
+    // ignore
+  }
+  persistHistory(readLocalHistory().filter((entry) => entry.id !== id))
+  return true
+}

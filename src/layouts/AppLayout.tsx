@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, Link } from 'react-router-dom'
 import { getUserProfile, fetchUserProfile } from '../users/userProfile'
 import logo from '../images/logo.png'
 
@@ -216,7 +216,9 @@ function AppLayout() {
       <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-[#e5e5e8] bg-white">
         {/* Logo */}
         <div className="flex h-16 items-center px-6">
-          <img src={logo} alt="이음" className="h-8 w-auto object-contain" />
+          <Link to="/dashboard" className="flex items-center cursor-pointer transition hover:opacity-85">
+            <img src={logo} alt="이음" className="h-8 w-auto object-contain" />
+          </Link>
         </div>
 
         {/* Navigation */}

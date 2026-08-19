@@ -26,12 +26,29 @@ async function responseError(response: Response, fallback: string) {
 }
 
 export async function registerAccount(input: RegisterInput): Promise<void> {
-  const response = await fetch(`${API_URL}/api/auth/signup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...input, email: normalizeEmail(input.email) }),
-  })
-  if (!response.ok) throw await responseError(response, '회원가입에 실패했습니다.')
+  try {
+    const response = await fetch(`${API_URL}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...input, email: normalizeEmail(input.email) }),
+    })
+    if (!response.ok) {
+      if (response.status === 400 || response.status === 409) {
+        const data = await response.json().catch(() => null) as { message?: string; error?: { message?: string } } | null
+        const msg = data?.message || data?.error?.message
+        if (msg && (msg.includes('가입된') || msg.includes('존재') || msg.includes('already'))) {
+          throw new Error('이미 등록된 이메일 계정입니다. 해당 계정으로 로그인해 주세요.')
+        }
+        throw new Error(msg || '이미 가입된 이메일이거나 입력 정보가 올바르지 않습니다.')
+      }
+      throw await responseError(response, '회원가입에 실패했습니다.')
+    }
+  } catch (error: any) {
+    if (error?.message?.includes('Failed to fetch')) {
+      throw new Error('서버와 통신할 수 없습니다. 네트워크 연결을 확인해 주세요.')
+    }
+    throw error
+  }
 }
 
 export async function authenticateAccount(email: string, password: string): Promise<boolean> {

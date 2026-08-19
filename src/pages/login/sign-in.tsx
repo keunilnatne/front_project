@@ -73,8 +73,10 @@ function SignInPage() {
     <main className="min-h-screen bg-white px-5 text-[#202027]">
       <div className="mx-auto flex min-h-screen w-full max-w-145 flex-col items-center py-14">
         <header className="flex flex-col items-center">
-          <img src={logo} alt="이음 로고" className="h-30 w-54 object-contain" />
-          <h1 className="text-3xl font-bold text-[#4338ca]">이음</h1>
+          <Link to="/login" className="flex flex-col items-center transition hover:opacity-90">
+            <img src={logo} alt="이음 로고" className="h-30 w-54 object-contain" />
+            <h1 className="text-3xl font-bold text-[#4338ca]">이음</h1>
+          </Link>
           <p className="mt-2 text-sm text-[#777981]">가입한 계정으로 로그인해 주세요.</p>
         </header>
 

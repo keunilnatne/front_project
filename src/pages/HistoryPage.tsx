@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
 import { useSearchParams } from 'react-router-dom'
-import { fetchHistory, type HistoryItem } from '../users/history'
+import { fetchHistory, deleteHistoryItem, type HistoryItem } from '../users/history'
 import MarkdownViewer from '../components/MarkdownViewer'
 
 type TabType = '전체' | '변환 기록' | '전송 기록'
@@ -339,12 +339,13 @@ export default function HistoryPage() {
           </div>
 
           <div className="mt-6 overflow-hidden rounded-xl border border-[#dedee5] bg-white">
-            <div className="grid grid-cols-[150px_120px_1fr_150px_90px] border-b border-[#dddde2] px-5 py-4 text-[11px] font-medium text-[#777]">
+            <div className="grid grid-cols-[140px_110px_1fr_130px_80px_45px] border-b border-[#dddde2] px-5 py-4 text-[11px] font-medium text-[#777]">
               <span>일시</span>
               <span>수신자</span>
               <span>제목</span>
               <span>적합도 점수</span>
               <span>상태</span>
+              <span className="text-center">삭제</span>
             </div>
 
             {loading ? (
@@ -357,11 +358,10 @@ export default function HistoryPage() {
               </div>
             ) : (
               paginated.map((item) => (
-                <button
+                <div
                   key={item.id}
-                  type="button"
                   onClick={() => setSelectedItem(item)}
-                  className="grid w-full grid-cols-[150px_120px_1fr_150px_90px] items-center border-b border-[#eeeef0] px-5 py-4 text-left text-[12px] last:border-0 hover:bg-[#fafafe] cursor-pointer"
+                  className="grid w-full grid-cols-[140px_110px_1fr_130px_80px_45px] items-center border-b border-[#eeeef0] px-5 py-4 text-left text-[12px] last:border-0 hover:bg-[#fafafe] cursor-pointer"
                 >
                   <span className="text-[11px] text-[#666]">{formatDateTime(item.createdAt || item.sentAt || item.date)}</span>
 
@@ -401,7 +401,27 @@ export default function HistoryPage() {
                       {item.status}
                     </span>
                   </span>
-                </button>
+
+                  <span className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (window.confirm('이 기록을 삭제하시겠습니까?')) {
+                          void deleteHistoryItem(item.id).then(() => {
+                            setHistory((prev) => prev.filter((h) => h.id !== item.id))
+                          })
+                        }
+                      }}
+                      className="flex h-7 w-7 items-center justify-center rounded text-[#a0a0ab] hover:bg-[#fee2e2] hover:text-[#dc2626] transition cursor-pointer"
+                      title="기록 삭제"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" />
+                      </svg>
+                    </button>
+                  </span>
+                </div>
               ))
             )}
           </div>
@@ -605,11 +625,25 @@ export default function HistoryPage() {
               })()}
             </div>
 
-            <div className="pt-4 border-t border-[#eee] shrink-0">
+            <div className="flex gap-2 pt-4 border-t border-[#eee] shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('이 기록을 삭제하시겠습니까?')) {
+                    void deleteHistoryItem(selectedItem.id).then(() => {
+                      setHistory((prev) => prev.filter((h) => h.id !== selectedItem.id))
+                      setSelectedItem(null)
+                    })
+                  }
+                }}
+                className="h-10 rounded-lg border border-[#fca5a5] px-4 text-[13px] font-semibold text-[#dc2626] hover:bg-[#fef2f2] transition cursor-pointer"
+              >
+                기록 삭제
+              </button>
               <button
                 type="button"
                 onClick={() => setSelectedItem(null)}
-                className="h-10 w-full rounded-lg bg-[#5033df] text-[13px] font-semibold text-white transition hover:bg-[#432bc6] cursor-pointer"
+                className="h-10 flex-1 rounded-lg bg-[#5033df] text-[13px] font-semibold text-white transition hover:bg-[#432bc6] cursor-pointer"
               >
                 닫기
               </button>
