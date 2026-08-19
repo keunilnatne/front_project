@@ -21,7 +21,7 @@ const DEFAULT_STYLE_TAGS = [
   '논리적/데이터 중심',
 ]
 
-const inputClass = 'h-10 w-full rounded-lg border border-[#bcbcbc] bg-white px-3.5 py-[9px] text-xs leading-[17px] text-[#241912] outline-none transition placeholder:text-[#564334]/50 focus:border-[#5b3df5] focus:ring-2 focus:ring-[#5b3df5]/10'
+const inputClass = 'h-10 w-full rounded-lg border border-[#dddde3] bg-white px-3 text-[12px] outline-none transition placeholder:text-[#999] focus:border-[#6650df]'
 
 function ProgressIndicator() {
   return (
@@ -35,18 +35,10 @@ function ProgressIndicator() {
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-[11px] font-medium leading-[16.8px] tracking-[0.12px] text-[#241912]">
-      {label}{children}
+    <label className="text-[11px] text-[#777]">
+      <span className="mb-1 block font-semibold text-[#5d5565]">{label}</span>
+      {children}
     </label>
-  )
-}
-
-function ProfileAvatar() {
-  return (
-    <span aria-hidden="true" className="relative flex h-10.5 w-10.5 shrink-0 items-center justify-center rounded-full bg-[#facc15]">
-      <span className="absolute top-2 h-3 w-3 rounded-full bg-white" />
-      <span className="absolute bottom-1.5 h-3.5 w-6 rounded-t-full bg-white" />
-    </span>
   )
 }
 
@@ -55,7 +47,6 @@ function AddRecipient() {
   const [submitting, setSubmitting] = useState(false)
   const [lookupLoading, setLookupLoading] = useState(false)
   const [lookupMessage, setLookupMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [showLookupModal, setShowLookupModal] = useState(false)
   const [lookupEmail, setLookupEmail] = useState('')
 
   const [name, setName] = useState('')
@@ -79,18 +70,6 @@ function AddRecipient() {
     const info = getCountryInfo(countryName)
     setLanguage(info.language)
     setTimezone(info.defaultTimezone)
-  }
-
-  const openLookupModal = () => {
-    setLookupEmail(email)
-    setLookupMessage(null)
-    setShowLookupModal(true)
-  }
-
-  const closeLookupModal = () => {
-    if (lookupLoading) return
-    setShowLookupModal(false)
-    setLookupMessage(null)
   }
 
   const handleLookupProfile = async () => {
@@ -133,7 +112,6 @@ function AddRecipient() {
         type: 'success',
         text: `가입된 회원 정보를 불러왔습니다: ${found.name || '이름 미설정'} (${found.company || '회사 미설정'})`,
       })
-      setShowLookupModal(false)
     } catch {
       setLookupMessage({
         type: 'error',
@@ -193,7 +171,7 @@ function AddRecipient() {
       style={{ fontFamily: 'Pretendard Variable, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <ProgressIndicator />
 
-      <div className="mx-auto flex w-full max-w-140 flex-col gap-6">
+      <div className="mx-auto flex w-full max-w-lg flex-col gap-6">
         <header className="text-center">
           <h1 className="text-2xl font-semibold leading-[31.2px] tracking-[-0.24px]">
             자주 협업하는 사람을 추가해보세요</h1>
@@ -202,42 +180,53 @@ function AddRecipient() {
         </header>
 
         <form onSubmit={handleSubmit}>
-          <section className="rounded-xl border border-[#dbdbdb] border-l-4 border-l-[#5b3df5] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-            <div className="mb-4 flex items-center justify-between border-b border-[#f0f0f4] pb-4">
-              <div className="flex items-center gap-3">
-                <ProfileAvatar />
-                <div>
-                  <p className="text-[11px] font-semibold tracking-[0.12px] text-[#5b3df5]">
-                    Recipient Profile</p>
-                  <h2 className="text-base font-bold text-[#1f1d2b]">
-                    수신자 등록</h2>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={openLookupModal}
-                  className="rounded-lg border border-[#5b3df5]/30 bg-[#f4f2ff] px-3 py-1.5 text-[11px] font-semibold text-[#5b3df5] transition hover:bg-[#eae6ff] active:scale-95 disabled:opacity-50"
-                >
-                  🔍 이메일로 프로필 불러오기
-                </button>
+          <section className="rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-[18px] font-semibold text-[#282328]">수신자 추가</h2>
+                <p className="mt-0.5 text-[12px] text-[#716b78]">이음 연결 프로필을 가져오거나 직접 입력할 수 있습니다.</p>
               </div>
             </div>
 
-            {lookupMessage && (
-              <div
-                className={`mb-4 rounded-lg px-3 py-2 text-xs font-medium ${
-                  lookupMessage.type === 'success'
-                    ? 'bg-[#ecfdf5] text-[#065f46] border border-[#a7f3d0]'
-                    : 'bg-[#fef2f2] text-[#991b1b] border border-[#fecaca]'
-                }`}
-              >
-                {lookupMessage.text}
+            <div className="mt-4 rounded-xl border border-[#e2e0fb] bg-[#f8f7ff] p-3.5">
+              <span className="block text-[11px] font-semibold text-[#4f46e5]">🔗 이음에 연결된 프로필 불러오기</span>
+              <div className="mt-2 flex items-center gap-2 max-sm:flex-col">
+                <input
+                  type="email"
+                  value={lookupEmail}
+                  onChange={(event) => {
+                    setLookupEmail(event.target.value)
+                    if (lookupMessage) setLookupMessage(null)
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      void handleLookupProfile()
+                    }
+                  }}
+                  placeholder="이음에 가입된 동료 이메일 입력"
+                  className="h-9 min-w-0 flex-1 rounded-lg border border-[#d8d5f5] bg-white px-3 text-[12px] outline-none placeholder:text-[#999] focus:border-[#4f46e5] max-sm:w-full"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleLookupProfile()}
+                  disabled={lookupLoading}
+                  className="h-9 shrink-0 rounded-lg bg-[#4f46e5] px-3.5 text-[12px] font-medium text-white transition hover:bg-[#4338ca] disabled:cursor-wait disabled:opacity-50 max-sm:w-full"
+                >
+                  {lookupLoading ? '조회 중...' : '불러오기'}
+                </button>
               </div>
-            )}
 
-            <div className="grid grid-cols-2 gap-3.5 max-sm:grid-cols-1">
+              {lookupMessage && (
+                <p className={`mt-2 text-[11px] font-medium ${lookupMessage.type === 'error' ? 'text-[#d97706]' : 'text-[#16a34a]'}`}>
+                  {lookupMessage.text}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-4">
+              <span className="mb-2 block text-[11px] font-semibold text-[#5d5565]">기본 정보 직접 입력</span>
+              <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
               <Field label="이름 *">
                 <input
                   name="name"
@@ -316,22 +305,18 @@ function AddRecipient() {
               </Field>
 
               <Field label="조직 관계">
-                <select
+                <input
                   value={relationship}
                   onChange={(e) => setRelationship(e.target.value)}
-                  className={`${inputClass} appearance-auto text-[#241912]`}
-                >
-                  <option value="팀원">팀원</option>
-                  <option value="타팀 동료">타팀 동료</option>
-                  <option value="리더 / 매니저">리더 / 매니저</option>
-                  <option value="외부 파트너">외부 파트너</option>
-                  <option value="고객 / 클라이언트">고객 / 클라이언트</option>
-                </select>
+                  placeholder="예: 팀원, 외부 파트너"
+                  className={inputClass}
+                />
               </Field>
+            </div>
             </div>
 
             {/* 추구하는 소통 스타일 (태그 선택) */}
-            <div className="mt-4 border-t border-[#f0f0f4] pt-4">
+            <div className="mt-4">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-[#5d5565]">
                   추구하는 소통 스타일 (태그 선택)
@@ -380,107 +365,23 @@ function AddRecipient() {
                 />
               </div>
             </div>
-          </section>
-
-          <div className="pt-6 text-center">
             <button
               type="submit"
               disabled={submitting}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[linear-gradient(90deg,#5b3df5_0%,#35248f_100%)] text-xs font-semibold leading-[16.8px] tracking-[0.12px] text-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition hover:brightness-110 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#5b3df5]/20"
+              className="mt-5 w-full rounded-lg bg-[#4d3bd5] py-3 text-[12px] font-semibold text-white transition hover:bg-[#4331cb] disabled:cursor-wait disabled:opacity-60"
             >
-              {submitting ? '수신자 추가 중...' : '수신자 등록 완료'} <span aria-hidden="true" className="text-lg leading-none">→</span>
+              {submitting ? '저장 중...' : '수신자 추가하기'}
             </button>
-            <button type="button" onClick={skipRecipient} className="mt-3.5 h-[17.8px] text-xs leading-[16.8px] text-[#564334] transition hover:text-[#35248f] focus-visible:outline-none focus-visible:underline">
-              나중에 추가하기</button>
+          </section>
+
+          <div className="text-center">
+            <button type="button" onClick={skipRecipient} className="h-[17.8px] text-xs leading-[16.8px] text-[#564334] transition hover:text-[#35248f] focus-visible:outline-none focus-visible:underline">
+              나중에 추가하기
+            </button>
           </div>
         </form>
       </div>
 
-      {showLookupModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/35 px-4"
-          onMouseDown={closeLookupModal}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="email-profile-lookup-title"
-            className="my-8 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 id="email-profile-lookup-title" className="text-[18px] font-semibold text-[#282328]">
-                  이메일로 프로필 불러오기
-                </h2>
-                <p className="mt-0.5 text-[12px] text-[#716b78]">
-                  이음에 가입된 동료의 이메일을 입력하면 프로필 정보를 자동으로 채웁니다.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeLookupModal}
-                disabled={lookupLoading}
-                aria-label="프로필 불러오기 창 닫기"
-                className="text-xl text-[#888] hover:text-[#333] disabled:opacity-40"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="mt-5 rounded-xl border border-[#e2e0fb] bg-[#f8f7ff] p-4">
-              <label htmlFor="profile-lookup-email" className="block text-[11px] font-semibold text-[#4f46e5]">
-                동료 이메일
-              </label>
-              <div className="mt-2 flex items-center gap-2 max-sm:flex-col">
-                <input
-                  id="profile-lookup-email"
-                  type="email"
-                  value={lookupEmail}
-                  onChange={(event) => {
-                    setLookupEmail(event.target.value)
-                    if (lookupMessage) setLookupMessage(null)
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault()
-                      void handleLookupProfile()
-                    }
-                  }}
-                  autoFocus
-                  placeholder="name@company.com"
-                  className="h-10 min-w-0 flex-1 rounded-lg border border-[#d8d5f5] bg-white px-3 text-[12px] outline-none placeholder:text-[#999] focus:border-[#4f46e5] max-sm:w-full"
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleLookupProfile()}
-                  disabled={lookupLoading}
-                  className="h-10 shrink-0 rounded-lg bg-[#4f46e5] px-4 text-[12px] font-medium text-white transition hover:bg-[#4338ca] disabled:cursor-wait disabled:opacity-50 max-sm:w-full"
-                >
-                  {lookupLoading ? '조회 중...' : '불러오기'}
-                </button>
-              </div>
-
-              {lookupMessage && (
-                <p className={`mt-3 text-[11px] font-medium ${lookupMessage.type === 'error' ? 'text-[#d97706]' : 'text-[#16a34a]'}`}>
-                  {lookupMessage.text}
-                </p>
-              )}
-            </div>
-
-            <div className="mt-5 flex justify-end">
-              <button
-                type="button"
-                onClick={closeLookupModal}
-                disabled={lookupLoading}
-                className="h-9 rounded-lg border border-[#dddde3] px-4 text-[12px] font-medium text-[#5d5565] hover:bg-[#f7f7fa] disabled:opacity-40"
-              >
-                취소
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
     </main>
   )
 }
