@@ -65,6 +65,7 @@ function AddRecipient() {
   const [timezone, setTimezone] = useState('Asia/Seoul')
   const [relationship, setRelationship] = useState('팀원')
   const [selectedStyles, setSelectedStyles] = useState<string[]>(['명확하고 간결하게'])
+  const [customStyle, setCustomStyle] = useState('')
 
   const getNextPath = () => {
     const isGoogle = localStorage.getItem('auth.isGoogleLogin') === 'true' || localStorage.getItem('onboarding.gmail') === 'true'
@@ -107,6 +108,7 @@ function AddRecipient() {
         if (found.timezone) setTimezone(found.timezone)
       }
       if (found.organizationRelation) setRelationship(found.organizationRelation)
+      if (found.customStyle) setCustomStyle(found.customStyle)
       if (commStyles.length > 0) {
         setSelectedStyles(commStyles)
       }
@@ -152,6 +154,7 @@ function AddRecipient() {
         avatar: trimmedName.slice(0, 1) || '?',
         communicationStyle: selectedStyles.length > 0 ? selectedStyles : ['명확하고 간결하게'],
         preferredStyle: selectedStyles.join(', '),
+        customStyle: customStyle.trim(),
       })
     } catch {
       // fallback
@@ -347,6 +350,18 @@ function AddRecipient() {
                     </button>
                   )
                 })}
+              </div>
+
+              <div className="mt-3">
+                <label className="block text-[11px] font-semibold text-[#5d5565] mb-1">
+                  추가 스타일 / 어조 (선택)
+                </label>
+                <input
+                  value={customStyle}
+                  onChange={(e) => setCustomStyle(e.target.value)}
+                  placeholder="예: 비즈니스 용어를 많이 사용합니다, 이모지를 자주 씁니다..."
+                  className={inputClass}
+                />
               </div>
             </div>
           </section>

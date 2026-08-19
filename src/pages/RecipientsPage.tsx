@@ -1015,7 +1015,7 @@ function RecipientsPage() {
       language: recipient.language || 'Korean',
       timezone: recipient.timezone || 'Asia/Seoul',
       organizationRelation: recipient.organizationRelation || '팀원',
-      customStyle: recipient.preferredStyle || '명확하고 간결하게',
+      customStyle: recipient.customStyle || recipient.preferredStyle || '',
     })
     const rawComm = recipient.communicationStyle as unknown
     const existingStyles = Array.isArray(rawComm) && rawComm.length
@@ -1073,6 +1073,7 @@ function RecipientsPage() {
         organizationRelation: newRecipient.organizationRelation.trim() || '팀원',
         communicationStyle: styles,
         preferredStyle: styles.join(', '),
+        customStyle: newRecipient.customStyle.trim(),
       })
       setRecipientList((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
       setEditingRecipient(null)
@@ -1139,7 +1140,7 @@ function RecipientsPage() {
         language: found.language || curr.language,
         timezone: found.timezone || curr.timezone,
         organizationRelation: found.organizationRelation || curr.organizationRelation,
-        customStyle: found.preferredStyle || curr.customStyle,
+        customStyle: found.customStyle || found.preferredStyle || curr.customStyle,
       }))
       if (commStyles.length > 0) {
         setSelectedStyles(commStyles)
@@ -1189,6 +1190,7 @@ function RecipientsPage() {
         avatar: name.slice(0, 1) || '?',
         communicationStyle: styles,
         preferredStyle: styles.join(', '),
+        customStyle: newRecipient.customStyle.trim(),
       })
       const refreshed = await fetchRecipients()
       setRecipientList(refreshed)
@@ -1682,6 +1684,15 @@ function RecipientsPage() {
                   )}
                 </div>
               </div>
+
+              {selectedRecipient.customStyle && (
+                <div className="mt-2.5 flex items-start gap-3 text-[13px]">
+                  <span className="w-24 shrink-0 text-[12px] font-medium text-[#7b7b84] pt-0.5">추가 스타일</span>
+                  <span className="rounded-md bg-white border border-[#d8d2f5] px-2.5 py-1 text-[11px] font-medium text-[#5143d1] shadow-xs">
+                    {selectedRecipient.customStyle}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* AI-generated communication profile */}
@@ -1972,6 +1983,18 @@ function RecipientsPage() {
                   )
                 })}
               </div>
+
+              <div className="mt-3">
+                <label className="block text-[11px] font-semibold text-[#5d5565] mb-1">
+                  추가 스타일 / 어조 (선택)
+                </label>
+                <input
+                  value={newRecipient.customStyle || ''}
+                  onChange={(e) => setNewRecipient((curr) => ({ ...curr, customStyle: e.target.value }))}
+                  placeholder="예: 비즈니스 용어를 많이 사용합니다, 이모지를 자주 씁니다..."
+                  className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                />
+              </div>
             </div>
 
             {formErrorMessage && (
@@ -2155,6 +2178,18 @@ function RecipientsPage() {
                     </button>
                   )
                 })}
+              </div>
+
+              <div className="mt-3">
+                <label className="block text-[11px] font-semibold text-[#5d5565] mb-1">
+                  추가 스타일 / 어조 (선택)
+                </label>
+                <input
+                  value={newRecipient.customStyle || ''}
+                  onChange={(e) => setNewRecipient((curr) => ({ ...curr, customStyle: e.target.value }))}
+                  placeholder="예: 비즈니스 용어를 많이 사용합니다, 이모지를 자주 씁니다..."
+                  className="h-10 w-full rounded-lg border border-[#dddde3] px-3 text-[12px] outline-none focus:border-[#6650df]"
+                />
               </div>
             </div>
 

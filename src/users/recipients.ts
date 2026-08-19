@@ -19,6 +19,7 @@ export type Recipient = {
   avatar: string
   communicationStyle?: string[]
   preferredStyle?: string
+  customStyle?: string
 }
 
 import { getAuthToken, authorizationHeaders } from './authStorage'
@@ -70,6 +71,7 @@ function normalizeRecipient(item: any): Recipient {
     avatar: item.avatar || (item.name ? String(item.name).slice(0, 1) : '?'),
     communicationStyle: Array.isArray(item.communicationStyle) ? item.communicationStyle : [],
     preferredStyle: item.preferredStyle || '',
+    customStyle: item.customStyle || '',
   }
 }
 
