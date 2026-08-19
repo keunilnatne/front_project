@@ -30,6 +30,10 @@ export const defaultUserProfile: UserProfile = {
   customStyle: '',
 }
 
+export function hasCompletedOnboardingProfile(profile?: Partial<UserProfile> | null): boolean {
+  return Boolean(profile && (profile.position || profile.role || profile.company))
+}
+
 const API_URL = import.meta.env.VITE_API_URL || ''
 const STORAGE_KEY = 'ieum.userProfile'
 const ONBOARDING_STORAGE_KEYS = [
@@ -78,7 +82,7 @@ export async function fetchUserProfile(): Promise<UserProfile> {
         customStyle: data.customStyle || data.preferredStyle || '',
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
-      if (profile.position || profile.role || profile.company || (profile.name && profile.name !== profile.email?.split('@')[0])) {
+      if (hasCompletedOnboardingProfile(profile)) {
         completeOnboarding(profile.email)
       }
       window.dispatchEvent(new Event('profile-updated'))
@@ -137,17 +141,19 @@ export function resetUserProfile() {
 }
 
 export function isOnboardingCompleted(email = ''): boolean {
-  if (email) {
-    const key = `onboarding.completed_${email.trim().toLowerCase()}`
+  const normalizedEmail = email.trim().toLowerCase()
+  if (normalizedEmail) {
+    const key = `onboarding.completed_${normalizedEmail}`
     if (localStorage.getItem(key) === 'true') return true
   }
-  if (localStorage.getItem('onboarding.completed') === 'true') return true
 
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
-      const parsed = JSON.parse(stored)
-      if (parsed && (parsed.position || parsed.role || parsed.company || (parsed.name && parsed.name !== parsed.email?.split('@')[0]))) {
+      const parsed = JSON.parse(stored) as Partial<UserProfile>
+      const storedEmail = String(parsed.email || '').trim().toLowerCase()
+      const sameAccount = !normalizedEmail || storedEmail === normalizedEmail
+      if (sameAccount && hasCompletedOnboardingProfile(parsed)) {
         return true
       }
     }
@@ -155,19 +161,27 @@ export function isOnboardingCompleted(email = ''): boolean {
     // ignore
   }
 
-  return false
+  return !normalizedEmail && localStorage.getItem('onboarding.completed') === 'true'
 }
 
 export function completeOnboarding(email = '') {
-  if (email) {
-    localStorage.setItem(`onboarding.completed_${email.trim().toLowerCase()}`, 'true')
+  const normalizedEmail = email.trim().toLowerCase()
+  if (normalizedEmail) {
+    localStorage.setItem(`onboarding.completed_${normalizedEmail}`, 'true')
+    localStorage.removeItem('onboarding.completed')
+  } else {
+    localStorage.setItem('onboarding.completed', 'true')
   }
-  localStorage.setItem('onboarding.completed', 'true')
 }
 
 export function startOnboarding(email = '') {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...defaultUserProfile, email }))
+  const normalizedEmail = email.trim().toLowerCase()
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...defaultUserProfile, email: normalizedEmail || email }))
   ONBOARDING_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key))
+  localStorage.removeItem('onboarding.completed')
+  if (normalizedEmail) {
+    localStorage.removeItem(`onboarding.completed_${normalizedEmail}`)
+  }
   window.dispatchEvent(new Event('profile-updated'))
 }
 

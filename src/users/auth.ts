@@ -43,6 +43,11 @@ export async function registerAccount(input: RegisterInput): Promise<void> {
       }
       throw await responseError(response, '회원가입에 실패했습니다.')
     }
+
+    const data = await response.json() as AuthResponse
+    const token = data.accessToken || data.token
+    if (!token) throw new Error('회원가입 응답에 인증 토큰이 없습니다.')
+    setAuthToken(token)
   } catch (error: any) {
     if (error?.message?.includes('Failed to fetch')) {
       throw new Error('서버와 통신할 수 없습니다. 네트워크 연결을 확인해 주세요.')

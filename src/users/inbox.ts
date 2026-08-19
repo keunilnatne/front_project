@@ -43,17 +43,26 @@ function parseSender(fromStr: string): { name: string; email: string } {
 }
 
 export async function getGmailStatus(): Promise<GmailStatus> {
-  try {
-    const response = await fetch(`${API_URL}/api/gmail/status`, {
-      headers: authorizationHeaders(),
-    })
-    if (response.ok) {
-      return await response.json()
-    }
-  } catch {
-    // fallback
+  const response = await fetch(`${API_URL}/api/gmail/status`, {
+    headers: authorizationHeaders(),
+    cache: 'no-store',
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => null) as {
+      code?: string
+      message?: string
+      error?: { code?: string; message?: string }
+    } | null
+    const code = data?.code || data?.error?.code
+    const message = data?.message || data?.error?.message
+    throw new Error(code || message || `GMAIL_STATUS_FAILED_${response.status}`)
   }
-  return { connected: false, email: null }
+
+  const data = await response.json() as Partial<GmailStatus>
+  return {
+    connected: data.connected === true,
+    email: data.email || null,
+  }
 }
 
 const INBOX_CACHE_KEY = 'ieum.inboxCache'

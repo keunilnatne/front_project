@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import logo from '../../images/ieum-logo.png'
 import { registerAccount } from '../../users/auth'
+import { startOnboarding } from '../../users/userProfile'
 
 const INPUT_CLASS = [
   'mt-2 h-11 w-full rounded-lg border border-[#d9d9df] px-3 text-sm outline-none',
@@ -34,9 +35,8 @@ function SignUpPage() {
 
     try {
       await registerAccount({ name, email, password })
-      navigate(`/login?registered=true&email=${encodeURIComponent(email)}`, {
-        replace: true,
-      })
+      startOnboarding(email)
+      navigate('/welcome', { replace: true })
     } catch (error) {
       setErrorMessage(
         error instanceof Error

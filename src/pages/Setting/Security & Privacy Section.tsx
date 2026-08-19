@@ -46,14 +46,24 @@ function SecurityPrivacySection() {
     if (token) headers['Authorization'] = `Bearer ${token}`
 
     try {
-      await fetch(`${API_URL}/api/users/me`, {
+      const response = await fetch(`${API_URL}/api/users/me`, {
         method: 'DELETE',
         headers,
-      }).catch(() => null)
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null) as {
+          message?: string
+          error?: { message?: string }
+        } | null
+        throw new Error(data?.message || data?.error?.message || '계정을 삭제하지 못했습니다.')
+      }
 
       localStorage.clear()
       sessionStorage.clear()
       navigate('/login', { replace: true })
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '계정을 삭제하지 못했습니다.')
     } finally {
       setIsProcessing(false)
     }
