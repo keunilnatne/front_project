@@ -8,17 +8,11 @@ import { fetchConversations, saveConversation, type Conversation } from '../../u
 import { detectMessageLanguage, translateAndSpellCheck } from '../../ai/freeLanguageTools'
 import { type AttachmentItem } from '../../components/AttachmentPicker'
 import { saveDraftToServer } from '../../users/drafts'
+import RecipientContextCard, { type RecipientContextData } from '../../components/RecipientContextCard'
 
-type Recipient = {
+type Recipient = RecipientContextData & {
   id: string
-  name: string
   email?: string
-  position: string
-  company: string
-  country?: string
-  language: string
-  timezone: string
-  relationship: string
   responseTime?: number
   speed?: string
   collaboration?: string
@@ -94,119 +88,6 @@ function getRecipientTimeNotice(recipient?: Recipient) {
     const zone = labels[recipient.timezone] || recipient.timezone
     return `${zone} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} · ${afterHours ? '수신자 업무 시간 이후입니다' : '수신자 업무 시간입니다'}`
   } catch { return `${recipient.timezone} · 수신자 현지 시간을 확인할 수 없습니다.` }
-}
-
-/* -------------------------------------------------------
- * 수신자 Context 컴포넌트
- * 사진에서 보이는 1명 단위
- * ----------------------------------------------------- */
-
-function getRecipientWorkStatus(timezone = 'Asia/Seoul'): { isWorkHour: boolean; timeString: string; label: string } {
-  try {
-    const formatter = new Intl.DateTimeFormat('ko-KR', {
-      timeZone: timezone || 'Asia/Seoul',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-    const timeString = formatter.format(new Date())
-    const [h, m] = timeString.split(':').map(Number)
-    const totalMinutes = h * 60 + (m || 0)
-    // 일반 업무 시간: 09:00 - 18:00
-    const isWorkHour = totalMinutes >= 540 && totalMinutes <= 1080
-    return {
-      isWorkHour,
-      timeString,
-      label: isWorkHour ? '업무 시간 중' : '업무 시간 외',
-    }
-  } catch {
-    return { isWorkHour: true, timeString: '', label: '업무 시간 중' }
-  }
-}
-
-function RecipientContextCard({
-  recipient,
-  aiTags = [],
-}: {
-  recipient: Recipient
-  aiTags?: string[]
-}) {
-  const workStatus = getRecipientWorkStatus(recipient.timezone)
-
-  return (
-    <div className="border-b border-[#eeeef0] pb-6">
-      {/* 사람 정보 */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f0f0f4] text-[11px] font-semibold text-[#555]">
-          {recipient.name.slice(0, 2)}
-        </div>
-
-        <div className="min-w-0">
-          <p className="truncate text-[13px] font-semibold text-[#29292d]">
-            {recipient.name}
-          </p>
-
-          <p className="truncate text-[11px] text-[#999]">
-            {recipient.position} · {recipient.company}
-          </p>
-        </div>
-      </div>
-
-      {/* 기본 Context */}
-      <div className="mt-5 space-y-3 text-[11px]">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[#999]">국가</span>
-
-          <span className="font-medium text-[#29292d]">
-            {recipient.country || '-'}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[#999]">언어</span>
-
-          <span className="font-medium text-[#29292d]">
-            {recipient.language || '-'}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[#999]">시간대 / 업무 상태</span>
-
-          <span className="flex items-center gap-1.5 font-medium text-[#29292d]">
-            <span>{workStatus.timeString ? `${workStatus.timeString} (${workStatus.label})` : recipient.timezone || '-'}</span>
-            <span className={`inline-block h-2 w-2 rounded-full ${workStatus.isWorkHour ? 'bg-[#10b981]' : 'bg-[#f59e0b]'}`} />
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[#999]">직무</span>
-
-          <span className="max-w-45 text-right font-medium text-[#29292d]">
-            {recipient.position || '-'}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[#999]">조직 관계</span>
-
-          <span className="max-w-45 text-right font-medium text-[#29292d]">
-            {recipient.relationship || '-'}
-          </span>
-        </div>
-      </div>
-
-      {/* 커뮤니케이션 스타일 */}
-      <div className="mt-5">
-        <p className="text-[10px] text-[#999]">
-          커뮤니케이션 스타일
-        </p>
-        <div className="mt-2 max-h-24 overflow-y-auto pr-1">
-          {aiTags.length ? <div className="flex flex-wrap gap-1.5">{aiTags.map((tag) => <span key={tag} className="rounded bg-[#f0ebff] px-2 py-1 text-[9px] text-[#6343dd]">{tag}</span>)}</div> : <p className="text-[10px] text-[#999]">AI 분석 결과가 아직 없습니다.</p>}
-        </div>
-      </div>
-    </div>
-  )
 }
 
 /* -------------------------------------------------------
@@ -887,47 +768,6 @@ export default function MessagesPage() {
                 )}
               </div>
 
-              {/* 수신자 선택 즉시 선호 스타일 및 협업 정보 표시 배너 */}
-              {selectedRecipients.length > 0 && (
-                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#e5e1f8] bg-[#f8f7ff] px-4 py-3 text-[12px] shadow-xs">
-                  <div className="flex items-center gap-1.5 font-semibold text-[#5531e8]">
-                    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                    </svg>
-                    <span>선호 소통 스타일:</span>
-                    <span className="rounded-md bg-[#eeeaff] px-2 py-0.5 font-bold text-[#4f46e5]">
-                      {selectedRecipients[0].relationship || '명확하고 간결하게'}
-                    </span>
-                  </div>
-
-                  <div className="hidden h-3.5 w-[1px] bg-[#d9d5f0] sm:block" />
-
-                  <div className="flex items-center gap-1.5 text-[#555]">
-                    <svg className="h-3.5 w-3.5 shrink-0 text-[#888]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" />
-                      <polyline points="12 6 12 12 16 14" />
-                    </svg>
-                    <span>응답 속도:</span>
-                    <span className="font-medium text-[#333]">
-                      {selectedRecipients[0].speed || '보통'} ({selectedRecipients[0].responseTime ? `약 ${selectedRecipients[0].responseTime}분` : '평균 속도'})
-                    </span>
-                  </div>
-
-                  <div className="hidden h-3.5 w-[1px] bg-[#d9d5f0] sm:block" />
-
-                  <div className="flex items-center gap-1.5 text-[#555]">
-                    <svg className="h-3.5 w-3.5 shrink-0 text-[#888]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                    </svg>
-                    <span>조직 관계:</span>
-                    <span className="font-medium text-[#333]">
-                      {selectedRecipients[0].relationship || '팀원'}
-                    </span>
-                  </div>
-                </div>
-              )}
-
               {/* MESSAGE FORM */}
               <div className="overflow-hidden rounded-xl border border-[#e1e0e5] bg-white">
                 {/* SUBJECT */}
@@ -1093,7 +933,6 @@ export default function MessagesPage() {
                     <RecipientContextCard
                       key={recipient.id}
                       recipient={recipient}
-                      aiTags={aiMetadata?.tags || []}
                     />
                   ))}
                 </div>
@@ -1139,5 +978,8 @@ function toMessageRecipient(item: UserRecipient): Recipient {
     timezone: item.timezone, relationship: item.organizationRelation,
     responseTime: item.averageResponseMinutes ?? undefined, speed: item.responseSpeed ?? undefined,
     collaboration: item.collaborationActivity ?? undefined,
+    communicationStyle: item.communicationStyle,
+    preferredStyle: item.preferredStyle,
+    customStyle: item.customStyle,
   }
 }

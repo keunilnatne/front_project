@@ -288,9 +288,9 @@ function MyProfilePage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="profile-edit-modal-title"
-            className="max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl bg-white p-6 shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
+            className="flex max-h-[calc(100dvh-1rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
           >
-            <div className="sticky top-0 z-10 -mx-6 -mt-6 mb-4 flex items-center justify-between border-b border-[#eee] bg-white px-6 pb-4 pt-6">
+            <div className="flex shrink-0 items-center justify-between border-b border-[#eee] bg-white px-6 py-4">
               <h2 id="profile-edit-modal-title" className="text-[17px] font-bold text-[#222]">프로필 & 커뮤니케이션 스타일 수정</h2>
               <button
                 type="button"
@@ -301,7 +301,8 @@ function MyProfilePage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveProfile} className="flex min-h-0 flex-1 flex-col text-xs">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 py-4">
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
                   <span className="font-semibold text-[#555] block mb-1">이름</span>
@@ -590,8 +591,9 @@ function MyProfilePage() {
                   className="w-full rounded-lg border border-[#ddd] p-2.5 text-xs outline-none focus:border-[#5531e8]"
                 />
               </div>
+              </div>
 
-              <div className="sticky bottom-0 z-10 -mx-6 -mb-6 flex items-center justify-end gap-2.5 border-t border-[#eee] bg-white px-6 py-4 shadow-[0_-8px_16px_rgba(255,255,255,0.92)]">
+              <div className="flex shrink-0 items-center justify-end gap-2.5 border-t border-[#eee] bg-white px-6 py-4">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}

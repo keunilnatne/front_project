@@ -5,6 +5,7 @@ import { sendMessage as sendMessageRequest } from '../../users/messageService'
 import { saveConversation } from '../../users/conversationArchive'
 import MarkdownViewer from '../../components/MarkdownViewer'
 import AttachmentPicker, { type AttachmentItem } from '../../components/AttachmentPicker'
+import RecipientContextCard, { type RecipientContextData } from '../../components/RecipientContextCard'
 
 function formatSendErrorMessage(rawMessage?: string): string {
   if (!rawMessage) return '메시지 전송에 실패했습니다. 백엔드 서버 연결 상태를 확인해주세요.'
@@ -23,16 +24,9 @@ function formatSendErrorMessage(rawMessage?: string): string {
   return rawMessage
 }
 
-type Recipient = {
+type Recipient = RecipientContextData & {
   id: string
-  name: string
   email?: string
-  position: string
-  company: string
-  country?: string
-  language: string
-  timezone: string
-  relationship: string
   responseTime?: number
   speed?: string
   collaboration?: string
@@ -237,110 +231,6 @@ function RelationshipContextIcon() {
   return (
     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f0ebff] text-[#6343dd]">
       <RelationshipIcon />
-    </div>
-  )
-}
-
-/* -------------------------------------------------------
- * 수신자 한 명 단위 Context 컴포넌트
- * ----------------------------------------------------- */
-
-function RecipientContextCard({
-  recipient,
-  aiTags = [],
-}: {
-  recipient: Recipient
-  aiTags?: string[]
-}) {
-  return (
-    <div className="border-b border-[#eeeef0] pb-5">
-      {/* 사람 정보 */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e9e9ec] text-[12px] font-semibold text-[#555]">
-          {recipient.name
-            ? recipient.name.slice(0, 2)
-            : '?'}
-        </div>
-
-        <div className="min-w-0">
-          <p className="truncate text-[13px] font-semibold text-[#29272c]">
-            {recipient.name || '수신자'}
-          </p>
-
-          <p className="truncate text-[11px] text-[#999]">
-            {recipient.company || '-'} · {recipient.position || '-'}
-          </p>
-        </div>
-      </div>
-
-      {/* 정보 */}
-      <div className="mt-5 space-y-4 text-[12px]">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-[#999]">
-            <GlobeIcon />
-            <span>국가</span>
-          </div>
-
-          <span className="text-right font-medium text-[#29292d]">
-            {recipient.country || 'South Korea'}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-[#999]">
-            <GlobeIcon />
-            <span>언어</span>
-          </div>
-
-          <span className="text-right font-medium text-[#29292d]">
-            {recipient.language || '-'}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-[#999]">
-            <ClockIcon />
-            <span>시간대</span>
-          </div>
-
-          <span className="text-right font-medium text-[#29292d]">
-            {recipient.timezone || '-'}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-[#999]">
-            <BriefcaseIcon />
-            <span>직무</span>
-          </div>
-
-          <span className="max-w-45 text-right font-medium text-[#29292d]">
-            {recipient.position || '-'}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-[#999]">
-            <RelationshipIcon />
-            <span>조직 관계</span>
-          </div>
-
-          <span className="max-w-45 text-right font-medium text-[#29292d]">
-            {recipient.relationship || '-'}
-          </span>
-        </div>
-      </div>
-
-      {/* 커뮤니케이션 스타일 */}
-      <div className="mt-6">
-        <p className="text-[11px] text-[#999]">
-          커뮤니케이션 스타일
-        </p>
-
-        <div className="mt-3 max-h-24 overflow-y-auto pr-1">
-          {aiTags.length > 0 ? <div className="flex flex-wrap gap-1.5">{aiTags.map((tag) => <span key={tag} className="rounded bg-[#f0ebff] px-2 py-1 text-[10px] text-[#6343dd]">{tag}</span>)}</div> : <p className="text-[10px] text-[#999]">AI 최적화 과정에서 생성된 수신자 스타일 정보가 없습니다.</p>}
-        </div>
-      </div>
     </div>
   )
 }
@@ -761,7 +651,6 @@ export default function MessageOptimizedPage() {
                 <RecipientContextCard
                   key={item.id}
                   recipient={item}
-                  aiTags={aiContext?.tags || []}
                 />
               ))}
             </div>
