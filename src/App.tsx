@@ -19,6 +19,7 @@ import AddRecipient from './pages/onbording/Add-recipient'
 import Integrations from './pages/onbording/integrations'
 import InboxPage from './pages/InboxPage'
 import Complete from './pages/onbording/complete'
+import NoticeAdminPage from './pages/NoticeAdminPage'
 
 function App() {
   return (
@@ -52,6 +53,7 @@ function App() {
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/my-profile" element={<MyProfilePage />} />
+        <Route path="/admin/notices" element={<NoticeAdminPage />} />
       </Route>
 
       {/* 존재하지 않는 페이지 */}
