@@ -101,6 +101,7 @@ export async function fetchRecipients(signal?: AbortSignal): Promise<Recipient[]
     if (token) {
       const response = await fetch(`${API_URL}/api/recipients`, {
         signal,
+        cache: 'no-store',
         headers: authorizationHeaders(),
       })
       if (response.ok) {
@@ -134,7 +135,10 @@ export async function createRecipient(recipient: CreateRecipientInput): Promise<
   if (!response.ok) throw await apiError(response, '수신자 저장에 실패했습니다.')
   const item: any = await response.json()
   const data = normalizeRecipient(item)
-  const current = readLocalRecipients().filter((r) => r.id !== data.id)
+  const normalizedEmail = data.email?.trim().toLowerCase()
+  const current = readLocalRecipients().filter((r) => (
+    r.id !== data.id && r.email?.trim().toLowerCase() !== normalizedEmail
+  ))
   persistRecipients([data, ...current])
   return data
 }
@@ -142,7 +146,7 @@ export async function createRecipient(recipient: CreateRecipientInput): Promise<
 export async function fetchIeumUserProfile(email: string): Promise<Recipient> {
   const response = await fetch(
     `${API_URL}/api/users/lookup?email=${encodeURIComponent(email.trim())}`,
-    { headers: authorizationHeaders() },
+    { cache: 'no-store', headers: authorizationHeaders() },
   )
   if (!response.ok) throw await apiError(response, '이음에 가입된 회원을 찾을 수 없습니다.')
   const data = await response.json()
@@ -195,14 +199,12 @@ export async function toggleRecipientFavorite(id: number): Promise<Recipient | n
 }
 
 export async function deleteRecipient(id: number): Promise<void> {
-  try {
-    await fetch(`${API_URL}/api/recipients/${id}`, {
-      method: 'DELETE',
-      headers: authorizationHeaders(),
-    })
-  } catch {
-    // ignore
-  }
+  const response = await fetch(`${API_URL}/api/recipients/${id}`, {
+    method: 'DELETE',
+    headers: authorizationHeaders(),
+  })
+  if (!response.ok) throw await apiError(response, '수신자 삭제에 실패했습니다.')
+
   const current = readLocalRecipients().filter((r) => r.id !== id)
   persistRecipients(current)
 }
