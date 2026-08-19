@@ -1131,7 +1131,7 @@ export default function TeamMemoryPage() {
                                 key={
                                   event.id
                                 }
-                                className="flex min-w-0 items-center gap-1.5"
+                                className="flex min-w-0 items-center gap-1.5 rounded-md bg-[#f4f2ff] border border-[#e4ddff] px-1.5 py-0.5 shadow-2xs"
                               >
                                 <span
                                   className={`h-1.5 w-1.5 shrink-0 rounded-full ${colorClass(
@@ -1139,7 +1139,7 @@ export default function TeamMemoryPage() {
                                   )}`}
                                 />
 
-                                <span className="truncate text-[11px] text-[#70798b]">
+                                <span className="truncate text-[10.5px] font-medium text-[#4338ca]">
                                   {
                                     event.title
                                   }
