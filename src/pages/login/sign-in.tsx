@@ -166,6 +166,7 @@ type GoogleAuthMessage = {
   type: 'google-auth-success' | 'google-auth-error'
   email?: string
   token?: string
+  isNewUser?: boolean
   message?: string
 }
 
@@ -187,6 +188,15 @@ function SocialLoginSection() {
         if (event.data.token) {
           localStorage.setItem('ieum.accessToken', event.data.token)
           localStorage.setItem('ieum.token', event.data.token)
+        }
+
+        if (event.data.isNewUser) {
+          startOnboarding(email)
+          localStorage.setItem('auth.isGoogleLogin', 'true')
+          localStorage.setItem('onboarding.gmail', 'true')
+          localStorage.setItem('onboarding.gmailEmail', email)
+          navigate('/welcome')
+          return
         }
 
         void fetchUserProfile().then((userProfile) => {

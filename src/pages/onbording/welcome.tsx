@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import welcomeIllustration from '../../images/welcome-illustration.png'
-import { skipOnboarding, getUserProfile, fetchUserProfile, completeOnboarding, isOnboardingCompleted, hasCompletedOnboardingProfile } from '../../users/userProfile'
+import { skipOnboarding, startOnboarding, getUserProfile, fetchUserProfile, completeOnboarding, isOnboardingCompleted, hasCompletedOnboardingProfile } from '../../users/userProfile'
 
 const START_BUTTON_CLASS = [
   'mt-12 flex h-12 w-full max-w-80 items-center justify-center rounded-lg',
@@ -36,8 +36,15 @@ function ProgressIndicator() {
 
 function Welcome() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   useEffect(() => {
+    if (searchParams.get('newAccount') === 'true') {
+      const profile = getUserProfile()
+      startOnboarding(profile.email)
+      return
+    }
+
     void fetchUserProfile().then((profile) => {
       if (hasCompletedOnboardingProfile(profile)) {
         completeOnboarding(profile.email)
@@ -46,7 +53,7 @@ function Welcome() {
         navigate('/dashboard', { replace: true })
       }
     })
-  }, [navigate])
+  }, [navigate, searchParams])
 
   const handleSkip = () => {
     const profile = getUserProfile()
