@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import gmailLogo from '../../images/gmail.png'
 import { authorizationHeaders } from '../../users/authStorage'
@@ -35,12 +35,12 @@ function Integrations() {
     navigate('/complete')
   }
 
-  const completeGmailConnection = (email: string) => {
+  const completeGmailConnection = useCallback((email: string) => {
     localStorage.setItem('onboarding.gmailEmail', email)
     localStorage.setItem('onboarding.gmail', 'true')
     setIsConnecting(false)
     navigate('/complete')
-  }
+  }, [navigate])
 
   useEffect(() => {
     if (localStorage.getItem('auth.isGoogleLogin') === 'true' || localStorage.getItem('onboarding.gmail') === 'true') {
@@ -67,7 +67,7 @@ function Integrations() {
 
     window.addEventListener('message', handleGoogleAuthMessage)
     return () => window.removeEventListener('message', handleGoogleAuthMessage)
-  }, [navigate])
+  }, [completeGmailConnection, navigate])
 
   const openGoogleLogin = async () => {
     setGoogleError('')

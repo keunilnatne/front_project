@@ -8,6 +8,7 @@ export type Pattern = {
   attachmentName?: string
   updatedAt?: string
   unread?: boolean
+  type?: string
 }
 
 export type Candidate = {

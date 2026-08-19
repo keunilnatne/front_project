@@ -62,6 +62,21 @@ export type ScheduleInfo = {
   source: string
 }
 
+type ReplyRecipient = {
+  id: string
+  name: string
+  email: string
+  position: string
+  company: string
+  country: string
+  language: string
+  timezone: string
+  relationship: string
+  speed: string
+  responseTime: number
+  collaboration: string
+}
+
 export default function InboxPage() {
   const navigate = useNavigate()
   const [messages, setMessages] = useState<InboxMessage[]>(() => getCachedInboxMessages())
@@ -189,8 +204,8 @@ export default function InboxPage() {
       if (list.length > 0) {
         setSelectedId((prev) => prev || list[0].id)
       }
-    } catch (err: any) {
-      if (err.message === 'GMAIL_NOT_CONNECTED') {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === 'GMAIL_NOT_CONNECTED') {
         setNotConnected(true)
       }
     } finally {
@@ -210,7 +225,8 @@ export default function InboxPage() {
   }
 
   useEffect(() => {
-    void loadData()
+    const timer = window.setTimeout(() => void loadData(), 0)
+    return () => window.clearTimeout(timer)
   }, [])
 
   useEffect(() => {
@@ -227,31 +243,34 @@ export default function InboxPage() {
   // Load message detail when selected
   useEffect(() => {
     if (!selectedId) {
-      setSelectedDetail(null)
-      return
+      const timer = window.setTimeout(() => setSelectedDetail(null), 0)
+      return () => window.clearTimeout(timer)
     }
 
     const cached = messages.find((m) => m.id === selectedId)
-    if (cached && cached.body) {
-      setSelectedDetail(cached)
-      return
-    }
-
     let active = true
-    setDetailLoading(true)
-    void fetchInboxMessageDetail(selectedId)
-      .then((detail) => {
-        if (active) setSelectedDetail(detail)
-      })
-      .catch(() => {
-        if (active && cached) setSelectedDetail(cached)
-      })
-      .finally(() => {
-        if (active) setDetailLoading(false)
-      })
+    const timer = window.setTimeout(() => {
+      if (cached?.body) {
+        setSelectedDetail(cached)
+        return
+      }
+
+      setDetailLoading(true)
+      void fetchInboxMessageDetail(selectedId)
+        .then((detail) => {
+          if (active) setSelectedDetail(detail)
+        })
+        .catch(() => {
+          if (active && cached) setSelectedDetail(cached)
+        })
+        .finally(() => {
+          if (active) setDetailLoading(false)
+        })
+    }, 0)
 
     return () => {
       active = false
+      window.clearTimeout(timer)
     }
   }, [selectedId, messages])
 
@@ -268,7 +287,7 @@ export default function InboxPage() {
   }, [messages, search])
 
   const handleReplyWithAi = async (msg: InboxMessage) => {
-    let targetRecipient: any = null
+    let targetRecipient: ReplyRecipient
     const fromEmail = msg.fromEmail || ''
     const fromName = msg.fromName || fromEmail.split('@')[0] || '발신자'
 
@@ -279,7 +298,7 @@ export default function InboxPage() {
         targetRecipient = {
           id: String(found.id),
           name: found.name,
-          email: found.email,
+          email: found.email || fromEmail,
           position: found.role || '연락처',
           company: found.company || '',
           country: found.country || 'South Korea',
@@ -313,7 +332,7 @@ export default function InboxPage() {
         targetRecipient = {
           id: String(created.id),
           name: created.name,
-          email: created.email,
+          email: created.email || fromEmail,
           position: created.role || '연락처',
           company: created.company || '',
           country: created.country || 'South Korea',

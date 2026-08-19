@@ -27,6 +27,23 @@ export type OptimizedMessage = {
   explanation?: string
 }
 
+type OptimizeResultResponse = {
+  id?: number
+  messageResultId?: number
+  optimizedSubject?: string
+  optimizedBody?: string
+  subject?: string
+  body?: string
+  qualityScore?: number
+  explanation?: string
+}
+
+type OptimizeApiResponse = OptimizeResultResponse & {
+  messageId?: number
+  score?: number
+  results?: OptimizeResultResponse[]
+}
+
 export async function optimizeMessage(payload: MessagePayload): Promise<OptimizedMessage> {
   const response = await fetch(`${API_URL}/api/messages/optimize`, {
     method: 'POST',
@@ -43,7 +60,7 @@ export async function optimizeMessage(payload: MessagePayload): Promise<Optimize
   const data: unknown = await response.json()
   if (!data || typeof data !== 'object') throw new Error('AI 응답 형식이 올바르지 않습니다.')
 
-  const resObj = data as any
+  const resObj = data as OptimizeApiResponse
   const firstResult = Array.isArray(resObj.results) ? resObj.results[0] : resObj
 
   const finalSubject = firstResult?.optimizedSubject || firstResult?.subject || resObj.subject || payload.subject
@@ -64,7 +81,7 @@ export async function sendMessage(payload: MessagePayload & {
   originalBody?: string
   messageId?: number
   messageResultId?: number
-}): Promise<any> {
+}): Promise<unknown> {
   const response = await fetch(`${API_URL}/api/messages/send`, {
     method: 'POST',
     headers: {

@@ -6,15 +6,13 @@ import { authorizationHeaders, getAuthToken, handle401Unauthorized } from '../us
 const API_URL = import.meta.env.VITE_API_URL || ''
 
 export function RequireAuth() {
+  const token = getAuthToken()
   const [access, setAccess] = useState<'checking' | 'allowed' | 'denied'>(
-    getAuthToken() ? 'checking' : 'denied',
+    token ? 'checking' : 'denied',
   )
 
   useEffect(() => {
-    if (!getAuthToken()) {
-      setAccess('denied')
-      return
-    }
+    if (!token) return
 
     let active = true
     void fetch(`${API_URL}/api/users/me`, {
@@ -33,8 +31,9 @@ export function RequireAuth() {
     return () => {
       active = false
     }
-  }, [])
+  }, [token])
 
+  if (!token) return <Navigate to="/login" replace />
   if (access === 'checking') {
     return <AccessCheckMessage message="로그인 정보를 확인하는 중입니다." fullScreen />
   }

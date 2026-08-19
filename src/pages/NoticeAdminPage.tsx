@@ -16,7 +16,8 @@ export default function NoticeAdminPage() {
   }
 
   useEffect(() => {
-    void reloadNotices()
+    const timer = window.setTimeout(() => void reloadNotices(), 0)
+    return () => window.clearTimeout(timer)
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -272,7 +272,10 @@ export default function MessagesPage() {
   }, [showRecipientList])
 
   useEffect(() => {
-    if (!subject.trim() && !body.trim()) { setAiMetadata(null); return }
+    if (!subject.trim() && !body.trim()) {
+      const resetTimer = window.setTimeout(() => setAiMetadata(null), 0)
+      return () => window.clearTimeout(resetTimer)
+    }
     const timer = window.setTimeout(() => {
       void analyzeMessageMetadata({
         recipients: selectedRecipients,

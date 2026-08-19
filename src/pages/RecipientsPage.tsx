@@ -1109,8 +1109,11 @@ function RecipientsPage() {
       .then((data) => {
         setRecipientList(data)
         const requestedId = Number(searchParams.get('member'))
-        if (requestedId && data.some((item) => item.id === requestedId)) setSelectedId(requestedId)
-        else if (data.length && !data.some((item) => item.id === selectedId)) setSelectedId(data[0].id)
+        setSelectedId((currentId) => {
+          if (requestedId && data.some((item) => item.id === requestedId)) return requestedId
+          if (data.length && !data.some((item) => item.id === currentId)) return data[0].id
+          return currentId
+        })
       })
       .catch(() => {})
     return () => controller.abort()
@@ -1122,13 +1125,21 @@ function RecipientsPage() {
     ) || recipientList[0]
 
   useEffect(() => {
-    if (!selectedRecipient) { setAiProfile(null); return }
+    if (!selectedRecipient) {
+      const timer = window.setTimeout(() => setAiProfile(null), 0)
+      return () => window.clearTimeout(timer)
+    }
     let active = true
-    setAiLoading(true)
-    void analyzeRecipient(selectedRecipient).then((profile) => {
-      if (active) setAiProfile(profile)
-    }).finally(() => { if (active) setAiLoading(false) })
-    return () => { active = false }
+    const timer = window.setTimeout(() => {
+      setAiLoading(true)
+      void analyzeRecipient(selectedRecipient).then((profile) => {
+        if (active) setAiProfile(profile)
+      }).finally(() => { if (active) setAiLoading(false) })
+    }, 0)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
   }, [selectedRecipient])
 
   async function handleLookupProfile() {

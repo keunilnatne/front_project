@@ -1,3 +1,5 @@
+import { authorizationHeaders } from '../users/authStorage'
+
 export type RecipientAIProfile = {
   tags: string[]
   terms: string[]
@@ -13,20 +15,13 @@ export type MessageAIContext = {
   rules: string[]
 }
 
-export type HistoryAIInsight = {
-  summary: string
-  recommendation: string
-  efficiency: string
-  focus: string
-}
-
 const API_URL = import.meta.env.VITE_API_URL || ''
 
 async function postAI<T>(path: string, payload: unknown): Promise<T | null> {
   try {
     const response = await fetch(`${API_URL}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
       body: JSON.stringify(payload),
     })
     if (!response.ok) return null
@@ -50,8 +45,4 @@ export async function analyzeMessageMetadata(payload: unknown): Promise<{
   targetLanguage?: string
 } | null> {
   return postAI('/api/ai/messages/metadata', payload)
-}
-
-export async function analyzeHistory(history: unknown): Promise<HistoryAIInsight | null> {
-  return postAI<HistoryAIInsight>('/api/ai/history/analyze', { history })
 }

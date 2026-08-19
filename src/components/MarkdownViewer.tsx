@@ -281,7 +281,7 @@ export default function MarkdownViewer({ content, className = '', htmlContent }:
       const parts: React.ReactNode[] = []
 
       // Also match standalone URLs: https://... or http://...
-      const regex = /(!?\[([^\]]*)\]\(([^)]+)\))|(`([^`]+)`)|(https?:\/\/[^\s<>"{}|\\^`\[\]]+)|(\*\*([^*]+)\*\*)|(\*([^*]+)\*)/g
+      const regex = /(!?\[([^\]]*)\]\(([^)]+)\))|(`([^`]+)`)|(https?:\/\/[^\s<>"{}|\\^`\u005B\u005D]+)|(\*\*([^*]+)\*\*)|(\*([^*]+)\*)/g
       let lastIndex = 0
       let match: RegExpExecArray | null
 

@@ -260,7 +260,7 @@ function parseDeadline(
 function getEventSource(pattern: Pattern): 'manual' | 'email' {
   const reason = (pattern.reason || '').toLowerCase()
   const att = (pattern.attachmentName || '').toLowerCase()
-  if (reason.includes('이메일') || reason.includes('email') || att.includes('email') || att === 'green' || (pattern as any).type === 'log') {
+  if (reason.includes('이메일') || reason.includes('email') || att.includes('email') || att === 'green' || pattern.type === 'log') {
     return 'email'
   }
   return 'manual'
