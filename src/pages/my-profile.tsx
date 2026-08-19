@@ -283,10 +283,15 @@ function MyProfilePage() {
 
       {/* 프로필 및 커뮤니케이션 스타일 전용 수정 모달 */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#eee] pb-4 mb-4">
-              <h2 className="text-[17px] font-bold text-[#222]">프로필 & 커뮤니케이션 스타일 수정</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/40 p-2 backdrop-blur-xs sm:p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-edit-modal-title"
+            className="max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl bg-white p-6 shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
+          >
+            <div className="sticky top-0 z-10 -mx-6 -mt-6 mb-4 flex items-center justify-between border-b border-[#eee] bg-white px-6 pb-4 pt-6">
+              <h2 id="profile-edit-modal-title" className="text-[17px] font-bold text-[#222]">프로필 & 커뮤니케이션 스타일 수정</h2>
               <button
                 type="button"
                 onClick={() => setIsEditModalOpen(false)}
@@ -586,7 +591,7 @@ function MyProfilePage() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 border-t border-[#eee] pt-4">
+              <div className="sticky bottom-0 z-10 -mx-6 -mb-6 flex items-center justify-end gap-2.5 border-t border-[#eee] bg-white px-6 py-4 shadow-[0_-8px_16px_rgba(255,255,255,0.92)]">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
