@@ -444,8 +444,45 @@ export default function MessagesPage() {
 
     setLoading(true)
     try {
+      let activeRecipients = [...selectedRecipients]
+      const first = activeRecipients[0]
+      if (first && (!Number.isInteger(Number(first.id)) || Number(first.id) <= 0)) {
+        try {
+          const list = await fetchRecipients()
+          let matched = first.email ? list.find((r) => r.email && r.email.toLowerCase() === first.email?.toLowerCase()) : null
+          if (!matched) {
+            matched = await createRecipient({
+              name: first.name || '수신자',
+              email: first.email || '',
+              role: first.position || '연락처',
+              company: first.company || '',
+              country: first.country || 'South Korea',
+              language: first.language || 'Korean',
+              timezone: first.timezone || 'Asia/Seoul',
+              organizationRelation: first.relationship || '외부 파트너',
+              responseSpeed: first.speed || '보통',
+              averageResponseMinutes: first.responseTime || 30,
+              collaborationActivity: first.collaboration || 'Medium',
+              isOnline: false,
+              isFavorite: false,
+              isRecent: true,
+              verifiedExpert: false,
+              fullTime: false,
+              avatar: (first.name || '수').slice(0, 1),
+            })
+          }
+          activeRecipients = [{
+            ...first,
+            id: String(matched.id),
+          }]
+          setSelectedRecipients(activeRecipients)
+        } catch {
+          // continue
+        }
+      }
+
       const optimized = await optimizeMessage({
-        recipients: selectedRecipients.map((item) => ({
+        recipients: activeRecipients.map((item) => ({
           id: Number(item.id),
           name: item.name,
           email: item.email,

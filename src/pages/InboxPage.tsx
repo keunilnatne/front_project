@@ -11,6 +11,7 @@ import {
   type GmailStatus,
 } from '../users/inbox'
 import { saveTeamMemoryPattern, type Pattern } from '../users/teamMemory'
+import { fetchRecipients, createRecipient } from '../users/recipients'
 import MarkdownViewer from '../components/MarkdownViewer'
 
 function formatFileSize(bytes?: number): string {
@@ -237,25 +238,89 @@ export default function InboxPage() {
     )
   }, [messages, search])
 
-  const handleReplyWithAi = (msg: InboxMessage) => {
-    navigate('/messages', {
-      state: {
-        recipient: {
-          id: `inbox-reply-${Date.now()}`,
-          name: msg.fromName || msg.fromEmail.split('@')[0] || '발신자',
-          email: msg.fromEmail,
-          position: '연락처',
+  const handleReplyWithAi = async (msg: InboxMessage) => {
+    let targetRecipient: any = null
+    const fromEmail = msg.fromEmail || ''
+    const fromName = msg.fromName || fromEmail.split('@')[0] || '발신자'
+
+    try {
+      const list = await fetchRecipients()
+      const found = list.find((r) => r.email && r.email.toLowerCase() === fromEmail.toLowerCase())
+      if (found) {
+        targetRecipient = {
+          id: String(found.id),
+          name: found.name,
+          email: found.email,
+          position: found.role || '연락처',
+          company: found.company || '',
+          country: found.country || 'South Korea',
+          language: found.language || 'Korean',
+          timezone: found.timezone || 'Asia/Seoul',
+          relationship: found.organizationRelation || '외부 파트너',
+          speed: found.responseSpeed || '보통',
+          responseTime: found.averageResponseMinutes || 30,
+          collaboration: found.collaborationActivity || 'Medium',
+        }
+      } else {
+        const created = await createRecipient({
+          name: fromName,
+          email: fromEmail,
+          role: '연락처',
           company: '',
           country: 'South Korea',
           language: 'Korean',
           timezone: 'Asia/Seoul',
-          relationship: '외부 파트너',
-          speed: '보통',
-          responseTime: 30,
-          collaboration: 'Medium',
-        },
+          organizationRelation: '외부 파트너',
+          responseSpeed: '보통',
+          averageResponseMinutes: 30,
+          collaborationActivity: 'Medium',
+          isOnline: false,
+          isFavorite: false,
+          isRecent: true,
+          verifiedExpert: false,
+          fullTime: false,
+          avatar: fromName.slice(0, 1).toUpperCase(),
+        })
+        targetRecipient = {
+          id: String(created.id),
+          name: created.name,
+          email: created.email,
+          position: created.role || '연락처',
+          company: created.company || '',
+          country: created.country || 'South Korea',
+          language: created.language || 'Korean',
+          timezone: created.timezone || 'Asia/Seoul',
+          relationship: created.organizationRelation || '외부 파트너',
+          speed: created.responseSpeed || '보통',
+          responseTime: created.averageResponseMinutes || 30,
+          collaboration: created.collaborationActivity || 'Medium',
+        }
+      }
+    } catch {
+      targetRecipient = {
+        id: `inbox-reply-${Date.now()}`,
+        name: fromName,
+        email: fromEmail,
+        position: '연락처',
+        company: '',
+        country: 'South Korea',
+        language: 'Korean',
+        timezone: 'Asia/Seoul',
+        relationship: '외부 파트너',
+        speed: '보통',
+        responseTime: 30,
+        collaboration: 'Medium',
+      }
+    }
+
+    const rawBody = msg.body || msg.snippet || ''
+    const cleanBody = rawBody.length > 500 ? `${rawBody.slice(0, 500)}...` : rawBody
+
+    navigate('/messages', {
+      state: {
+        recipient: targetRecipient,
         subject: msg.subject.startsWith('Re:') ? msg.subject : `Re: ${msg.subject}`,
-        body: `\n\n--- 원본 메일 (${msg.from}) ---\n${msg.body || msg.snippet}`,
+        body: `\n\n--- 원본 메일 (${msg.from}) ---\n${cleanBody}`,
       },
     })
   }
