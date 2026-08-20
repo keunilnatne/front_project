@@ -1342,7 +1342,7 @@ function RecipientsPage() {
           </h1>
 
           <div className="flex items-end justify-between gap-4">
-            <p className="mt-1 text-[13px] text-[#87888f]">자주 소통하는 상대의 커뮤니케이션 성향을 확인하고 관리하세요</p>
+            <p className="mt-1 text-[13px] text-[#87888f]">자주 소통하는 상대의 업무 용어와 커뮤니케이션 규칙을 확인하세요</p>
             <button type="button" onClick={openAddRecipientModal} className="shrink-0 rounded-lg bg-[#4d3bd5] px-4 py-2.5 text-[12px] font-semibold text-white cursor-pointer">+ 수신자 추가</button>
           </div>
         </div>
@@ -1719,17 +1719,65 @@ function RecipientsPage() {
 
             {/* AI-generated communication profile */}
             <div className="border-t border-[#ededf0] px-6 py-6">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-[16px] font-semibold text-[#292b38]">AI 커뮤니케이션 프로필</h3>
-                <span className="text-[10px] text-[#8a8790]">{aiLoading ? '분석 중...' : aiProfile ? 'AI 분석 완료' : 'AI 분석 데이터 없음'}</span>
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f0ebff] text-[15px] text-[#5b3bd7]">✦</span>
+                  <div>
+                    <h3 className="text-[16px] font-semibold text-[#292b38]">AI 커뮤니케이션 프로필</h3>
+                    <p className="mt-0.5 text-[10px] text-[#96919b]">실제 소통 데이터를 기반으로 정리했어요</p>
+                  </div>
+                </div>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${aiProfile ? 'bg-[#eefaf3] text-[#35885a]' : 'bg-[#f4f4f6] text-[#8a8790]'}`}>
+                  {aiLoading ? '분석 중...' : aiProfile ? 'AI 분석 완료' : '분석 데이터 없음'}
+                </span>
               </div>
               {aiProfile ? (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div><p className="mb-2 text-[10px] text-[#888]">커뮤니케이션 성향</p><div className="max-h-24 overflow-y-auto pr-1"><div className="flex flex-wrap gap-1.5">{aiProfile.tags.map((tag) => <span key={tag} className="rounded bg-[#f0ebff] px-2 py-1 text-[9px] text-[#6343dd]">{tag}</span>)}</div></div></div>
-                  <div><p className="mb-2 text-[10px] text-[#888]">자주 사용하는 용어</p><div className="max-h-24 overflow-y-auto pr-1"><div className="flex flex-wrap gap-1.5">{aiProfile.terms.map((term) => <span key={term} className="rounded bg-[#f4f4f6] px-2 py-1 text-[9px] text-[#666]">{term}</span>)}</div></div></div>
-                  <div className="md:col-span-2"><p className="mb-2 text-[10px] text-[#888]">커뮤니케이션 규칙</p><div className="max-h-28 space-y-1 overflow-y-auto pr-1">{aiProfile.rules.map((rule) => <div key={rule} className="rounded-lg bg-[#f8f8fa] px-3 py-2 text-[10px] text-[#666]">{rule}</div>)}</div></div>
+                <div className="pt-1">
+                  <section>
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white text-[12px] shadow-xs">Aa</span>
+                      <h4 className="text-[12px] font-semibold text-[#4b4651]">자주 사용하는 용어</h4>
+                    </div>
+                    {aiProfile.terms.length > 0 ? (
+                      <div className="flex max-h-24 flex-wrap content-start gap-2 overflow-y-auto pr-1">
+                        {aiProfile.terms.map((term) => (
+                          <span key={term} className="rounded-full border border-[#ddd5fa] bg-white px-2.5 py-1.5 text-[10px] font-medium text-[#5a46c8] shadow-xs">
+                            {term}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] leading-5 text-[#aaa5b0]">분석된 주요 용어가 아직 없습니다.</p>
+                    )}
+                  </section>
+
+                  <div className="my-5 h-px bg-[#ebe8f2]" />
+
+                  <section>
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white text-[13px] text-[#5b3bd7] shadow-xs">✓</span>
+                      <h4 className="text-[12px] font-semibold text-[#4b4651]">커뮤니케이션 규칙</h4>
+                    </div>
+                    {aiProfile.rules.length > 0 ? (
+                      <ol className="max-h-36 space-y-2 overflow-y-auto pr-1">
+                        {aiProfile.rules.map((rule, index) => (
+                          <li key={rule} className="flex gap-2.5 rounded-lg border border-[#eceaf1] bg-white px-3 py-2.5 text-[10px] leading-5 text-[#646069] shadow-xs">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#f0ebff] text-[9px] font-bold text-[#5b3bd7]">{index + 1}</span>
+                            <span>{rule}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="text-[10px] leading-5 text-[#aaa5b0]">분석된 커뮤니케이션 규칙이 아직 없습니다.</p>
+                    )}
+                  </section>
                 </div>
-              ) : <p className="text-[11px] text-[#999]">수신자의 실제 커뮤니케이션 데이터가 AI에 전달되면 맞춤형 태그와 규칙이 표시됩니다.</p>}
+              ) : (
+                <div className="rounded-xl border border-dashed border-[#ddd9e8] bg-[#fafafd] px-5 py-6 text-center">
+                  <p className="text-[11px] font-medium text-[#77717d]">아직 분석된 커뮤니케이션 데이터가 없습니다.</p>
+                  <p className="mt-1 text-[10px] text-[#aaa5b0]">소통 기록이 쌓이면 주요 용어와 권장 규칙이 이곳에 표시됩니다.</p>
+                </div>
+              )}
             </div>
 
             {/* Metrics */}
