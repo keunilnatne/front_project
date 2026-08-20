@@ -33,6 +33,16 @@ export type GmailStatus = {
   email: string | null
 }
 
+export function deduplicateInboxMessages(messages: InboxMessage[]): InboxMessage[] {
+  const seen = new Set<string>()
+  return messages.filter((message) => {
+    const messageId = String(message.id || '').trim()
+    if (!messageId || seen.has(messageId)) return false
+    seen.add(messageId)
+    return true
+  })
+}
+
 function parseSender(fromStr: string): { name: string; email: string } {
   if (!fromStr) return { name: '알 수 없음', email: '' }
   const match = fromStr.match(/(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)/)
@@ -65,7 +75,7 @@ export function getCachedInboxMessages(): InboxMessage[] {
     const raw = readUserStorage(INBOX_CACHE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    return Array.isArray(parsed) ? deduplicateInboxMessages(parsed as InboxMessage[]) : []
   } catch {
     return []
   }
@@ -73,7 +83,7 @@ export function getCachedInboxMessages(): InboxMessage[] {
 
 export function saveCachedInboxMessages(messages: InboxMessage[]): void {
   try {
-    writeUserStorage(INBOX_CACHE_KEY, JSON.stringify(messages))
+    writeUserStorage(INBOX_CACHE_KEY, JSON.stringify(deduplicateInboxMessages(messages)))
   } catch {
     // ignore
   }
@@ -99,12 +109,12 @@ export async function fetchInboxMessages(q?: string): Promise<InboxMessage[]> {
   const data = await response.json()
   if (!Array.isArray(data)) throw new Error('서버가 올바르지 않은 받은 메일 목록을 반환했습니다.')
 
-  const list = data.map((rawItem: unknown) => {
+  const list = deduplicateInboxMessages(data.map((rawItem: unknown) => {
     const item = (rawItem && typeof rawItem === 'object' ? rawItem : {}) as Record<string, unknown>
     const from = String(item.from || '')
     const { name, email } = parseSender(from)
     return {
-      id: String(item.id),
+      id: String(item.id || ''),
       threadId: item.threadId ? String(item.threadId) : undefined,
       subject: String(item.subject || '(제목 없음)'),
       from,
@@ -115,7 +125,7 @@ export async function fetchInboxMessages(q?: string): Promise<InboxMessage[]> {
       body: String(item.body || ''),
       attachments: Array.isArray(item.attachments) ? item.attachments as InboxAttachment[] : [],
     }
-  })
+  }))
 
   if (!q && list.length > 0) {
     saveCachedInboxMessages(list)
