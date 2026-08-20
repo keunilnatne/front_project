@@ -979,7 +979,7 @@ export default function TeamMemoryPage() {
 
         <div className="grid grid-cols-[minmax(0,1fr)_320px] items-stretch gap-6">
           <section className="overflow-hidden rounded-[16px] border border-[#e7e9ef] bg-white shadow-[0_5px_18px_rgba(34,42,61,0.035)]">
-            <div className="flex h-[87px] items-center justify-center border-b border-[#e8eaf0]">
+            <div className="relative flex h-[87px] items-center justify-center border-b border-[#e8eaf0]">
               <div className="flex items-center">
                 <button
                   type="button"
@@ -1008,14 +1008,15 @@ export default function TeamMemoryPage() {
                   <ChevronIcon direction="right" />
                 </button>
 
-                <button
-                  type="button"
-                  onClick={goToday}
-                  className="ml-24 h-9 rounded-lg border border-[#e5e7ed] bg-white px-4 text-[12px] font-medium text-[#697386] hover:bg-[#f7f7fb]"
-                >
-                  오늘
-                </button>
               </div>
+
+              <button
+                type="button"
+                onClick={goToday}
+                className="absolute right-6 top-1/2 h-9 -translate-y-1/2 rounded-lg border border-[#e5e7ed] bg-white px-4 text-[12px] font-medium text-[#697386] hover:bg-[#f7f7fb]"
+              >
+                오늘
+              </button>
             </div>
 
             <div className="grid grid-cols-7 border-b border-[#e8eaf0]">
