@@ -881,12 +881,6 @@ export default function MessagesPage() {
                       <PaperclipIcon />
                     </button>
 
-                    {aiMetadata && (
-                      <div className="flex max-w-[520px] flex-wrap gap-1.5">
-                        {aiMetadata.priority && <span className="rounded bg-[#ffe5e8] px-2 py-1 text-[11px] text-[#9e4653]">PRIORITY {aiMetadata.priority}</span>}
-                        {(aiMetadata.tags || []).map((tag) => <span key={tag} className="rounded bg-[#f1edff] px-2 py-1 text-[10px] font-medium text-[#6244db]">{tag}</span>)}
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex items-center gap-2.5">
