@@ -194,9 +194,10 @@ function parseDeadline(
     return null
   }
 
-  const timeMatch = value.match(
-    /(오전|오후|AM|PM)?\s*(\d{1,2})(?::|시)\s*(\d{1,2})?/i,
-  )
+  const timeMatches = Array.from(value.matchAll(
+    /(오전|오후|AM|PM)?\s*(\d{1,2})(?::|시)\s*(\d{1,2})?/gi,
+  ))
+  const timeMatch = timeMatches[0]
 
   if (!timeMatch) {
     return {
@@ -237,18 +238,21 @@ function parseDeadline(
     minute,
   ).padStart(2, '0')}`
 
-  const endDate = new Date(date)
-
-  endDate.setHours(hour)
-  endDate.setMinutes(
-    minute + 60,
-  )
-
-  const end = `${String(
-    endDate.getHours(),
-  ).padStart(2, '0')}:${String(
-    endDate.getMinutes(),
-  ).padStart(2, '0')}`
+  const endMatch = timeMatches[1]
+  let end: string
+  if (endMatch) {
+    let endHour = Number(endMatch[2])
+    const endMinute = Number(endMatch[3] || 0)
+    const endPeriod = endMatch[1]?.toUpperCase() || period
+    if ((endPeriod === '오후' || endPeriod === 'PM') && endHour < 12) endHour += 12
+    if ((endPeriod === '오전' || endPeriod === 'AM') && endHour === 12) endHour = 0
+    end = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`
+  } else {
+    const endDate = new Date(date)
+    endDate.setHours(hour)
+    endDate.setMinutes(minute + 60)
+    end = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
+  }
 
   return {
     date: getDateKey(date),
@@ -258,8 +262,17 @@ function parseDeadline(
 }
 
 function getEventSource(pattern: Pattern): 'manual' | 'email' {
+  const id = String(pattern.id || '').toLowerCase()
+  if (id.startsWith('schedule-')) return 'email'
+  if (id.startsWith('team-schedule-')) return 'manual'
   const reason = (pattern.reason || '').toLowerCase()
   const att = (pattern.attachmentName || '').toLowerCase()
+  if (att.startsWith('email:')) return 'email'
+  if (att.startsWith('manual:')) return 'manual'
+  if (att === 'purple') return 'email'
+  if (pattern.request?.trim() && pattern.title?.trim() && pattern.request.trim() !== pattern.title.trim()) {
+    return 'email'
+  }
   if (reason.includes('이메일') || reason.includes('email') || att.includes('email') || att === 'green' || pattern.type === 'log') {
     return 'email'
   }
@@ -267,8 +280,9 @@ function getEventSource(pattern: Pattern): 'manual' | 'email' {
 }
 
 function getColorForPattern(pattern: Pattern): CalendarEvent['color'] {
-  if (pattern.attachmentName === 'blue' || pattern.attachmentName === 'green' || pattern.attachmentName === 'purple') {
-    return pattern.attachmentName
+  const storedColor = String(pattern.attachmentName || '').split(':').pop()
+  if (storedColor === 'blue' || storedColor === 'green' || storedColor === 'purple') {
+    return storedColor
   }
   const str = String(pattern.id || pattern.title || '')
   const hash = str.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
@@ -431,6 +445,25 @@ function ChevronIcon({
   )
 }
 
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+  const hour = Math.floor(index / 2)
+  const minute = index % 2 === 0 ? '00' : '30'
+  const value = `${String(hour).padStart(2, '0')}:${minute}`
+  const period = hour < 12 ? '오전' : '오후'
+  const displayHour = hour % 12 || 12
+  return { value, label: `${period} ${displayHour}:${minute}` }
+})
+
+function timeToMinutes(value: string) {
+  const [hour, minute] = value.split(':').map(Number)
+  return hour * 60 + minute
+}
+
+function minutesToTime(minutes: number) {
+  const safeMinutes = Math.min(23 * 60 + 30, Math.max(0, minutes))
+  return `${String(Math.floor(safeMinutes / 60)).padStart(2, '0')}:${String(safeMinutes % 60).padStart(2, '0')}`
+}
+
 function EventModal({
   selectedDate,
   onClose,
@@ -462,9 +495,25 @@ function EventModal({
   const [saving, setSaving] =
     useState(false)
 
+  const startMinutes = timeToMinutes(start)
+  const endMinutes = timeToMinutes(end)
+  const validTimeRange = endMinutes > startMinutes
+
+  const changeStart = (nextStart: string) => {
+    const currentDuration = Math.max(30, endMinutes - startMinutes)
+    const nextStartMinutes = timeToMinutes(nextStart)
+    setStart(nextStart)
+    setEnd(minutesToTime(nextStartMinutes + currentDuration))
+  }
+
+  const applyDuration = (duration: number) => {
+    setEnd(minutesToTime(startMinutes + duration))
+  }
+
   const submit = async () => {
     if (
       !title.trim() ||
+      !validTimeRange ||
       saving
     ) {
       return
@@ -539,40 +588,58 @@ function EventModal({
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="mb-1.5 block text-[12px] font-medium text-[#596175]">
-                시작
-              </span>
+          <div>
+            <span className="mb-1.5 block text-[12px] font-medium text-[#596175]">시간</span>
+            <div className={`rounded-xl border bg-[#fafaff] p-3 transition ${validTimeRange ? 'border-[#e2dff1]' : 'border-[#e78b8b]'}`}>
+              <div className="grid grid-cols-[1fr_28px_1fr] items-end gap-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-[10px] font-medium text-[#8a8496]">시작</span>
+                  <select
+                    value={start}
+                    onChange={(event) => changeStart(event.target.value)}
+                    className="h-10 w-full rounded-lg border border-[#dedbea] bg-white px-3 text-[12px] font-semibold text-[#403a49] outline-none transition focus:border-[#5a43dc] focus:ring-2 focus:ring-[#eeeaff]"
+                  >
+                    {TIME_OPTIONS.slice(0, -1).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
 
-              <input
-                type="time"
-                value={start}
-                onChange={(event) =>
-                  setStart(
-                    event.target.value,
+                <div className="mb-1 flex h-10 items-center justify-center text-[#aaa5b4]">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M5 12h14M15 8l4 4-4 4" />
+                  </svg>
+                </div>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-[10px] font-medium text-[#8a8496]">종료</span>
+                  <select
+                    value={end}
+                    onChange={(event) => setEnd(event.target.value)}
+                    className="h-10 w-full rounded-lg border border-[#dedbea] bg-white px-3 text-[12px] font-semibold text-[#403a49] outline-none transition focus:border-[#5a43dc] focus:ring-2 focus:ring-[#eeeaff]"
+                  >
+                    {TIME_OPTIONS.filter((option) => timeToMinutes(option.value) > startMinutes).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-3 flex items-center gap-1.5">
+                <span className="mr-1 text-[10px] text-[#918b9a]">빠른 설정</span>
+                {[30, 60, 90, 120].map((duration) => {
+                  const selected = endMinutes - startMinutes === duration
+                  return (
+                    <button
+                      key={duration}
+                      type="button"
+                      onClick={() => applyDuration(duration)}
+                      disabled={startMinutes + duration > 23 * 60 + 30}
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-medium transition disabled:cursor-not-allowed disabled:opacity-30 ${selected ? 'bg-[#5a43dc] text-white' : 'bg-white text-[#6f6878] ring-1 ring-[#e1ddec] hover:text-[#5037ca]'}`}
+                    >
+                      {duration < 60 ? `${duration}분` : `${duration / 60}시간`}
+                    </button>
                   )
-                }
-                className="h-10 w-full rounded-lg border border-[#dedfe7] px-3 text-[13px] outline-none focus:border-[#5a43dc]"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-1.5 block text-[12px] font-medium text-[#596175]">
-                종료
-              </span>
-
-              <input
-                type="time"
-                value={end}
-                onChange={(event) =>
-                  setEnd(
-                    event.target.value,
-                  )
-                }
-                className="h-10 w-full rounded-lg border border-[#dedfe7] px-3 text-[13px] outline-none focus:border-[#5a43dc]"
-              />
-            </label>
+                })}
+              </div>
+            </div>
+            {!validTimeRange && <p className="mt-1.5 text-[10px] text-[#c55252]">종료 시간은 시작 시간보다 늦어야 합니다.</p>}
           </div>
 
           <label className="block">
@@ -642,6 +709,7 @@ function EventModal({
             type="button"
             disabled={
               !title.trim() ||
+              !validTimeRange ||
               saving
             }
             onClick={() =>
@@ -897,7 +965,7 @@ export default function TeamMemoryPage() {
       reason: event.place?.trim() || '온라인',
       request: event.title,
       deadline,
-      attachmentName: event.color || 'blue',
+      attachmentName: `manual:${event.color || 'blue'}`,
       updatedAt:
         new Date().toISOString(),
       unread: false,
