@@ -99,7 +99,7 @@ export async function fetchInboxMessages(q?: string): Promise<InboxMessage[]> {
   const data = await response.json()
   if (!Array.isArray(data)) throw new Error('서버가 올바르지 않은 받은 메일 목록을 반환했습니다.')
 
-  const list = data.map((rawItem: unknown) => {
+  const mapped = data.map((rawItem: unknown) => {
     const item = (rawItem && typeof rawItem === 'object' ? rawItem : {}) as Record<string, unknown>
     const from = String(item.from || '')
     const { name, email } = parseSender(from)
@@ -113,9 +113,16 @@ export async function fetchInboxMessages(q?: string): Promise<InboxMessage[]> {
       date: String(item.date || ''),
       snippet: String(item.snippet || ''),
       body: String(item.body || ''),
+      htmlBody: String(item.htmlBody || ''),
       attachments: Array.isArray(item.attachments) ? item.attachments as InboxAttachment[] : [],
     }
   })
+
+  // 동일 Gmail 메시지가 API/DB 동기화 과정에서 중복 반환되더라도
+  // 목록 선택 상태와 React key가 겹치지 않도록 메시지 ID 기준으로 한 번만 노출한다.
+  const list = Array.from(
+    new Map(mapped.filter((item) => item.id && item.id !== 'undefined').map((item) => [item.id, item])).values(),
+  )
 
   if (!q && list.length > 0) {
     saveCachedInboxMessages(list)
@@ -203,6 +210,7 @@ export type ExtractedScheduleResult = {
   quote: string
   title: string
   dateTime: string
+  place: string
   source: string
 }
 
@@ -236,6 +244,7 @@ export async function extractScheduleFromAi(message: {
         quote: data.quote || '',
         title: data.title || message.subject || '업무 일정',
         dateTime: data.dateTime || '',
+        place: data.place || '',
         source: data.source || '메일 내용 기반',
       }
     }
@@ -248,6 +257,7 @@ export async function extractScheduleFromAi(message: {
     quote: message.snippet || message.subject || '',
     title: message.subject || '업무 일정',
     dateTime: '일정 확인 필요',
+    place: '',
     source: '메일 내용 기반',
   }
 }

@@ -59,6 +59,7 @@ export type ScheduleInfo = {
   quote: string
   title: string
   dateTime: string
+  place: string
   source: string
 }
 
@@ -88,6 +89,8 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(() => getCachedInboxMessages().length === 0)
   const [detailLoading, setDetailLoading] = useState(false)
   const [search, setSearch] = useState('')
+  const [searchResults, setSearchResults] = useState<InboxMessage[] | null>(null)
+  const [searchLoading, setSearchLoading] = useState(false)
   const [status, setStatus] = useState<GmailStatus>({ connected: false, email: null })
   const [notConnected, setNotConnected] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -111,6 +114,7 @@ export default function InboxPage() {
           quote: result.quote,
           title: result.title,
           dateTime: result.dateTime,
+          place: result.place,
           source: result.source,
         })
       }
@@ -144,10 +148,10 @@ export default function InboxPage() {
       id: `schedule-${Date.now()}`,
       title: scheduleCard.title.trim() || '이메일 추천 일정',
       purpose: scheduleCard.title.trim() || '이메일 추천 일정',
-      reason: '이메일 연동',
+      reason: scheduleCard.place.trim() || '이메일 연동',
       request: scheduleCard.quote.trim() || '이메일 내용 기반 AI 추출 일정',
       deadline: deadlineStr,
-      attachmentName: 'purple',
+      attachmentName: 'email:purple',
       updatedAt: new Date().toISOString(),
       unread: false,
     }
@@ -170,6 +174,7 @@ export default function InboxPage() {
           title: pattern.title,
           dateTime: deadlineStr,
           quote: scheduleCard.quote,
+          place: scheduleCard.place,
           source: scheduleCard.source,
           createdAt: new Date().toISOString(),
         },
@@ -274,7 +279,7 @@ export default function InboxPage() {
     }
   }, [selectedId, messages])
 
-  const filteredMessages = useMemo(() => {
+  const locallyFilteredMessages = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return messages
     return messages.filter(
@@ -282,9 +287,46 @@ export default function InboxPage() {
         m.subject.toLowerCase().includes(q) ||
         m.fromName.toLowerCase().includes(q) ||
         m.fromEmail.toLowerCase().includes(q) ||
-        m.snippet.toLowerCase().includes(q)
+        m.snippet.toLowerCase().includes(q) ||
+        (m.body || '').toLowerCase().includes(q)
     )
   }, [messages, search])
+
+  // 검색어는 현재 화면에 내려온 50개뿐 아니라 백엔드/Gmail 검색에도 전달한다.
+  useEffect(() => {
+    const q = search.trim()
+    if (!q) {
+      setSearchResults(null)
+      setSearchLoading(false)
+      return
+    }
+
+    let active = true
+    setSearchResults(null)
+    const timer = window.setTimeout(() => {
+      setSearchLoading(true)
+      void fetchInboxMessages(q)
+        .then((results) => {
+          if (active) setSearchResults(results)
+        })
+        .catch(() => {
+          // 서버 검색이 실패해도 이미 불러온 메일의 로컬 검색 결과는 유지한다.
+          if (active) setSearchResults(null)
+        })
+        .finally(() => {
+          if (active) setSearchLoading(false)
+        })
+    }, 350)
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [search])
+
+  const filteredMessages = search.trim() && searchResults !== null
+    ? searchResults
+    : locallyFilteredMessages
 
   const handleReplyWithAi = async (msg: InboxMessage) => {
     let targetRecipient: ReplyRecipient
@@ -463,7 +505,7 @@ export default function InboxPage() {
 
               {/* List Header */}
               <div className="flex items-center justify-between border-b border-[#ededf0] px-4 py-2.5 text-[11px] font-semibold text-[#888]">
-                <span>전체 메일 {filteredMessages.length}개</span>
+                <span>{searchLoading ? '검색 중...' : `전체 메일 ${filteredMessages.length}개`}</span>
                 <span>최신순</span>
               </div>
 
@@ -541,13 +583,16 @@ export default function InboxPage() {
                         <button
                           type="button"
                           onClick={() => handleCopyBody(selectedDetail.body || selectedDetail.snippet)}
-                          className="flex items-center gap-1.5 rounded-lg border border-[#dedee3] bg-white px-3 py-2 text-[12px] font-medium text-[#555] transition hover:bg-[#f7f7fa] cursor-pointer"
+                          aria-label={copied ? '본문 복사 완료' : '본문 복사'}
+                          className="group relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[#dedee3] bg-white text-[#555] transition hover:bg-[#f7f7fa] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b76e8]"
                         >
                           <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <rect x="8" y="8" width="12" height="12" rx="2" />
                             <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
                           </svg>
-                          {copied ? '복사 완료!' : '본문 복사'}
+                          <span role="tooltip" className="pointer-events-none absolute right-0 top-full z-30 mt-1.5 whitespace-nowrap rounded bg-[#302d32] px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-md transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                            {copied ? '복사 완료' : '복사'}
+                          </span>
                         </button>
 
                         {/* Button 1: AI 일정 추천 */}
@@ -731,68 +776,42 @@ export default function InboxPage() {
               </div>
             </div>
 
-            {/* Quote Snippet Box (editable) */}
             <div className="mt-5 rounded-xl bg-[#f8f9fb] p-3.5 border border-[#ececf2]">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[11px] font-semibold text-[#6b7280]">발췌된 메일 본문</span>
                 <span className="text-[10px] text-[#9ca3af]">직접 수정 가능</span>
               </div>
-              <textarea
-                value={scheduleCard.quote}
-                onChange={(e) => setScheduleCard((prev) => (prev ? { ...prev, quote: e.target.value } : null))}
-                rows={2}
-                className="w-full resize-none rounded-lg bg-white/70 p-2 text-[13px] font-medium leading-relaxed text-[#374151] border border-transparent focus:border-[#5338ec] focus:bg-white outline-none"
-                placeholder="일정 관련 본문 내용"
-              />
+              <textarea value={scheduleCard.quote} onChange={(e) => setScheduleCard((prev) => prev ? { ...prev, quote: e.target.value } : null)} rows={2} className="w-full resize-none rounded-lg bg-white/70 p-2 text-[13px] font-medium leading-relaxed text-[#374151] border border-transparent focus:border-[#5338ec] focus:bg-white outline-none" placeholder="일정 관련 본문 내용" />
             </div>
 
-            {/* Detail Box (editable) */}
             <div className="mt-4 rounded-xl border border-[#ededf2] bg-white p-4 space-y-3 text-[13px]">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 text-[#6b7280] w-14 shrink-0 font-medium">
-                  <svg className="h-4 w-4 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                  </svg>
+                  <svg className="h-4 w-4 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
                   <span>제목</span>
                 </div>
-                <input
-                  type="text"
-                  value={scheduleCard.title}
-                  onChange={(e) => setScheduleCard((prev) => (prev ? { ...prev, title: e.target.value } : null))}
-                  className="flex-1 rounded-lg border border-[#e5e7eb] px-3 py-1.5 text-[13px] font-semibold text-[#1f2937] outline-none focus:border-[#5338ec]"
-                  placeholder="예: 보고서 마감"
-                />
+                <input value={scheduleCard.title} onChange={(e) => setScheduleCard((prev) => prev ? { ...prev, title: e.target.value } : null)} className="flex-1 rounded-lg border border-[#e5e7eb] px-3 py-1.5 text-[13px] font-semibold text-[#1f2937] outline-none focus:border-[#5338ec]" placeholder="예: 보고서 마감" />
               </div>
-
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 text-[#6b7280] w-14 shrink-0 font-medium">
-                  <svg className="h-4 w-4 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
+                  <svg className="h-4 w-4 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                   <span>일시</span>
                 </div>
-                <input
-                  type="text"
-                  value={scheduleCard.dateTime}
-                  onChange={(e) => setScheduleCard((prev) => (prev ? { ...prev, dateTime: e.target.value } : null))}
-                  className="flex-1 rounded-lg border border-[#e5e7eb] px-3 py-1.5 text-[13px] font-semibold text-[#1f2937] outline-none focus:border-[#5338ec]"
-                  placeholder="예: 8.20 오후 3:00"
-                />
+                <input value={scheduleCard.dateTime} onChange={(e) => setScheduleCard((prev) => prev ? { ...prev, dateTime: e.target.value } : null)} className="flex-1 rounded-lg border border-[#e5e7eb] px-3 py-1.5 text-[13px] font-semibold text-[#1f2937] outline-none focus:border-[#5338ec]" placeholder="예: 8.20 오후 3:00" />
               </div>
-
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 text-[#6b7280] w-14 shrink-0 font-medium">
-                  <svg className="h-4 w-4 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                  </svg>
+                  <svg className="h-4 w-4 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></svg>
+                  <span>장소</span>
+                </div>
+                <input value={scheduleCard.place} onChange={(e) => setScheduleCard((prev) => prev ? { ...prev, place: e.target.value } : null)} className="flex-1 rounded-lg border border-[#e5e7eb] px-3 py-1.5 text-[13px] font-semibold text-[#1f2937] outline-none focus:border-[#5338ec]" placeholder="메일에 장소가 없으면 직접 입력" />
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-[#6b7280] w-14 shrink-0 font-medium">
+                  <svg className="h-4 w-4 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
                   <span>출처</span>
                 </div>
-                <span className="font-medium text-[#6b7280] px-3 py-1.5">
-                  {scheduleCard.source}
-                </span>
+                <span className="font-medium text-[#6b7280] px-3 py-1.5">{scheduleCard.source}</span>
               </div>
             </div>
 
