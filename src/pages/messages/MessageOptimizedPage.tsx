@@ -249,6 +249,11 @@ export default function MessageOptimizedPage() {
   const [sending, setSending] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  const [editingOptimized, setEditingOptimized] = useState(false)
+  const [optimizedSubject, setOptimizedSubject] = useState(state?.subject || '')
+  const [optimizedBody, setOptimizedBody] = useState(state?.body || '')
+  const [draftSubject, setDraftSubject] = useState(state?.subject || '')
+  const [draftBody, setDraftBody] = useState(state?.body || '')
 
   if (!state) {
     return (
@@ -276,8 +281,6 @@ export default function MessageOptimizedPage() {
   const recipients = getRecipients(state)
 
   const {
-    subject,
-    body,
     originalSubject,
     originalBody,
     aiContext,
@@ -289,7 +292,7 @@ export default function MessageOptimizedPage() {
 
   async function copyMessage() {
     try {
-      await navigator.clipboard.writeText(`${subject}\n\n${body}`)
+      await navigator.clipboard.writeText(`${optimizedSubject}\n\n${optimizedBody}`)
       setCopied(true)
 
       window.setTimeout(() => {
@@ -328,20 +331,20 @@ export default function MessageOptimizedPage() {
           fullTime: false,
           avatar: item.name.slice(0, 1),
         })),
-        subject,
-        body,
+        subject: optimizedSubject,
+        body: optimizedBody,
         originalSubject,
         originalBody,
         attachments: state?.attachments || [],
       })
       await saveConversation({
         id: `conversation-${Date.now()}`,
-        title: subject || '메시지',
+        title: optimizedSubject || '메시지',
         updatedAt: new Date().toISOString(),
         messages: [
           {
             role: 'user',
-            content: body,
+            content: optimizedBody,
             createdAt: new Date().toISOString(),
           },
         ],
@@ -367,6 +370,19 @@ export default function MessageOptimizedPage() {
         attachments: state?.attachments || [],
       },
     })
+  }
+
+  function beginOptimizedEdit() {
+    setDraftSubject(optimizedSubject)
+    setDraftBody(optimizedBody)
+    setEditingOptimized(true)
+  }
+
+  function saveOptimizedEdit() {
+    if (!draftSubject.trim() || !draftBody.trim()) return
+    setOptimizedSubject(draftSubject.trim())
+    setOptimizedBody(draftBody.trim())
+    setEditingOptimized(false)
   }
 
   return (
@@ -419,9 +435,12 @@ export default function MessageOptimizedPage() {
                     type="button"
                     onClick={editOriginalMessage}
                     aria-label="작성한 메시지 수정"
-                    className="rounded-md p-1 text-[#6343dd] transition hover:bg-[#ebe6ff]"
+                    className="group relative rounded-md p-1 text-[#6343dd] transition hover:bg-[#ebe6ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b76e8]"
                   >
                     <EditIcon />
+                    <span role="tooltip" className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 whitespace-nowrap rounded bg-[#302d32] px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-md transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                      수정
+                    </span>
                   </button>
                 </div>
 
@@ -457,24 +476,77 @@ export default function MessageOptimizedPage() {
                     AI가 최적화한 메시지 (After)
                   </h2>
 
-                  <button
-                    type="button"
-                    onClick={copyMessage}
-                    className="flex items-center gap-1.5 rounded-lg border border-[#e0e0e5] px-3 py-2 text-[12px] text-[#666] transition hover:bg-[#f7f7f9]"
-                  >
-                    <CopyIcon />
-
-                    {copied ? '복사됨' : '복사'}
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {editingOptimized ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setEditingOptimized(false)}
+                          aria-label="수정 취소"
+                          className="group relative flex h-8 w-8 items-center justify-center rounded-md text-[#888] transition hover:bg-[#f3f3f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b76e8]"
+                        >
+                          <span className="text-[18px] leading-none">×</span>
+                          <span role="tooltip" className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 whitespace-nowrap rounded bg-[#302d32] px-2 py-1 text-[10px] text-white opacity-0 shadow-md transition group-hover:opacity-100 group-focus-visible:opacity-100">취소</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveOptimizedEdit}
+                          disabled={!draftSubject.trim() || !draftBody.trim()}
+                          aria-label="수정 완료"
+                          className="group relative flex h-8 w-8 items-center justify-center rounded-md bg-[#5b3bd7] text-white transition hover:bg-[#4d30c4] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b76e8]"
+                        >
+                          <span className="text-[15px] leading-none">✓</span>
+                          <span role="tooltip" className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 whitespace-nowrap rounded bg-[#302d32] px-2 py-1 text-[10px] text-white opacity-0 shadow-md transition group-hover:opacity-100 group-focus-visible:opacity-100">수정 완료</span>
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={beginOptimizedEdit}
+                        aria-label="최적화 메시지 수정"
+                        className="group relative rounded-md p-1 text-[#6343dd] transition hover:bg-[#ebe6ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b76e8]"
+                      >
+                        <EditIcon />
+                        <span role="tooltip" className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 whitespace-nowrap rounded bg-[#302d32] px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-md transition group-hover:opacity-100 group-focus-visible:opacity-100">수정</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={copyMessage}
+                      aria-label={copied ? '복사 완료' : '메시지 복사'}
+                      className="group relative rounded-md p-1 text-[#666] transition hover:bg-[#f3f3f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b76e8]"
+                    >
+                      <CopyIcon />
+                      <span role="tooltip" className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 whitespace-nowrap rounded bg-[#302d32] px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-md transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                        {copied ? '복사 완료' : '복사'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* CONTENT */}
                 <div className="min-h-87.5 px-5 py-6">
-                  <p className="mb-5 text-[14px] font-semibold text-[#333]">
-                    {subject}
-                  </p>
-
-                  <MarkdownViewer content={body} className="text-[14px] leading-8 text-[#454049]" />
+                  {editingOptimized ? (
+                    <div className="space-y-3">
+                      <input
+                        value={draftSubject}
+                        onChange={(event) => setDraftSubject(event.target.value)}
+                        aria-label="최적화 메시지 제목"
+                        className="w-full rounded-lg border border-[#ddd8eb] px-3 py-2.5 text-[14px] font-semibold text-[#333] outline-none transition focus:border-[#7357dd] focus:ring-2 focus:ring-[#eee9ff]"
+                      />
+                      <textarea
+                        value={draftBody}
+                        onChange={(event) => setDraftBody(event.target.value)}
+                        aria-label="최적화 메시지 본문"
+                        className="min-h-64 w-full resize-y rounded-lg border border-[#ddd8eb] px-3 py-3 text-[14px] leading-7 text-[#454049] outline-none transition focus:border-[#7357dd] focus:ring-2 focus:ring-[#eee9ff]"
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <p className="mb-5 text-[14px] font-semibold text-[#333]">{optimizedSubject}</p>
+                      <MarkdownViewer content={optimizedBody} className="text-[14px] leading-8 text-[#454049]" />
+                    </>
+                  )}
 
                   {/* ATTACHMENTS PREVIEW */}
                   {state?.attachments && state.attachments.length > 0 && (
@@ -485,11 +557,6 @@ export default function MessageOptimizedPage() {
                   )}
                 </div>
 
-                {/* FOOTER */}
-                <div className="border-t border-[#eeeeef] px-5 py-3 text-[11px] text-[#aaa5b2]">
-                  언어: {aiContext?.sourceLanguage || detectedSourceLanguage || '감지 중'} → {aiContext?.targetLanguage || targetLanguage || primaryRecipient?.language || '-'} · 시간:{' '}
-                  {primaryRecipient?.timezone || '-'} 기준
-                </div>
               </div>
             </div>
 
@@ -522,7 +589,7 @@ export default function MessageOptimizedPage() {
               <button
                 type="button"
                 onClick={sendMessage}
-                disabled={sending}
+                disabled={sending || editingOptimized}
                 className="flex items-center gap-2 rounded-xl bg-[#5531e8] px-7 py-3 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#4926d6] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <svg
@@ -537,7 +604,7 @@ export default function MessageOptimizedPage() {
                   <path d="m4 5 8 7 8-7" />
                 </svg>
 
-                {sending ? '전송 중...' : 'Gmail로 전송'}
+                {sending ? '전송 중...' : editingOptimized ? '수정 완료 후 전송' : 'Gmail로 전송'}
               </button>
             </div>
 
@@ -548,7 +615,7 @@ export default function MessageOptimizedPage() {
                 ★ 디자인 임의 변경 X
             ================================================= */}
 
-            <div className="mt-10">
+            <div className="hidden" aria-hidden="true">
               <h2 className="mb-4 text-[14px] font-semibold text-[#39343b]">
                 이번 메시지에 반영한 Context
               </h2>

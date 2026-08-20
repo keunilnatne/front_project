@@ -260,9 +260,16 @@ export default function MarkdownViewer({ content, className = '', htmlContent }:
                 <button
                   type="button"
                   onClick={() => void navigator.clipboard.writeText(codeText)}
-                  className="rounded px-2 py-0.5 text-[10px] text-[#ccc] hover:bg-[#2d2d38] transition"
+                  aria-label="코드 복사"
+                  className="group relative flex h-6 w-6 items-center justify-center rounded text-[#ccc] transition hover:bg-[#2d2d38] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#8b76e8]"
                 >
-                  복사
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="8" y="8" width="12" height="12" rx="2" />
+                    <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+                  </svg>
+                  <span role="tooltip" className="pointer-events-none absolute right-0 top-full z-30 mt-1.5 whitespace-nowrap rounded bg-black px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-md transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                    복사
+                  </span>
                 </button>
               </div>
             )}
